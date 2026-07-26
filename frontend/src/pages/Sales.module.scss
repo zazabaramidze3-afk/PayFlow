@@ -1,0 +1,182 @@
+/* Sales.module.scss */
+
+// ცვლადები ფერებისთვის
+$primary-color: #2563eb;
+$success-color: #10b981;
+$danger-color: #ef4444;
+$bg-slate: #f8fafc;
+$border-color: #cbd5e1;
+
+.salesContainer {
+  padding: 20px;
+  font-family: 'sans-serif';
+
+  // 🔒 ბლოკირებული სალაროს ეკრანი
+  .blockedScreen {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 80vh;
+
+    .blockedCard {
+      background: #fff;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+
+      h2 { color: #1e293b; margin-bottom: 10px; }
+      p { color: #64748b; margin-bottom: 25px; font-size: 15px; }
+    }
+  }
+
+  // 🛠️ ზედა საინფორმაციო პანელი
+  .topPanel {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    background: $bg-slate;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+
+    h2 { margin: 0; color: #1e293b; }
+    small { color: #64748b; font-size: 13px; }
+  }
+
+  // 📊 ძირითადი ბადე (Grid/Flex)
+  .mainGrid {
+    display: flex;
+    gap: 30px;
+    flex-wrap: wrap;
+
+    .leftSide {
+      flex: 1;
+      min-width: 300px;
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .rightSide {
+      flex: 1.5;
+      min-width: 400px;
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      
+      .cartTable {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+
+        tr { border-bottom: 1px solid #f1f5f9; }
+        th { padding: 10px; color: #64748b; text-align: left; border-bottom: 2px solid #e2e8f0; }
+        td { padding: 10px; }
+      }
+
+      .totalSection {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-top: 2px solid #e2e8f0;
+        padding-top: 15px;
+        margin-bottom: 20px;
+        
+        .totalLabel { fontSize: '18px'; color: '#475569'; }
+        .totalValue { font-size: 24px; font-weight: bold; color: $success-color; margin-left: auto; }
+      }
+    }
+  }
+
+  // 🔤 უნივერსალური ფორმის ელემენტები
+  .formGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 15px;
+    label { font-size: 14px; color: #64748b; }
+  }
+
+  .inputField {
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid $border-color;
+    outline: none;
+    font-size: 14px;
+    height: 40px;
+    box-sizing: border-box;
+    width: 100%;
+
+    &:focus { border-color: $primary-color; }
+  }
+
+  // 🔘 უნივერსალური ღილაკები ჰოვერ ეფექტებით
+  .btn {
+    padding: 12px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 15px;
+    transition: background 0.2s;
+
+    &.btnPrimary { background: $primary-color; color: #fff; &:hover { background: #1d4ed8; } }
+    &.btnSuccess { background: $success-color; color: #fff; &:hover { background: #059669; } }
+    &.btnDanger  { background: $danger-color;  color: #fff; &:hover { background: #dc2626; } }
+
+  }
+
+  // 🗔 მოდალური ფანჯარა
+ // 🗔 ცვლის დახურვის თანამედროვე მოდალური ფანჯარა
+  .modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.6); // უფრო მუქი, ბლერიანი ეფექტისთვის
+    backdrop-filter: blur(4px);        // უკანა ფონის ოდნავ დაბინდვა
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;                     // რომ გარანტირებულად ყველაფრის ზემოთ იჯდეს
+
+    .modalBody {
+      background: #ffffff;
+      padding: 35px;
+      border-radius: 16px;             // უფრო რბილი კუთხეები
+      width: 100%;
+      max-width: 460px;                // მკაცრად განსაზღვრული, ლამაზი სიგანე
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.486); // ღრმა, პრემიუმ ჩრდილი
+      border: 1px solid #e2e8f0;
+      animation: modalFadeIn 0.2s ease-out; // მსუბუქი გაჩენის ეფექტი
+
+      h3 {
+        margin: 0 0 10px 0;
+        color: #0f172a;
+        font-size: 20px;
+        font-weight: 700;
+      }
+
+      p {
+        color: #475569;
+        font-size: 14px;
+        line-height: 1.5;
+        margin-bottom: 25px;
+      }
+    }
+  }
+}
+
+// გაჩენის მარტივი ანიმაცია
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+

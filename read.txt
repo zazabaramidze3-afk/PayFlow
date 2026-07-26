@@ -1,0 +1,13 @@
+i wanna create system like Optimo / fina / 1C for management sales and stocks.
+make plan.md file where is written full roadmap for implementing and improving system.
+system must have modern web interafce with CRUD features and etc.
+1.login page / dashboard
+2.list of Cashiers
+3.list of products
+4.products in stock
+5.list of payments
+6. feature where we can view total of payments.
+7. feature for filtering payments by price, product name, Cashier name, date/time.
+8. feature for exporting payments list file excell and pdf.
+let me know which structure an plan do you generate.
+you can implementing project structure and start writing code in this project folder root path.
