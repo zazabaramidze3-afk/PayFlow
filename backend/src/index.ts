@@ -16,13 +16,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// PostgreSQL კავშირის ინიციალიზაცია
+// PostgreSQL კავშირის უსაფრთხო ინიციალიზაცია Neon-ისთვის
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false // აუცილებელია Neon-თან უსაფრთხო კავშირისთვის
-  }
+  ssl: true // Neon-ის ოფიციალური სტანდარტი Vercel-ზე მუშაობისთვის
 });
+
 
 // სხვა ფაილებისთვის თავსებადობის შესანარჩუნებლად (ექსპორტი db სახელით)
 export const db = pool;
