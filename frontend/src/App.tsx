@@ -98,7 +98,9 @@ function App() {
   // ავტორიზაცია ბეკენდის SQL ბაზის მეშვეობით
   const handleLoginAttempt = async (username: string, password: string, callback: (err: string) => void) => {
     try {
-      const response = await axios.post('http://localhost:5000/api/login', { username, password });
+      // const response = await axios.post('http://localhost:5000/api/login', { username, password });
+      const response = await axios.post('/api/login', { username, password });
+
       
       // ბექენდიდან ახლა აბრუნებს ობიექტს { token, user }
       const { token, user } = response.data;
