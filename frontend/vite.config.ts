@@ -63,6 +63,17 @@ export default defineConfig({
         // გამო) რომ Precaching არ ჩაიშალოს Workbox-ის default 2MB
         // per-file ლიმიტზე.
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        // 🩹 FIX (16.08) — Workbox-ის default ქცევა ნებისმიერ "navigation"
+        // request-ს (window.open/სრული გვერდის გახსნა — ზუსტად ასეთია Excel/
+        // PDF export ღილაკები Dashboard.tsx-ში) გადაჭერს და SPA-ის cache-ში
+        // მდებარე index.html-ს (app shell) აბრუნებს ნაცვლად ქსელში გაშვებისა,
+        // თუ navigateFallbackDenylist ცხადად არ გამორიცხავს გარკვეულ paths-ს.
+        // ამის გარეშე /api/payments/export/excel|pdf ვერასდროს აღწევდა
+        // ბექენდამდე — Service Worker პირდაპირ დაშბორდს (ანალიტიკის ტაბს)
+        // აბრუნებდა ჩამოტვირთვის ნაცვლად. ყველა /api/* route (არა მხოლოდ
+        // export) აქ განზრახ გამორიცხულია, რომ მომავალშიც არცერთი ბექენდ
+        // endpoint-ი არ "გაიტაცოს" SW-მა.
+        navigateFallbackDenylist: [/^\/api\//],
       },
       // 🛠️ დეველოპმენტში (vite dev server) SW განზრახ გამორთულია — მხოლოდ
       // production build-ს (`vite build` → `vite preview`/რეალურ deploy-ს)
