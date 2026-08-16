@@ -123,9 +123,15 @@ router.post('/shifts/open', authenticateToken, requireRegister, async (req: Cust
       return res.status(400).json({ message: "თქვენ უკვე გაქვთ გახსნილი ცვლა სხვა სალაროზე" });
     }
 
+    // 🩹 FIX (16.08) — ადრე TO_CHAR(CURRENT_TIMESTAMP, ...) იყენებდა Postgres
+    // სერვერის default timezone-ს (Neon-ზე UTC), ხოლო PUT /shifts/close ქვემოთ
+    // ცხადად Asia/Tbilisi-ზე კონვერტირებულ დროს ინახავს (`new Date().toLocaleString(...,
+    // { timeZone: 'Asia/Tbilisi' })`). შედეგად Manager Dashboard-ის "მოლარეების
+    // ცვლები" ცხრილში opened_at ~4 საათით ჩამორჩებოდა closed_at-ს (UTC vs
+    // UTC+4). `AT TIME ZONE 'Asia/Tbilisi'` აქაც იმავე კონვენციაზე გადმოჰყავს.
     const insertQuery = `
       INSERT INTO shifts (cashier_id, register_id, start_amount, status, opened_at)
-      VALUES ($1, $2, $3, 'open', TO_CHAR(CURRENT_TIMESTAMP, 'YYYY-MM-DD HH24:MI:SS'))
+      VALUES ($1, $2, $3, 'open', TO_CHAR(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi', 'YYYY-MM-DD HH24:MI:SS'))
       RETURNING id
     `;
     const insertResult = await db.query(insertQuery, [req.user?.id, req.registerId, start_amount]);
@@ -624,10 +630,15 @@ router.post('/payments/:id/void', authenticateToken, async (req: CustomRequest, 
       );
     }
 
+    // 🩹 FIX (16.08) — იგივე UTC-vs-Tbilisi ბაგი, რაც shifts.opened_at-ს
+    // ჰქონდა: raw CURRENT_TIMESTAMP Postgres-ის server timezone-ს (UTC)
+    // იყენებდა, payments.created_at კი formatDbTimestamp()-ით სამუშაოდ
+    // ცხადად Asia/Tbilisi-ზეა კონვერტირებული. AT TIME ZONE იმავე
+    // კონვენციაზე გადმოჰყავს voided_at-იც.
     const voidResult = await db.query(
       `UPDATE payments
        SET is_voided = true,
-           voided_at = TO_CHAR(CURRENT_TIMESTAMP, 'YYYY-MM-DD HH24:MI:SS'),
+           voided_at = TO_CHAR(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi', 'YYYY-MM-DD HH24:MI:SS'),
            voided_by = $1
        WHERE id = $2
        RETURNING id, is_voided, voided_at, voided_by`,
