@@ -1,15 +1,9 @@
 /* Sales.module.scss */
-
-// ცვლადები ფერებისთვის
-$primary-color: #2563eb;
-$success-color: #10b981;
-$danger-color: #ef4444;
-$bg-slate: #f8fafc;
-$border-color: #cbd5e1;
+@use '../styles/variables' as v;
+@use '../styles/mixins' as m;
 
 .salesContainer {
-  padding: 20px;
-  font-family: 'sans-serif';
+  animation: fadeInUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
 
   // 🔒 ბლოკირებული სალაროს ეკრანი
   .blockedScreen {
@@ -19,16 +13,15 @@ $border-color: #cbd5e1;
     height: 80vh;
 
     .blockedCard {
-      background: #fff;
+      @include m.card;
       padding: 40px;
-      border-radius: 12px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
       max-width: 400px;
       width: 100%;
       text-align: center;
+      box-shadow: v.$shadow-md;
 
-      h2 { color: #1e293b; margin-bottom: 10px; }
-      p { color: #64748b; margin-bottom: 25px; font-size: 15px; }
+      h2 { color: v.$color-text-primary; margin-bottom: 10px; }
+      p { color: v.$color-text-secondary; margin-bottom: 25px; font-size: 15px; }
     }
   }
 
@@ -38,59 +31,112 @@ $border-color: #cbd5e1;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
-    background: $bg-slate;
-    padding: 15px;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
+    background: v.$color-bg-card;
+    padding: 18px 20px;
+    border-radius: v.$radius-md;
+    border: 1px solid v.$color-border;
+    flex-wrap: wrap;
+    gap: 12px;
 
-    h2 { margin: 0; color: #1e293b; }
-    small { color: #64748b; font-size: 13px; }
+    h2 { margin: 0; color: v.$color-text-primary; font-size: 1.2rem; }
+    small { color: v.$color-text-secondary; font-size: 13px; }
+
+    @include m.mobile {
+      flex-direction: column;
+      align-items: stretch;
+    }
   }
 
   // 📊 ძირითადი ბადე (Grid/Flex)
   .mainGrid {
     display: flex;
-    gap: 30px;
+    gap: 20px;
     flex-wrap: wrap;
+    width: 100%;
 
-    .leftSide {
-      flex: 1;
-      min-width: 300px;
-      background: #fff;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    @include m.tablet {
+      flex-direction: column;
+      flex-wrap: nowrap;
+      width: 100%;
+      min-width: 0;
+    }
+  }
+
+  // ⚠️ .leftSide/.rightSide განზრახ *აღარ* არის nested .mainGrid-ის შიგნით —
+  // ერთი მშობლის ქვეშ ჩალაგებულ flex item-ებს (row → column გადართვისას)
+  // ზოგ ბრაუზერში `align-items: stretch`-ის მიუხედავად მაინც შეუძლიათ
+  // საკუთარი შვილების (მაგ. overflow:auto ცხრილის) content-based მინიმალურ
+  // სიგანეზე "გაბერვა". `width: 100%` + `min-width: 0`-ის ცალსახად დაწერა
+  // (და არა მხოლოდ მემკვიდრეობითი stretch) ამას საბოლოოდ კრძალავს.
+  .leftSide {
+    flex: 1;
+    min-width: 300px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    @include m.card;
+    padding: 22px;
+
+    @include m.tablet {
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
+    }
+  }
+
+  .rightSide {
+    flex: 1.5;
+    min-width: 400px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    @include m.card;
+    padding: 22px;
+
+    @include m.tablet {
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
     }
 
-    .rightSide {
-      flex: 1.5;
-      min-width: 400px;
-      background: #fff;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      
-      .cartTable {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 20px;
+    // 📱 ცხრილის სკროლი შეზღუდულია მხოლოდ ამ wrapper-ში (არა მთელ გვერდზე) —
+    // ვიწრო ეკრანზე რიცხვები აღარ იჭრება/იშლება ორ ხაზად. `min-width: 0`
+    // აქაც აუცილებელია, თორემ table-ის `min-width: 320px` wrapper-საც (და
+    // ამის გავლით მთელ .rightSide ბარათს) გაზრდიდა 320px-მდე.
+    .cartTableWrapper {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      overflow-x: auto;
+      margin-bottom: 20px;
+      box-sizing: border-box;
+    }
 
-        tr { border-bottom: 1px solid #f1f5f9; }
-        th { padding: 10px; color: #64748b; text-align: left; border-bottom: 2px solid #e2e8f0; }
-        td { padding: 10px; }
-      }
+    .cartTable {
+      width: 100%;
+      min-width: 320px;
+      border-collapse: collapse;
 
-      .totalSection {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-top: 2px solid #e2e8f0;
-        padding-top: 15px;
-        margin-bottom: 20px;
-        
-        .totalLabel { fontSize: '18px'; color: '#475569'; }
-        .totalValue { font-size: 24px; font-weight: bold; color: $success-color; margin-left: auto; }
-      }
+      tr { border-bottom: 1px solid v.$color-border; }
+      th { padding: 10px; color: v.$color-text-secondary; text-align: left; border-bottom: 2px solid v.$color-border; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.02em; white-space: nowrap; }
+      td { padding: 10px; font-size: 14px; }
+    }
+
+    // 💰 ფასი/რაოდენობა/ჯამი — არასდროს იჭრება ცალკეულ სიტყვებს/ციფრებს შორის.
+    .nowrapCell {
+      white-space: nowrap;
+    }
+
+    .totalSection {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid v.$color-border;
+      padding-top: 15px;
+      margin-bottom: 20px;
+
+      .totalLabel { font-size: 15px; color: v.$color-text-secondary; font-weight: 600; }
+      .totalValue { font-size: 24px; font-weight: 700; color: v.$color-success; margin-left: auto; letter-spacing: -0.01em; }
     }
   }
 
@@ -98,85 +144,272 @@ $border-color: #cbd5e1;
   .formGroup {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 6px;
     margin-bottom: 15px;
-    label { font-size: 14px; color: #64748b; }
+    label { font-size: 13px; color: v.$color-text-secondary; font-weight: 600; }
   }
 
   .inputField {
-    padding: 10px;
-    border-radius: 6px;
-    border: 1px solid $border-color;
-    outline: none;
-    font-size: 14px;
-    height: 40px;
-    box-sizing: border-box;
+    @include m.input-base;
     width: 100%;
-
-    &:focus { border-color: $primary-color; }
   }
 
   // 🔘 უნივერსალური ღილაკები ჰოვერ ეფექტებით
   .btn {
-    padding: 12px;
-    border-radius: 6px;
-    border: none;
-    cursor: pointer;
-    font-weight: bold;
-    font-size: 15px;
-    transition: background 0.2s;
+    @include m.btn-base;
 
-    &.btnPrimary { background: $primary-color; color: #fff; &:hover { background: #1d4ed8; } }
-    &.btnSuccess { background: $success-color; color: #fff; &:hover { background: #059669; } }
-    &.btnDanger  { background: $danger-color;  color: #fff; &:hover { background: #dc2626; } }
-
+    &.btnPrimary { background: v.$color-primary; color: #fff; &:hover:not(:disabled) { background: v.$color-primary-hover; } }
+    &.btnSuccess { background: v.$color-success; color: #fff; &:hover:not(:disabled) { background: v.$color-success-hover; } }
+    &.btnDanger  { background: v.$color-danger;  color: #fff; &:hover:not(:disabled) { background: v.$color-danger-hover; } }
+    &.btnSecondary { background: v.$color-bg-subtle; color: v.$color-text-primary; border: 1px solid v.$color-border; &:hover:not(:disabled) { background: v.$color-border; } }
   }
 
-  // 🗔 მოდალური ფანჯარა
- // 🗔 ცვლის დახურვის თანამედროვე მოდალური ფანჯარა
+  // 🗔 ცვლის დახურვის თანამედროვე მოდალური ფანჯარა
   .modalOverlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(15, 23, 42, 0.6); // უფრო მუქი, ბლერიანი ეფექტისთვის
-    backdrop-filter: blur(4px);        // უკანა ფონის ოდნავ დაბინდვა
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;                     // რომ გარანტირებულად ყველაფრის ზემოთ იჯდეს
+    @include m.modal-overlay;
 
     .modalBody {
-      background: #ffffff;
-      padding: 35px;
-      border-radius: 16px;             // უფრო რბილი კუთხეები
-      width: 100%;
-      max-width: 460px;                // მკაცრად განსაზღვრული, ლამაზი სიგანე
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.486); // ღრმა, პრემიუმ ჩრდილი
-      border: 1px solid #e2e8f0;
-      animation: modalFadeIn 0.2s ease-out; // მსუბუქი გაჩენის ეფექტი
+      @include m.modal-body;
+      padding: 32px;
+      max-width: 460px;
 
       h3 {
         margin: 0 0 10px 0;
-        color: #0f172a;
-        font-size: 20px;
+        color: v.$color-text-primary;
+        font-size: 19px;
         font-weight: 700;
       }
 
       p {
-        color: #475569;
+        color: v.$color-text-secondary;
         font-size: 14px;
         line-height: 1.5;
         margin-bottom: 25px;
       }
     }
   }
+
+  // ==========================================
+  // 📜 "ჩემი ისტორია" — მოლარის საკუთარი ჩეკები
+  // ==========================================
+  .historyModalBody {
+    max-width: 680px;
+    max-height: 82vh;
+    overflow-y: auto;
+  }
+
+  .historyHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+
+    h3 { margin: 0; }
+  }
+
+  .historyCloseBtn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    color: v.$color-text-muted;
+    padding: 0;
+    transition: v.$transition-fast;
+
+    &:hover { color: v.$color-text-primary; }
+  }
+
+  .historyFilters {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+
+    .formGroup { margin-bottom: 0; min-width: 140px; }
+    button { height: 40px; white-space: nowrap; }
+  }
+
+  .historySummaryBar {
+    display: flex;
+    gap: 24px;
+    background: v.$color-bg-subtle;
+    border: 1px solid v.$color-border;
+    padding: 12px 15px;
+    border-radius: v.$radius-sm;
+    margin-bottom: 15px;
+    font-size: 14px;
+    color: v.$color-text-secondary;
+
+    strong { color: v.$color-text-primary; }
+  }
+
+  .historyList {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .receiptCard {
+    border: 1px solid v.$color-border;
+    border-radius: v.$radius-sm;
+    overflow: hidden;
+    transition: v.$transition-fast;
+  }
+
+  .receiptHeader {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    background: v.$color-bg-card;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+
+    strong { display: block; color: v.$color-text-primary; font-size: 14px; }
+    small { color: v.$color-text-muted; font-size: 12px; }
+
+    &:hover { background: v.$color-bg-subtle; }
+  }
+
+  .receiptHeaderRight {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: v.$color-text-secondary;
+    flex-wrap: wrap;
+  }
+
+  .receiptTotal {
+    font-weight: 700;
+    color: v.$color-success;
+    font-size: 15px;
+  }
+
+  // 🧾 ჩეკის დეტალების ცხრილი — შეგნებულად პატარა შრიფტით,
+  // POS-ის cartTable-ისგან განსხვავებით (რომელიც აქტიური გაყიდვისთვისაა)
+  .receiptItemsTable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    background: v.$color-bg-subtle;
+
+    thead th {
+      padding: 6px 15px;
+      color: v.$color-text-muted;
+      text-align: left;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.02em;
+      border-top: 1px solid v.$color-border;
+      border-bottom: 1px solid v.$color-border;
+    }
+
+    tbody td {
+      padding: 7px 15px;
+      color: v.$color-text-primary;
+      border-bottom: 1px solid v.$color-border;
+    }
+
+    tbody tr:last-child td { border-bottom: none; }
+  }
+
+  .receiptItemTotal {
+    font-weight: 600;
+    text-align: right;
+  }
+
+  // 📄 პაგინაცია ისტორიის სიისთვის
+  .historyPagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid v.$color-border;
+  }
+
+  .pageBtn {
+    @include m.btn-secondary;
+    padding: 8px 16px;
+    height: auto;
+    font-size: 13px;
+  }
+
+  .pageInfo {
+    font-size: 13px;
+    color: v.$color-text-secondary;
+  }
 }
 
-// გაჩენის მარტივი ანიმაცია
-@keyframes modalFadeIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
+// ==========================================
+// 🔔 Toast შეტყობინებები (window.alert()-ის ჩანაცვლება)
+// ==========================================
+.toastContainer {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 380px;
+  pointer-events: none;
+
+  @include m.mobile {
+    left: 16px;
+    right: 16px;
+    max-width: none;
+  }
+
+  > * { pointer-events: auto; }
 }
 
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: v.$color-bg-card;
+  padding: 14px 16px;
+  border-radius: v.$radius-md;
+  box-shadow: v.$shadow-lg;
+  border-left: 4px solid v.$color-primary;
+  min-width: 280px;
+  animation: fadeInUp 0.25s ease-out;
+
+  .toastIcon {
+    font-size: 18px;
+    line-height: 1.3;
+    flex-shrink: 0;
+  }
+
+  .toastMessage {
+    flex: 1;
+    font-size: 14px;
+    color: v.$color-text-primary;
+    line-height: 1.4;
+  }
+
+  .toastClose {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: v.$color-text-muted;
+    font-size: 18px;
+    line-height: 1;
+    padding: 0;
+    flex-shrink: 0;
+    transition: v.$transition-fast;
+
+    &:hover { color: v.$color-text-primary; }
+  }
+
+  &.toastSuccess { border-left-color: v.$color-success; }
+  &.toastError { border-left-color: v.$color-danger; }
+  &.toastInfo { border-left-color: v.$color-primary; }
+}

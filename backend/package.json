@@ -5,7 +5,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "init-db": "npx ts-node src/init-db.ts"
+    "init-db": "npx ts-node src/init-db.ts",
+    "migrate": "npx ts-node src/migrate.ts"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

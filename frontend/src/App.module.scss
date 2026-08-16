@@ -1,0 +1,220 @@
+@use './styles/variables' as v;
+@use './styles/mixins' as m;
+
+.appShell {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+
+  // 📱 მობილურზე .mobileTopbar და .content row-ის მაგივრად სვეტურად უნდა
+  // დაეწყოს — column-ის გარეშე ისინი flex row-ის და-ძმები რჩებოდნენ და
+  // .content მხოლოდ topbar-ის გვერდით დარჩენილ ვიწრო სივრცეს იკავებდა
+  // (ჰორიზონტალური "შევიწროების" ბაგის ძირითადი მიზეზი).
+  @include m.mobile {
+    flex-direction: column;
+  }
+}
+
+// ==========================================================
+// 🧭 Sidebar
+// ==========================================================
+.sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  background: v.$color-bg-card;
+  border-right: 1px solid v.$color-border;
+  padding: 24px 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: v.$transition-base;
+
+  @include m.mobile {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 1200;
+    transform: translateX(-100%);
+    box-shadow: v.$shadow-lg;
+
+    &.sidebarOpen {
+      transform: translateX(0);
+    }
+  }
+}
+
+.sidebarTop {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.brandTitle {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: v.$color-text-primary;
+  letter-spacing: -0.01em;
+}
+
+.brandDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: v.$color-primary;
+}
+
+.userMeta {
+  font-size: 11.5px;
+  color: v.$color-text-muted;
+  margin: 6px 0 28px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.nav {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: v.$radius-sm;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: v.$color-text-secondary;
+  transition: v.$transition-fast;
+  user-select: none;
+
+  &:hover {
+    background: v.$color-bg-subtle;
+    color: v.$color-text-primary;
+  }
+
+  &.active {
+    background: v.$color-primary-soft;
+    color: v.$color-primary;
+    font-weight: 600;
+  }
+}
+
+.navDivider {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid v.$color-border;
+}
+
+.navAccent {
+  color: v.$color-warning;
+  &.active { color: v.$color-warning; background: v.$color-warning-soft; }
+}
+
+.logoutBtn {
+  @include m.btn-ghost;
+  width: 100%;
+  border: 1px solid v.$color-border;
+  color: v.$color-danger;
+  justify-content: center;
+
+  &:hover:not(:disabled) {
+    background: v.$color-danger-soft;
+    border-color: rgba(220, 38, 38, 0.25);
+  }
+}
+
+// ==========================================================
+// 📱 Mobile top bar + overlay
+// ==========================================================
+.mobileTopbar {
+  display: none;
+
+  @include m.mobile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 14px 18px;
+    background: v.$color-bg-card;
+    border-bottom: 1px solid v.$color-border;
+    position: sticky;
+    top: 0;
+    z-index: 900;
+  }
+}
+
+.hamburgerBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: v.$radius-sm;
+  border: 1px solid v.$color-border;
+  background: v.$color-bg-card;
+  cursor: pointer;
+  color: v.$color-text-primary;
+  font-size: 18px;
+  transition: v.$transition-fast;
+
+  &:hover { background: v.$color-bg-subtle; }
+  &:active { transform: scale(0.96); }
+}
+
+.sidebarOverlay {
+  display: none;
+
+  @include m.mobile {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(17, 17, 17, 0.4);
+    backdrop-filter: blur(2px);
+    z-index: 1100;
+    animation: overlayFadeIn 0.15s ease-out;
+  }
+}
+
+// ==========================================================
+// 📄 Content
+// ==========================================================
+.content {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 28px;
+
+  @include m.mobile {
+    padding: 12px 16px;
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+// ==========================================================
+// ⏳ Roadmap-ის მიღმა (12.08) — React.lazy() code-splitting-ის Suspense
+// fallback (App.tsx). Dashboard/Products/Sales/UsersManagement აღარ არის
+// საწყის JS bundle-ში — გვერდის switch-ზე ჩამოტვირთვის მოკლე ფანჯარაში
+// ჩანს ეს ტექსტი, ExecutiveDashboard.module.scss-ის .stateBox-ის იგივე
+// კონვენციით.
+.pageLoadingFallback {
+  padding: 60px;
+  text-align: center;
+  color: v.$color-text-secondary;
+}

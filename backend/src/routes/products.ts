@@ -1,233 +1,328 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
+import ExcelJS from 'exceljs';
+import PDFDocument from 'pdfkit';
+import path from 'path';
 import { authenticateToken, CustomRequest } from './auth';
-// შემოგვაქვს მზა PostgreSQL პული ძირითადი ფაილიდან
-import { db } from '../index'; 
+// შემოგვაქვს მზა PostgreSQL პული ძირითადი ფაილიდან (ერთადერთი, საერთო pool)
+import { db } from '../index';
 
 const router = Router();
 
-// ==========================================
-// 🔐 1. ცვლების მართვა (SHIFT MANAGEMENT)
-// ==========================================
-
-// 🟢 ა) მიმდინარე აქტიური ცვლის სტატუსის შემოწმება
-router.get('/shifts/active', authenticateToken, async (req: CustomRequest, res: Response) => {
-  try {
-    const result = await db.query(
-      `SELECT s.*, u.name as cashier_name 
-       FROM shifts s 
-       JOIN users u ON s.cashier_id = u.id 
-       WHERE s.status = 'open' LIMIT 1`
-    );
-
-    if (result.rows.length === 0) {
-      return res.json({ active: false, message: "აქტიური ცვლა არ არის გახსნილი" });
-    }
-
-    res.json({ active: true, shift: result.rows[0] });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// 🚀 ბ) ახალი ცვლის გახსნა (Single-Shift შეზღუდვით)
-router.post('/shifts/open', authenticateToken, async (req: CustomRequest, res: Response) => {
-  const { startAmount } = req.body;
-  const cashierId = req.user?.id;
-
-  if (!cashierId) return res.status(401).json({ error: 'მომხმარებელი ვერ იდენტიფიცირდა' });
-  if (startAmount === undefined || startAmount < 0) {
-    return res.status(400).json({ error: 'გთხოვთ მიუთითოთ ვალიდური საწყისი თანხა' });
-  }
-
-  try {
-    // უსაფრთხოების მთავარი შემოწმება: არის თუ არა უკვე სისტემაში სხვა გახსნილი ცვლა?
-    const activeCheck = await db.query("SELECT id FROM shifts WHERE status = 'open' LIMIT 1");
-    if (activeCheck.rows.length > 0) {
-      return res.status(400).json({ error: "სისტემაში უკვე გახსნილია აქტიური ცვლა სხვა მოლარის მიერ!" });
-    }
-
-    // ახალი ცვლის ჩაწერა
-    const query = `
-      INSERT INTO shifts (cashier_id, start_amount, status, opened_at) 
-      VALUES ($1, $2, 'open', TO_CHAR(CURRENT_TIMESTAMP, 'YYYY-MM-DD HH24:MI:SS')) 
-      RETURNING id, opened_at
-    `;
-    const insertResult = await db.query(query, [cashierId, startAmount]);
-
-    res.status(201).json({
-      success: true,
-      message: 'ცვლა წარმატებით გაიხსნა',
-      shiftId: insertResult.rows[0].id,
-      openedAt: insertResult.rows[0].opened_at
-    });
-
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// 🛑 გ) ცვლის დახურვა და ნაშთების შეჯამება
-router.post('/shifts/close', authenticateToken, async (req: CustomRequest, res: Response) => {
-  const { shiftId, endAmountActual } = req.body;
-  const cashierId = req.user?.id;
-
-  if (!shiftId || endAmountActual === undefined) {
-    return res.status(400).json({ error: 'ყველა პარამეტრი სავალდებულოა' });
-  }
-
-  try {
-    // მიმდინარე ცვლის წამოსაღებად
-    const shiftResult = await db.query("SELECT * FROM shifts WHERE id = $1 AND status = 'open'", [shiftId]);
-    if (shiftResult.rows.length === 0) {
-      return res.status(404).json({ error: 'აქტიური ცვლა ამ ID-ით ვერ მოიძებნა' });
-    }
-
-    const shift = shiftResult.rows[0];
-
-    // უსაფრთხოება: მხოლოდ იმ მოლარეს შეუძლია დახურვა, ვინც გახსნა (ან ადმინს)
-    if (shift.cashier_id !== cashierId && req.user?.role !== 'admin') {
-      return res.status(403).json({ error: 'თქვენ არ გაქვთ ამ ცვლის დახურვის უფლება!' });
-    }
-
-    // გამოვთვალოთ ამ ცვლაში ჩატარებული გაყიდვების ჯამი
-    const salesSumResult = await db.query(
-      "SELECT COALESCE(SUM(total_amount), 0) as total FROM payments WHERE shift_id = $1", 
-      [shiftId]
-    );
-    const totalSales = parseFloat(salesSumResult.rows[0].total);
-    const endAmountExpected = shift.start_amount + totalSales;
-    const difference = endAmountActual - endAmountExpected;
-
-    // ცვლის სტატუსის განახლება
-    const updateQuery = `
-      UPDATE shifts 
-      SET status = 'closed', 
-          closed_at = TO_CHAR(CURRENT_TIMESTAMP, 'YYYY-MM-DD HH24:MI:SS'), 
-          end_amount_expected = $1, 
-          end_amount_actual = $2, 
-          difference = $3 
-      WHERE id = $4
-    `;
-    await db.query(updateQuery, [endAmountExpected, endAmountActual, difference, shiftId]);
-
-    res.json({
-      success: true,
-      message: 'ცვლა წარმატებით დაიხურა',
-      summary: {
-        startAmount: shift.start_amount,
-        totalSales,
-        endAmountExpected,
-        endAmountActual,
-        difference
-      }
-    });
-
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
+const LOW_STOCK_THRESHOLD = 5;
 
 // ==========================================
-// 🛒 2. გაყიდვების გატარება (POS OPERATIONS)
+// 📦 პროდუქტების CRUD
 // ==========================================
 
-// 🧾 ა) ახალი ჩეკის/გაყიდვის რეგისტრაცია
-router.post('/sales', authenticateToken, async (req: CustomRequest, res: Response) => {
-  const { items, totalAmount, shiftId } = req.body;
-  const cashierId = req.user?.id;
-
-  if (!items || items.length === 0 || !totalAmount || !shiftId) {
-    return res.status(400).json({ error: 'ჩეკის მონაცემები არასრულია' });
-  }
+// 🟢 ყველა პროდუქტის წამოღება (+ სურვილისამებრ low-stock ფილტრი)
+router.get('/products', authenticateToken, async (req: CustomRequest, res: Response) => {
+  const { lowStockOnly } = req.query;
 
   try {
-    // 1. გადავამოწმოთ ცვლა ნამდვილად აქტიურია თუ არა
-    const shiftCheck = await db.query("SELECT status FROM shifts WHERE id = $1", [shiftId]);
-    if (shiftCheck.rows.length === 0 || shiftCheck.rows[0].status !== 'open') {
-      return res.status(400).json({ error: 'გაყიდვის დასაფიქსირებლად საჭიროა აქტიური ცვლა!' });
+    let query = 'SELECT * FROM products';
+    const params: any[] = [];
+
+    if (lowStockOnly === 'true') {
+      query += ' WHERE stock <= $1';
+      params.push(LOW_STOCK_THRESHOLD);
     }
 
-    // 2. მარაგების ვალიდაცია (Race Condition-ის პრევენცია)
-    for (const item of items) {
-      const prodCheck = await db.query("SELECT stock, name FROM products WHERE id = $1", [item.productId]);
-      if (prodCheck.rows.length === 0) {
-        return res.status(404).json({ error: `პროდუქტი ID-ით ${item.productId} ვერ მოიძებნა` });
-      }
-      if (prodCheck.rows[0].stock < item.quantity) {
-        return res.status(400).json({ error: `პროდუქტზე "${prodCheck.rows[0].name}" ნაშთი არასაკმარისია! ხელმისაწვდომია: ${prodCheck.rows[0].stock}` });
-      }
-    }
+    query += ' ORDER BY name ASC';
 
-    // 3. ტრანზაქციის დაწყება მონაცემთა ბაზაში
-    await db.query('BEGIN');
-
-    // მთავარი გადახდის ჩაწერა (payments)
-    const paymentQuery = `
-      INSERT INTO payments (cashier_id, shift_id, total_amount, created_at) 
-      VALUES ($1, $2, $3, TO_CHAR(CURRENT_TIMESTAMP, 'YYYY-MM-DD HH24:MI:SS')) 
-      RETURNING id, created_at
-    `;
-    const paymentResult = await db.query(paymentQuery, [cashierId, shiftId, totalAmount]);
-    const paymentId = paymentResult.rows[0].id;
-
-    // ჩეკის დეტალების ჩაწერა და მარაგების შემცირება
-    for (const item of items) {
-      // ჩაწერა დეტალებში (payment_items)
-      await db.query(
-        `INSERT INTO payment_items (payment_id, product_id, quantity, price) VALUES ($1, $2, $3, $4)`,
-        [paymentId, item.productId, item.quantity, item.price]
-      );
-
-      // მარაგის შემცირება (მხოლოდ იმ შემთხვევაში, თუ მარაგი მეტია ან ტოლი მოთხოვნილზე)
-      const updateStockResult = await db.query(
-        `UPDATE products SET stock = stock - $1 WHERE id = $2 AND stock >= $1`,
-        [item.quantity, item.productId]
-      );
-
-      if (updateStockResult.rowCount === 0) {
-        throw new Error('მარაგის განახლება ჩავარდა. შესაძლოა ნაშთი პარალელურად შეიცვალა.');
-      }
-    }
-
-    // თუ ყველაფერმა წარმატებით გაიარა, ვინახავთ ცვლილებებს
-    await db.query('COMMIT');
-
-    res.status(201).json({
-      success: true,
-      message: 'გაყიდვა წარმატებით დაფიქსირდა',
-      paymentId,
-      createdAt: paymentResult.rows[0].created_at
-    });
-
-  } catch (err: any) {
-    // შეცდომის შემთხვევაში ვაუქმებთ ბაზაში ყველაფერს
-    await db.query('ROLLBACK');
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// 📋 ბ) ჩეკების ისტორიის წაკითხვა მიმდინარე ცვლისთვის (მოლარის კონტროლის ფიჩერი)
-router.get('/receipts', authenticateToken, async (req: CustomRequest, res: Response) => {
-  const { shiftId } = req.query;
-
-  if (!shiftId) {
-    return res.status(400).json({ error: 'shiftId პარამეტრი სავალდებულოა' });
-  }
-
-  try {
-    const result = await db.query(
-      `SELECT p.id as payment_id, p.total_amount, p.created_at, u.name as cashier_name
-       FROM payments p
-       JOIN users u ON p.cashier_id = u.id
-       WHERE p.shift_id = $1 
-       ORDER BY p.id DESC`,
-      [shiftId]
-    );
-
+    const result = await db.query(query, params);
     res.json(result.rows);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// 🔍 პროდუქტის ძებნა ბარკოდით (Restock/Registration მოდალისთვის)
+// ⚠️ FIX: Products.tsx ელოდება ზუსტად { exists, product } ფორმატს
+// (response.data.exists შემოწმებით), წინა ვერსია product-ს პირდაპირ აბრუნებდა.
+router.get('/products/barcode/:barcode', authenticateToken, async (req: CustomRequest, res: Response) => {
+  if (req.user?.role === 'cashier') {
+    return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
+  }
+
+  try {
+    const result = await db.query('SELECT * FROM products WHERE barcode = $1 LIMIT 1', [req.params.barcode]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ exists: false, error: 'პროდუქტი ამ ბარკოდით ვერ მოიძებნა' });
+    }
+
+    res.json({ exists: true, product: result.rows[0] });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ➕ ახალი პროდუქტის დამატება
+router.post('/products', authenticateToken, async (req: CustomRequest, res: Response) => {
+  if (req.user?.role === 'cashier') {
+    return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
+  }
+
+  const { name, price, stock, barcode } = req.body;
+
+  if (!name || price === undefined || price < 0) {
+    return res.status(400).json({ error: 'სახელი და ვალიდური ფასი სავალდებულოა' });
+  }
+
+  // 📴 Roadmap STEP 5 (migration 011) — chk_stock_positive DB-constraint
+  // მოიხსნა, რომ Background Sync-ს (POST /payments/sync-offline)
+  // დაშვებოდა products.stock-ის უარყოფით მნიშვნელობაზე ჩასმა (Offline
+  // oversell-ის რეალური ასახვისთვის). ხელით პროდუქტის დამატებას კი ეს
+  // "დაცვის ხვრელი" არ უნდა ეხებოდეს — აქ ცალსახად ვამოწმებთ.
+  if (stock !== undefined && stock !== null && Number(stock) < 0) {
+    return res.status(400).json({ error: 'მარაგი უარყოფითი ვერ იქნება' });
+  }
+
+  try {
+    const dupCheck = await db.query('SELECT id FROM products WHERE LOWER(name) = LOWER($1)', [name.trim()]);
+    if (dupCheck.rows.length > 0) {
+      return res.status(409).json({ error: 'ამ სახელით პროდუქტი უკვე არსებობს!' });
+    }
+
+    const result = await db.query(
+      `INSERT INTO products (name, price, stock, barcode) VALUES ($1, $2, $3, $4) RETURNING *`,
+      [name.trim(), price, stock ?? 0, barcode || null]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err: any) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'ეს სახელი ან ბარკოდი უკვე დაკავებულია!' });
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ✏️ პროდუქტის რედაქტირება
+router.put('/products/:id', authenticateToken, async (req: CustomRequest, res: Response) => {
+  if (req.user?.role === 'cashier') {
+    return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
+  }
+
+  const { name, price, stock, barcode } = req.body;
+
+  // 📴 Roadmap STEP 5 (migration 011) — იხ. POST /products-ის იგივე
+  // კომენტარი: ხელით რედაქტირებას (Products.tsx) მარაგის უარყოფით
+  // მნიშვნელობაზე ჩასმა კვლავ არ უნდა შეეძლოს, მხოლოდ Background
+  // Sync-ის ავტომატურ oversell-სცენარს.
+  if (stock !== undefined && stock !== null && Number(stock) < 0) {
+    return res.status(400).json({ error: 'მარაგი უარყოფითი ვერ იქნება' });
+  }
+
+  try {
+    if (name) {
+      const dupCheck = await db.query(
+        'SELECT id FROM products WHERE LOWER(name) = LOWER($1) AND id != $2',
+        [name.trim(), req.params.id]
+      );
+      if (dupCheck.rows.length > 0) {
+        return res.status(409).json({ error: 'ამ სახელით სხვა პროდუქტი უკვე არსებობს!' });
+      }
+    }
+
+    const result = await db.query(
+      `UPDATE products SET 
+        name = COALESCE($1, name), 
+        price = COALESCE($2, price), 
+        stock = COALESCE($3, stock), 
+        barcode = COALESCE($4, barcode) 
+       WHERE id = $5 RETURNING *`,
+      [name?.trim(), price, stock, barcode, req.params.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'პროდუქტი ვერ მოიძებნა' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err: any) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'ეს სახელი ან ბარკოდი უკვე დაკავებულია!' });
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 📥 მარაგის შევსება (Restock) — ატომურად ემატება არსებულს
+// ⚠️ FIX: Products.tsx აგზავნის { quantityToAdd }, არა { quantity }.
+router.patch('/products/:id/restock', authenticateToken, async (req: CustomRequest, res: Response) => {
+  if (req.user?.role === 'cashier') {
+    return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
+  }
+
+  const { quantityToAdd } = req.body;
+  const qty = Number(quantityToAdd);
+
+  if (!qty || qty <= 0) {
+    return res.status(400).json({ error: 'რაოდენობა უნდა იყოს დადებითი რიცხვი' });
+  }
+
+  try {
+    const result = await db.query(
+      'UPDATE products SET stock = stock + $1 WHERE id = $2 RETURNING *',
+      [qty, req.params.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'პროდუქტი ვერ მოიძებნა' });
+    }
+
+    res.json({ success: true, product: result.rows[0] });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 🗑️ პროდუქტის წაშლა
+router.delete('/products/:id', authenticateToken, async (req: CustomRequest, res: Response) => {
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ error: 'მხოლოდ ადმინისტრატორს შეუძლია პროდუქტის წაშლა!' });
+  }
+
+  try {
+    const result = await db.query('DELETE FROM products WHERE id = $1 RETURNING id', [req.params.id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'პროდუქტი ვერ მოიძებნა' });
+    }
+
+    res.json({ success: true, message: 'პროდუქტი წაშლილია' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==========================================
+// 📊 EXCEL ექსპორტი (პროდუქტები)
+// ⚠️ FIX: ეს endpoint საერთოდ არ არსებობდა — Products.tsx-ის
+// "Excel ექსპორტი" ღილაკი 404-ს იძლეოდა (იხ. screenshot).
+// ==========================================
+router.get('/products/export/excel', authenticateToken, async (req: CustomRequest, res: Response) => {
+  try {
+    const isLowStockOnly = req.query.type === 'low';
+
+    let query = 'SELECT id, barcode, name, price, stock FROM products';
+    const params: any[] = [];
+    if (isLowStockOnly) {
+      query += ' WHERE stock <= $1';
+      params.push(LOW_STOCK_THRESHOLD);
+    }
+    query += ' ORDER BY name ASC';
+
+    const result = await db.query(query, params);
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Products');
+
+    worksheet.columns = [
+      { header: 'ID', key: 'id', width: 8 },
+      { header: 'შტრიხკოდი', key: 'barcode', width: 18 },
+      { header: 'დასახელება', key: 'name', width: 30 },
+      { header: 'ფასი (₾)', key: 'price', width: 12 },
+      { header: 'მარაგი', key: 'stock', width: 12 },
+    ];
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.addRows(result.rows);
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=products_report_${isLowStockOnly ? 'low_stock' : 'all'}.xlsx`
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==========================================
+// 🟥 PDF ექსპორტი (პროდუქტები)
+// ⚠️ FIX: ეს endpoint-იც არ არსებობდა — "PDF ექსპორტი" ღილაკი 404-ს იძლეოდა.
+// ==========================================
+router.get('/products/export/pdf', authenticateToken, async (req: CustomRequest, res: Response) => {
+  try {
+    const isLowStockOnly = req.query.type === 'low';
+
+    let query = 'SELECT id, barcode, name, price, stock FROM products';
+    const params: any[] = [];
+    if (isLowStockOnly) {
+      query += ' WHERE stock <= $1';
+      params.push(LOW_STOCK_THRESHOLD);
+    }
+    query += ' ORDER BY name ASC';
+
+    const result = await db.query(query, params);
+    const rows = result.rows;
+
+    const doc = new PDFDocument({ margin: 50 });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=products_report_${isLowStockOnly ? 'low_stock' : 'all'}.pdf`
+    );
+    doc.pipe(res);
+
+    const fontPath = path.resolve(__dirname, '../fonts/Sylfaen.ttf');
+    let georgianFontAvailable = false;
+    try {
+      doc.registerFont('Georgian', fontPath);
+      georgianFontAvailable = true;
+    } catch (fontError: any) {
+      console.error('ფონტის რეგისტრაცია ჩავარდა:', fontError);
+    }
+    const regularFont = georgianFontAvailable ? 'Georgian' : 'Helvetica';
+    const boldFont = georgianFontAvailable ? 'Georgian' : 'Helvetica-Bold';
+
+    doc.font(boldFont).fontSize(20).text(
+      isLowStockOnly ? 'Low Stock Report' : 'Products Report',
+      { align: 'center' }
+    );
+    doc.font(regularFont).fontSize(10).text(
+      `გენერირების თარიღი: ${new Date().toLocaleString('ka-GE')}`,
+      { align: 'center' }
+    );
+    doc.moveDown(2);
+
+    const tableTop = 150;
+    doc.fontSize(12).font(boldFont);
+    doc.text('ID', 50, tableTop);
+    doc.text('შტრიხკოდი', 100, tableTop);
+    doc.text('დასახელება', 220, tableTop);
+    doc.text('ფასი', 380, tableTop);
+    doc.text('მარაგი', 460, tableTop);
+
+    doc.moveTo(50, tableTop + 15).lineTo(550, tableTop + 15).stroke();
+
+    let currentY = tableTop + 25;
+
+    rows.forEach((row) => {
+      if (currentY > 700) {
+        doc.addPage();
+        currentY = 50;
+      }
+
+      doc.font(regularFont).fontSize(10);
+      doc.text(row.id.toString(), 50, currentY);
+      doc.text(row.barcode || '-', 100, currentY);
+      doc.text(row.name, 220, currentY);
+      doc.text(`${row.price} ₾`, 380, currentY);
+      doc.text(row.stock.toString(), 460, currentY);
+
+      currentY += 20;
+    });
+
+    doc.end();
+  } catch (err: any) {
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message });
+    }
   }
 });
 

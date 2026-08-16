@@ -1,0 +1,205 @@
+@use 'variables' as v;
+
+// ==========================================================
+// 🧩 საერთო მიქსინები
+// ==========================================================
+
+@mixin card {
+  background: v.$color-bg-card;
+  border: 1px solid v.$color-border;
+  border-radius: v.$radius-md;
+  box-shadow: v.$shadow-xs;
+  transition: v.$transition-base;
+}
+
+@mixin card-hover {
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: v.$shadow-hover;
+    border-color: v.$color-border-strong;
+  }
+}
+
+@mixin input-base {
+  padding: 10px 14px;
+  border-radius: v.$radius-sm;
+  border: 1px solid v.$color-border;
+  outline: none;
+  font-size: 14px;
+  height: 42px;
+  box-sizing: border-box;
+  background: v.$color-bg-card;
+  color: v.$color-text-primary;
+  transition: v.$transition-fast;
+  font-family: v.$font-family-base;
+
+  &::placeholder { color: v.$color-text-muted; }
+
+  &:hover { border-color: v.$color-border-strong; }
+
+  &:focus {
+    border-color: v.$color-primary;
+    box-shadow: 0 0 0 4px v.$color-primary-soft;
+  }
+
+  &:disabled {
+    background: v.$color-bg-subtle;
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+}
+
+@mixin btn-base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+  padding: 10px 18px;
+  min-height: 42px;
+  max-width: 100%;
+  border-radius: v.$radius-sm;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  font-family: v.$font-family-base;
+  transition: v.$transition-fast;
+  line-height: 1.3;
+  // 🔙 ნაგულისხმევად nowrap: ცხრილების action-ღილაკები (მაგ. "რედაქტირება",
+  // "წაშლა") ცხრილის ვიწრო სვეტში `white-space: normal` + ცვლადი სვეტის
+  // სიგანის კომბინაციაზე ასო-ასო იშლებოდა ვერტიკალურად — ეს იყო ბაგი, არა
+  // ფიქსი. სოლო, სრულ-სიგანიან გრძელტექსტიან ღილაკებზე (POS checkout
+  // ღილაკი და ა.შ.) `white-space: normal` წერტილოვნად, inline style-ით
+  // ან სპეციფიკური კლასით ემატება საჭიროებისას (იხ. Sales.tsx checkout btn).
+  white-space: nowrap;
+
+  &:active:not(:disabled) { transform: scale(0.98); }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
+
+@mixin btn-primary {
+  @include btn-base;
+  background: v.$color-primary;
+  color: v.$color-text-inverse;
+  &:hover:not(:disabled) { background: v.$color-primary-hover; }
+}
+
+@mixin btn-danger {
+  @include btn-base;
+  background: v.$color-danger;
+  color: v.$color-text-inverse;
+  &:hover:not(:disabled) { background: v.$color-danger-hover; }
+}
+
+@mixin btn-success {
+  @include btn-base;
+  background: v.$color-success;
+  color: v.$color-text-inverse;
+  &:hover:not(:disabled) { background: v.$color-success-hover; }
+}
+
+@mixin btn-secondary {
+  @include btn-base;
+  background: v.$color-bg-subtle;
+  color: v.$color-text-primary;
+  border: 1px solid v.$color-border;
+  &:hover:not(:disabled) { background: v.$color-border; }
+}
+
+@mixin btn-ghost {
+  @include btn-base;
+  background: transparent;
+  color: v.$color-text-secondary;
+  &:hover:not(:disabled) {
+    background: v.$color-bg-subtle;
+    color: v.$color-text-primary;
+  }
+}
+
+@mixin badge($bg, $color) {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: $bg;
+  color: $color;
+  padding: 3px 10px;
+  border-radius: v.$radius-pill;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+@mixin table-base {
+  width: 100%;
+  border-collapse: collapse;
+
+  th {
+    text-align: left;
+    padding: 14px 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: v.$color-text-secondary;
+    background: v.$color-bg-subtle;
+    border-bottom: 1px solid v.$color-border;
+  }
+
+  td {
+    padding: 14px 20px;
+    font-size: 14px;
+    color: v.$color-text-primary;
+    border-bottom: 1px solid v.$color-border;
+  }
+
+  tbody tr {
+    transition: v.$transition-fast;
+    &:hover { background: v.$color-bg-subtle; }
+    &:last-child td { border-bottom: none; }
+  }
+}
+
+@mixin modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 17, 17, 0.45);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: overlayFadeIn 0.15s ease-out;
+  // 📱 მობილურზე overlay-ს გვერდითი padding, რომ მოდალმა ეკრანის კიდეებს
+  // არ მიეკრას და ჰორიზონტალური overflow არ გამოიწვიოს ვიწრო ეკრანებზე.
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+@mixin modal-body {
+  background: v.$color-bg-card;
+  padding: 32px;
+  border-radius: v.$radius-lg;
+  width: 100%;
+  box-sizing: border-box;
+  box-shadow: v.$shadow-lg;
+  border: 1px solid v.$color-border;
+  animation: fadeInUp 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+  @include mobile {
+    padding: 24px 20px;
+  }
+}
+
+// ---- რესპონსივი ----
+@mixin mobile {
+  @media (max-width: #{v.$bp-mobile}) { @content; }
+}
+
+@mixin tablet {
+  @media (max-width: #{v.$bp-tablet}) { @content; }
+}

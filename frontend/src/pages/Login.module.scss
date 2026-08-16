@@ -1,0 +1,126 @@
+@use '../styles/variables' as v;
+@use '../styles/mixins' as m;
+
+// 🎞 ანიმირებადი --angle custom property (conic-gradient-ის "მოძრავი ხაზის"
+// ეფექტისთვის) — @property-ის გარეშე ბრაუზერი --angle-ის ცვლილებას
+// discrete-ად (კამათლური "ხტუნვით") ანიმირებდა, ამის წყალობით კი
+// გლუვად trансиციდება 0deg-დან 360deg-მდე.
+@property --angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: v.$color-bg-page;
+  padding: 20px;
+}
+
+.card {
+  @include m.card;
+  position: relative;
+  z-index: 0;
+  padding: 40px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: v.$shadow-md;
+  animation: fadeInUp 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+
+  @include m.mobile {
+    padding: 28px 22px;
+  }
+
+  // ✨ ავტორიზაციის ბარათის ირგვლივ მოძრავი ("კომეტისებრი") ხაზი.
+  // ⚠️ FIX: თავდაპირველად ring "იმალებოდა" მხოლოდ z-index:-1 + card-ის
+  // opaque ფონის იმედად — ეს stacking-context-ზეა დამოკიდებული, და GSAP-ის
+  // მიერ შვილ-ელემენტებზე (title/fields/button) დასმულმა inline `transform`-მა
+  // ლოკალური stacking order დაარღვია, რის გამოც conic-gradient-ის მთელი
+  // wedge ღილაკზე "გადმოვიდა" და დაფარა (რეალურად მოხდილი ბაგი).
+  // ახლა mask-ით ვჭრით ზუსტად 2px ბეჭედს — ყველგან სხვაგან ::before
+  // აბსოლუტურად გამჭვირვალეა (mask-composite:exclude), stacking/z-index-ის
+  // მიუხედავად ვერასდროს დაფარავს კონტენტს.
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    z-index: 1;
+    pointer-events: none;
+    border-radius: inherit;
+    padding: 2px;
+    box-sizing: border-box;
+    background: conic-gradient(
+      from var(--angle),
+      transparent 0deg,
+      transparent 270deg,
+      v.$color-primary 330deg,
+      #93C5FD 355deg,
+      transparent 360deg
+    );
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: loginBorderSweep 3.2s linear infinite;
+  }
+}
+
+@keyframes loginBorderSweep {
+  to { --angle: 360deg; }
+}
+
+.title {
+  text-align: center;
+  color: v.$color-text-primary;
+  margin: 0 0 6px 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.subtitle {
+  text-align: center;
+  color: v.$color-text-secondary;
+  font-size: 14px;
+  margin: 0 0 30px 0;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 13px;
+  color: v.$color-text-secondary;
+  font-weight: 600;
+}
+
+.input {
+  @include m.input-base;
+}
+
+.error {
+  color: v.$color-danger;
+  font-size: 13px;
+  margin: 0;
+  font-weight: 600;
+}
+
+.submitBtn {
+  @include m.btn-primary;
+  width: 100%;
+  font-size: 15px;
+  margin-top: 6px;
+}

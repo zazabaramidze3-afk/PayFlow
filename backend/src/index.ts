@@ -1,14 +1,25 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import path from 'path';
-import bcrypt from 'bcrypt';
-import { Pool } from 'pg';
+
+// ⚠️ FIX: აქ ადრე იქმნებოდა მეორე, დამოუკიდებელი Pool იმავე ბაზასთან
+// (SSL ლოგიკაც განსხვავებული ჰქონდა db.ts-ისგან). ეს ორი ცალ-ცალკე
+// connection pool იყო მიზეზი, რის გამოც ზოგიერთი route (რომელიც db.ts-ს
+// იყენებდა, მაგ. checkShift.ts) სხვანაირად იქცეოდა, ვიდრე დანარჩენები.
+// ახლა ერთი, საერთო pool გვაქვს — ყველა ფაილი მას იზიარებს.
+import pool from './db';
 
 // მარშრუტების (Routes) შემოტანა
 import authRoutes from './routes/auth';
 import productRoutes from './routes/products';
 import salesRoutes from './routes/sales';
+import auditLogsRoutes from './routes/audit-logs';
+import dashboardRoutes from './routes/dashboard';
+// 🖥️ Device Pairing & Activation (Roadmap STEP 2.2) — Multi-POS Register-ების მართვა
+import registersRoutes from './routes/registers';
+// 🔔 Stock Deficit Notifications (Roadmap STEP 5) — Background Sync Engine-ის
+// Manager Dashboard ბეჯი/პანელი.
+import notificationsRoutes from './routes/notifications';
 
 dotenv.config();
 
@@ -16,113 +27,27 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// PostgreSQL კავშირის უსაფრთხო ინიციალიზაცია Neon-ისთვის
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: true // Neon-ის ოფიციალური სტანდარტი Vercel-ზე მუშაობისთვის
-});
-
-
 // სხვა ფაილებისთვის თავსებადობის შესანარჩუნებლად (ექსპორტი db სახელით)
 export const db = pool;
 
 // ==========================================
-//  ავტომატური ბაზის და ცხრილების შექმნა
+//  ბაზის სტრუქტურა (Schema)
 // ==========================================
-const initDB = async () => {
-  console.log('ავტომატური ბაზის და ცხრილების შექმნა PostgreSQL-ში...');
-  try {
-    // 1. მომხმარებლები
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY, 
-        name TEXT NOT NULL UNIQUE, 
-        password_hash TEXT NOT NULL, 
-        role TEXT NOT NULL DEFAULT 'cashier', 
-        status TEXT NOT NULL DEFAULT 'active'
-      )
-    `);
-    
-    // 2. 🔄 დღიური ცვლები
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS shifts (
-        id SERIAL PRIMARY KEY, 
-        cashier_id INTEGER NOT NULL, 
-        status TEXT CHECK(status IN ('open', 'closed')) DEFAULT 'open', 
-        opened_at TEXT DEFAULT (TO_CHAR(CURRENT_TIMESTAMP, 'YYYY-MM-DD HH24:MI:SS')), 
-        start_amount REAL NOT NULL, 
-        closed_at TEXT, 
-        end_amount_expected REAL, 
-        end_amount_actual REAL, 
-        difference REAL, 
-        FOREIGN KEY(cashier_id) REFERENCES users(id)
-      )
-    `);
-    
-    // 3. პროდუქტები
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS products (
-        id SERIAL PRIMARY KEY, 
-        barcode TEXT UNIQUE, 
-        name TEXT NOT NULL UNIQUE, 
-        price REAL NOT NULL, 
-        stock INTEGER NOT NULL DEFAULT 0
-      )
-    `);
-    
-    // 4. გადახდები (payments)
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS payments (
-        id SERIAL PRIMARY KEY, 
-        cashier_id INTEGER, 
-        shift_id INTEGER, 
-        total_amount REAL NOT NULL, 
-        created_at TEXT DEFAULT (TO_CHAR(CURRENT_TIMESTAMP, 'YYYY-MM-DD HH24:MI:SS')), 
-        FOREIGN KEY(cashier_id) REFERENCES users(id), 
-        FOREIGN KEY(shift_id) REFERENCES shifts(id)
-      )
-    `);
-    
-    // 5. გადახდის დეტალები
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS payment_items (
-        id SERIAL PRIMARY KEY, 
-        payment_id INTEGER, 
-        product_id INTEGER, 
-        quantity INTEGER NOT NULL, 
-        price REAL NOT NULL
-      )
-    `);
-
-    // საწყისი მომხმარებლების შექმნა (თუ არ არსებობენ)
-    const defaultHash = await bcrypt.hash('1234', 10);
-    
-    await pool.query(`
-      INSERT INTO users (name, password_hash, role, status) 
-      VALUES ('admin', $1, 'admin', 'active') 
-      ON CONFLICT (name) DO NOTHING
-    `, [defaultHash]);
-    
-    await pool.query(`
-      INSERT INTO users (name, password_hash, role, status) 
-      VALUES ('manager', $1, 'manager', 'active') 
-      ON CONFLICT (name) DO NOTHING
-    `, [defaultHash]);
-    
-    await pool.query(`
-      INSERT INTO users (name, password_hash, role, status) 
-      VALUES ('cashier', $1, 'cashier', 'active') 
-      ON CONFLICT (name) DO NOTHING
-    `, [defaultHash]);
-
-    console.log('PostgreSQL ბაზა და ცხრილები წარმატებით მომზადდა.');
-  } catch (err) {
-    console.error('საწყისი ბაზის მომზადების შეცდომა:', err);
-  }
-};
-
-// ბაზის გაშვება
-initDB();
+// ⚠️ Production-Ready Migration (Roadmap ეტაპი 1.5.1): აპლიკაცია
+// ჩართვისას აღარაფერს წერს/ქმნის ბაზაში — არც ცხრილებს (ძველი
+// initDB()) და აღარც დეფოლტ იუზერებს (ძველი seedDefaultUsers()).
+// ბაზაში უკვე ნამდვილი, ხელით შექმნილი მომხმარებლები ზის
+// (pgAdmin-ით დადასტურებულია), ამიტომ ავტო-სიდირების ლოგიკას
+// აღარანაირი დანიშნულება არ აქვს და მთლიანად წაშლილია — რომ
+// სერვერის ყოველი გადატვირთვა შემთხვევით არაფერს არ გადააწეროს.
+//
+// ბაზის სტრუქტურის ერთადერთი წყარო არის backend/migrations/*.sql.
+// ახალი environment-ის (local/staging/prod) გასამართად, სერვერის
+// გაშვებამდე გაუშვით:  npm run migrate   (იხ. src/migrate.ts),
+// ან ხელით, ფაილების ნომრების მიხედვით (001, 002, 003, 004...)
+// pgAdmin-ში. მომხმარებლების შექმნა ხდება მხოლოდ UI-დან
+// (POST /api/users) ან პირდაპირ ბაზაში — აპლიკაციის კოდი აღარ
+// ეხება users ცხრილის მონაცემებს გაშვებისას.
 
 // ==========================================
 //  🔗 მარშრუტების ინტეგრაცია (Middleware)
@@ -130,6 +55,25 @@ initDB();
 app.use('/api', authRoutes);
 app.use('/api', productRoutes);
 app.use('/api', salesRoutes);
+app.use('/api', auditLogsRoutes);
+app.use('/api', dashboardRoutes);
+app.use('/api', registersRoutes);
+app.use('/api', notificationsRoutes);
+
+// ==========================================
+// 💓 GET /api/health — Roadmap STEP 5 (useNetworkStatus hook)
+// ==========================================
+// ავტორიზაციის/ბაზის გარეშე, განზრახ "მსუბუქი" endpoint — frontend-ის
+// useNetworkStatus hook-ს (frontend/src/hooks/useNetworkStatus.ts) 10
+// წამიან heartbeat-ად სჭირდება ნამდვილი backend-თან კავშირის დადგენა
+// (navigator.onLine მხოლოდ ბრაუზერის/ოპერაციული სისტემის ლოკალურ ქსელ-
+// ინტერფეისის მდგომარეობას ასახავს — captive portal-ის/wifi-ს "ჩხირკედელი"
+// კავშირის დროსაც true-ს აჩვენებს). ავტორიზაცია აქ განზრახ არ მოწმდება —
+// heartbeat-ის ერთადერთი დანიშნულებაა "სერვერი პასუხობს თუ არა",
+// მოძველებული/ჯერ არ განახლებული ტოკენითაც კი.
+app.get('/api/health', (_req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 ბექენდ სერვერი წარმატებით ჩაირთო პორტზე ${PORT}`));

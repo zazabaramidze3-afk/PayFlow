@@ -1,0 +1,19 @@
+# 📦 Dependencies
+node_modules/
+
+# 🛠️ Production Build Output
+dist/
+build/
+
+# 💻 IDE / Editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# 🍎 OS files
+.DS_Store
+Thumbs.db

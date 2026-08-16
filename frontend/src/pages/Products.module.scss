@@ -1,0 +1,260 @@
+@use '../styles/variables' as v;
+@use '../styles/mixins' as m;
+
+.page {
+  animation: fadeInUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.heading {
+  margin: 0;
+  color: v.$color-text-primary;
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.exportExcel { @include m.btn-success; font-size: 13px; padding: 8px 14px; height: 38px; }
+.exportPdf { @include m.btn-danger; font-size: 13px; padding: 8px 14px; height: 38px; }
+
+.lowStockToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: v.$color-text-secondary;
+  background: v.$color-bg-subtle;
+  padding: 8px 14px;
+  border-radius: v.$radius-sm;
+  border: 1px solid v.$color-border;
+  transition: v.$transition-fast;
+
+  &.active {
+    color: v.$color-danger;
+    background: v.$color-danger-soft;
+    border-color: rgba(220, 38, 38, 0.25);
+  }
+
+  input { cursor: pointer; }
+}
+
+.warningBanner {
+  background: v.$color-warning-soft;
+  color: #92400E;
+  padding: 14px 20px;
+  border-radius: v.$radius-md;
+  margin-bottom: 20px;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  font-size: 14px;
+
+  strong { animation: pulse-subtle 2.2s ease-in-out infinite; display: inline; }
+}
+
+// ==========================================================
+// 📝 დამატების ფორმა
+// ==========================================================
+.form {
+  @include m.card;
+  padding: 22px;
+  margin-bottom: 24px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.input {
+  @include m.input-base;
+  flex: 1;
+  min-width: 140px;
+}
+
+.submitBtn {
+  @include m.btn-primary;
+}
+
+// ==========================================================
+// 📋 ცხრილი
+// ==========================================================
+.tableWrapper {
+  @include m.card;
+  overflow: hidden;
+  overflow-x: auto;
+}
+
+.table {
+  @include m.table-base;
+  min-width: 640px;
+}
+
+.emptyState {
+  padding: 20px;
+  text-align: center;
+  color: v.$color-text-muted;
+}
+
+.code {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  color: v.$color-text-secondary;
+  background: v.$color-bg-subtle;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12.5px;
+}
+
+.stockLow { color: v.$color-danger; font-weight: 700; }
+.stockOk { color: v.$color-text-primary; font-weight: 700; }
+
+.stockTag {
+  margin-left: 10px;
+  padding: 2px 8px;
+  border-radius: v.$radius-pill;
+  font-size: 11px;
+  font-weight: 700;
+}
+.stockTagOut { background: v.$color-danger-soft; color: v.$color-danger; }
+.stockTagLow { background: v.$color-warning-soft; color: #9A3412; animation: pulse-subtle 2.2s ease-in-out infinite; }
+
+.rowActions {
+  display: flex;
+  gap: 6px;
+}
+
+.editBtn {
+  @include m.btn-base;
+  background: v.$color-warning;
+  color: #fff;
+  padding: 6px 12px;
+  height: auto;
+  font-size: 12.5px;
+  &:hover:not(:disabled) { background: #D97706; }
+}
+
+.deleteBtn {
+  @include m.btn-base;
+  background: v.$color-danger;
+  color: #fff;
+  padding: 6px 12px;
+  height: auto;
+  font-size: 12.5px;
+  &:hover:not(:disabled) { background: v.$color-danger-hover; }
+}
+
+// ==========================================================
+// 📄 პაგინაცია
+// ==========================================================
+.pagination {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.pageBtn {
+  @include m.btn-secondary;
+  padding: 8px 14px;
+  height: auto;
+  min-width: 38px;
+
+  &.pageBtnActive {
+    background: v.$color-primary;
+    color: #fff;
+    border-color: v.$color-primary;
+  }
+}
+
+// ==========================================================
+// 🗔 მოდალები
+// ==========================================================
+.overlay { @include m.modal-overlay; }
+.modal {
+  @include m.modal-body;
+  max-width: 400px;
+  position: relative;
+
+  @include m.mobile {
+    padding: 24px 20px;
+  }
+}
+
+.modalTitle {
+  margin: 0 0 16px 0;
+  color: v.$color-text-primary;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.modalCloseBtn {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  background: none;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  color: v.$color-text-muted;
+  line-height: 1;
+  padding: 4px;
+  border-radius: v.$radius-sm;
+  transition: v.$transition-fast;
+
+  &:hover { color: v.$color-text-primary; background: v.$color-bg-subtle; }
+}
+
+.modalText {
+  font-size: 14.5px;
+  color: v.$color-text-secondary;
+  margin: 0 0 14px 0;
+}
+
+.modalForm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modalFullInput { @include m.input-base; width: 100%; }
+
+.restockBtn { @include m.btn-success; width: 100%; margin-top: 4px; }
+.newProductLabel { color: #B45309; font-weight: 700; margin: 0; }
+.newProductBtn {
+  @include m.btn-base;
+  background: v.$color-warning;
+  color: #fff;
+  width: 100%;
+  &:hover:not(:disabled) { background: #D97706; }
+}
+
+// ⚠️ Confirm მოდალი
+.confirmModal {
+  @include m.modal-body;
+  max-width: 380px;
+  text-align: center;
+
+  @include m.mobile {
+    padding: 24px 20px;
+  }
+}
+.confirmIcon { font-size: 32px; margin-bottom: 10px; }
+.confirmText { margin: 0 0 24px 0; color: v.$color-text-primary; font-size: 15px; line-height: 1.5; }
+.confirmActions { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.cancelBtn { @include m.btn-secondary; }
+.confirmDeleteBtn { @include m.btn-danger; }

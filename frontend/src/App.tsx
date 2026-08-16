@@ -1,16 +1,43 @@
-import { useState, useEffect } from 'react';
-import Dashboard from './pages/Dashboard';
-import Products from './pages/Products'; 
-import Sales from './pages/Sales'; 
-import Login from './pages/Login'; 
-import UsersManagement from './pages/UsersManagement';
+import { useState, useEffect, lazy, Suspense } from 'react';
+import Login from './pages/Login';
+// 🖥️ Roadmap STEP 2.3 (FIX) — Device Pairing მხოლოდ POS (Sales) გვერდს
+// იცავს, არა Login-ს ან Admin/Manager პანელს (იხ. კომენტარი ქვემოთ,
+// currentPage === 'sales' branch-თან).
+import RegisterGuard from './components/RegisterGuard';
 import axios from 'axios';
+// 1. შემოგვაქვს ტოსტერის კონტეინერი
+import { Toaster } from 'react-hot-toast';
+// 📴 Roadmap STEP 5 — Background Sync Engine. App.tsx-ის root-ში იტვირთება
+// (არა Sales.tsx-ში) განზრახ — Offline queue-ს სინქრონიზაცია მაშინაც უნდა
+// გაგრძელდეს, როცა მოლარემ POS-იდან სხვა გვერდზე გადაინაცვლა (თუმცა
+// პრაქტიკაში cashier როლს მხოლოდ Sales გვერდი აქვს — მომავალში როლების
+// გაფართოებაზეც კი ეს ადგილი სწორი რჩება).
+import { useNetworkStatus } from './hooks/useNetworkStatus';
+import { useBackgroundSyncEngine } from './sync/backgroundSync';
+import styles from './App.module.scss';
+
+// ==========================================================
+// 🚧 Roadmap-ის მიღმა (12.08) — Route-level code-splitting
+// ==========================================================
+// Dashboard/Products/UsersManagement (+ მათი დამოკიდებულებები, მაგ.
+// recharts/gsap ExecutiveDashboard.tsx-ში) admin/manager-ონლი გვერდებია —
+// cashier-ს ეს JS არასდროს არ სჭირდება, მაგრამ static import-ით ეს ყველაფერი
+// ერთ, საერთო bundle-ში ხვდებოდა (dist/assets/index-*.js ~877KB). React.lazy()
+// + Suspense (ქვემოთ, .content-ის შემოხვევა) ცალკე chunk-ებად გამოყოფს
+// თითოეულ გვერდს — ბრაუზერი მხოლოდ მაშინ ჩამოტვირთავს, როცა მომხმარებელი
+// რეალურად ნავიგირებს იქ. Sales.tsx-ც lazy-ია (თუმცა cashier-ისთვის ეს
+// თითქმის ყოველთვის საჭიროა) — მარტივი, ერთგვაროვანი პატერნისთვის ოთხივე
+// role-გვერდი ერთნაირად მუშავდება. Login კი განზრახ *არ* არის lazy — ის
+// ყოველთვის პირველი რაც ჩანს ავტორიზაციამდე, დაყოვნების გარეშე უნდა
+// გამოჩნდეს.
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Products = lazy(() => import('./pages/Products'));
+const Sales = lazy(() => import('./pages/Sales'));
+const UsersManagement = lazy(() => import('./pages/UsersManagement'));
 
 // =======================================================
 // 🛡️ AXIOS INTERCEPTOR — ავტომატური ტოკენის მიბმა
 // =======================================================
-// ეს კოდი ყოველი მოთხოვნის გაგზავნის წინ ამოწმებს localStorage-ს
-// და თუ ტოკენი არსებობს, ავტომატურად ამატებს მას Authorization ჰედერში [12].
 axios.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -24,17 +51,12 @@ axios.interceptors.request.use(
   }
 );
 
-// თუ ბექენდმა ტოკენი უარყო (ვადა გაუვიდა, დაბლოკილია და ა.შ.), ვასუფთავებთ
-// localStorage-ს, რომ UI არ დარჩეს "დალოგინებული", მაგრამ მოთხოვნები ჩავარდეს.
+// თუ ბექენდმა ტოკენი უარყო, ვასუფთავებთ localStorage-ს
 axios.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
     const message: string = error.response?.data?.error || '';
-    // 401 = ტოკენი საერთოდ არ გაიგზავნა/არ არსებობს.
-    // 403 + "ტოკენი..." = კონკრეტულად invalid/expired token (authenticateToken middleware-დან).
-    // ჩვეულებრივი როლის დაბლოკვის 403-ები (მაგ. "მხოლოდ ადმინისთვის!") არ უნდა
-    // იწვევდეს გამოსვლას — ტოკენი მაშინ სავსებით ვალიდურია, უბლოკავს მხოლოდ როლი.
     if (status === 401 || (status === 403 && message.includes('ტოკენი'))) {
       localStorage.removeItem('token');
       window.dispatchEvent(new Event('auth:session-expired'));
@@ -44,19 +66,17 @@ axios.interceptors.response.use(
 );
 
 interface UserPermission {
-  id: number;
+  // 🆔 UUID მიგრაცია (Roadmap STEP 1) — users.id ბექენდზე ახლა UUID
+  // string-ია, აღარ არის SERIAL INTEGER.
+  id: string;
   username: string;
   role: 'admin' | 'manager' | 'cashier';
   status: 'აქტიური' | 'დაბლოკილი';
 }
 
 // =======================================================
-// 🔄 SESSION RESTORE — ტოკენის ამოკითხვა და გახსნის ვადის შემოწმება
+// 🔄 SESSION RESTORE — ტოკენის ამოკითხვა
 // =======================================================
-// JWT-ის payload-ის (id, username, role) წამოღება localStorage-ში დარჩენილი
-// ტოკენიდან, გვერდის refresh-ის შემდეგ ავტორიზაციის ხელახლა აღსადგენად.
-// (ეს მხოლოდ UI-ის მდგომარეობის აღდგენისთვისაა — რეალურ დაცვას მაინც
-// ბექენდის authenticateToken middleware უზრუნველყოფს ყოველ request-ზე.)
 function getUserFromStoredToken(): UserPermission | null {
   const token = localStorage.getItem('token');
   if (!token) return null;
@@ -65,7 +85,6 @@ function getUserFromStoredToken(): UserPermission | null {
     const payloadBase64 = token.split('.')[1];
     const payload = JSON.parse(atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/')));
 
-    // ვადაგასული ტოკენი — ვასუფთავებთ და ვთვლით, რომ სესია აღარ არსებობს
     if (payload.exp && Date.now() >= payload.exp * 1000) {
       localStorage.removeItem('token');
       return null;
@@ -78,7 +97,6 @@ function getUserFromStoredToken(): UserPermission | null {
       status: 'აქტიური',
     };
   } catch {
-    // ტოკენი დაზიანებულია/არასწორი ფორმატისაა
     localStorage.removeItem('token');
     return null;
   }
@@ -88,6 +106,8 @@ function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [currentUser, setCurrentUser] = useState<UserPermission | null>(() => getUserFromStoredToken());
   const isLoggedIn = !!currentUser;
+  // 📱 მობილურზე Sidebar ნაგულისხმევად დამალულია — ჰამბურგერ ღილაკით იხსნება.
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
     const handleSessionExpired = () => setCurrentUser(null);
@@ -95,77 +115,172 @@ function App() {
     return () => window.removeEventListener('auth:session-expired', handleSessionExpired);
   }, []);
 
+  // ==========================================
+  // 📴 Roadmap STEP 5 — Background Sync Engine
+  // ==========================================
+  // 🌐 FIX: useBackgroundSyncEngine აღარ არის დამოკიდებული
+  // useNetworkStatus-ის ცალკე heartbeat-ზე (GET /api/health) — Worker
+  // თავად, დამოუკიდებლად უსმენს window-ის 'online' event-ს და საკუთარი
+  // POST-ის შედეგით წყვეტს, რეალურად online არის თუ არა. useNetworkStatus
+  // მაინც გამოძახებულია (მომავალში UI ინდიკატორისთვის სასარგებლო), მაგრამ
+  // sync-ის გაშვებას აღარ ბლოკავს, თუ ეს ცალკე heartbeat request ჩავარდა.
+  useNetworkStatus();
+  useBackgroundSyncEngine();
+
   // ავტორიზაცია ბეკენდის SQL ბაზის მეშვეობით
-  const handleLoginAttempt = async (username: string, password: string, callback: (err: string) => void) => {
+  const handleLoginAttempt = async (
+    username: string,
+    password: string,
+    // 🆔 UUID მიგრაცია (Roadmap STEP 1) — users.id ახლა UUID string-ია.
+    callback: (result: { error?: string; requiresPasswordReset?: boolean; userId?: string }) => void
+  ) => {
     try {
-      // const response = await axios.post('http://localhost:5000/api/login', { username, password });
       const response = await axios.post('/api/login', { username, password });
+      const { token, user, requiresPasswordReset } = response.data;
 
-      
-      // ბექენდიდან ახლა აბრუნებს ობიექტს { token, user }
-      const { token, user } = response.data;
+      // 🔐 თუ საწყისი პაროლის შეცვლაა საჭირო, სესიას ჯერ არ ვამყარებთ —
+      // ტოკენს არ ვინახავთ და დეშბორდზეც არ გადავდივართ. Login ფორმა
+      // თავად აჩვენებს inline პაროლის განახლების ფორმას (Login.tsx),
+      // და მხოლოდ /api/auth/reset-password-initial-ის წარმატების
+      // შემდეგ ვამყარებთ სესიას (იხ. handlePasswordResetComplete).
+      if (requiresPasswordReset) {
+        callback({ requiresPasswordReset: true, userId: user.id });
+        return;
+      }
 
-      // ვინახავთ ტოკენს ბრაუზერში, რათა ინტერცეპტორმა გამოიყენოს
+      // ვინახავთ ტოკენს ბრაუზერში
       localStorage.setItem('token', token);
 
       setCurrentUser(user);
       setCurrentPage(user.role === 'cashier' ? 'sales' : 'dashboard');
-      callback('');
+      callback({});
     } catch (error: any) {
       if (error.response && error.response.data.error) {
-        callback(error.response.data.error);
+        callback({ error: error.response.data.error });
       } else {
-        callback('სერვერთან კავშირი ვერ დამყარდა!');
+        callback({ error: 'სერვერთან კავშირი ვერ დამყარდა!' });
       }
     }
   };
 
+  // 🔐 საწყისი პაროლის განახლების დასრულების შემდეგ ბექენდი აბრუნებს
+  // ჩვეულებრივ login-ტოკენს — ამ ეტაპზე ვამყარებთ სესიას ისე,
+  // როგორც ჩვეულებრივი შესვლისას.
+  const handlePasswordResetComplete = (token: string, user: any) => {
+    localStorage.setItem('token', token);
+    setCurrentUser(user);
+    setCurrentPage(user.role === 'cashier' ? 'sales' : 'dashboard');
+  };
+
   // სისტემიდან გამოსვლის ფუნქცია
   const handleLogout = () => {
-    localStorage.removeItem('token'); // ვშლით ტოკენს მეხსიერებიდან
+    localStorage.removeItem('token'); 
     setCurrentUser(null);
   };
 
   if (!isLoggedIn) {
-    return <Login onLoginAttempt={handleLoginAttempt} />;
+    return <Login onLoginAttempt={handleLoginAttempt} onPasswordResetComplete={handlePasswordResetComplete} />;
   }
 
   const userRole = currentUser?.role;
   const isAdminOrManager = userRole === 'admin' || userRole === 'manager';
 
+  const navigateTo = (page: string) => {
+    setCurrentPage(page);
+    setMobileNavOpen(false);
+  };
+
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'sans-serif' }}>
+    <div className={styles.appShell}>
+      {/* 2. ჩავსვით ტოსტერის კომპონენტი, რომელიც ეკრანზე ზედა ცენტრში გამოაჩენს შეტყობინებებს */}
+      <Toaster position="top-center" reverseOrder={false} />
+
+      {/* 📱 მობილური ზედა ზოლი — ჰამბურგერ ღილაკით */}
+      <div className={styles.mobileTopbar}>
+        <button
+          className={styles.hamburgerBtn}
+          onClick={() => setMobileNavOpen(o => !o)}
+          aria-label="მენიუს გახსნა"
+        >
+          {mobileNavOpen ? '✕' : '☰'}
+        </button>
+        <span className={styles.brandTitle}>PayFlow</span>
+      </div>
+
+      {/* 📱 მობილურზე Sidebar-ის მიღმა მუქი overlay, დახურვისთვის */}
+      {mobileNavOpen && (
+        <div className={styles.sidebarOverlay} onClick={() => setMobileNavOpen(false)} />
+      )}
+
       {/* Sidebar მენიუ */}
-      <div style={{ width: '250px', backgroundColor: '#1e293b', color: '#fff', padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-        <div>
-          <h2 style={{ fontSize: '1.2rem', marginBottom: '5px', color: '#38bdf8' }}>ProjectPay</h2>
-          <p style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '30px', textTransform: 'uppercase' }}>
-            მომხმარებელი: {currentUser?.username} ({userRole})
+      <div className={`${styles.sidebar} ${mobileNavOpen ? styles.sidebarOpen : ''}`}>
+        <div className={styles.sidebarTop}>
+          <div className={styles.brand}>
+            <span className={styles.brandDot} />
+            <span className={styles.brandTitle}>PayFlow</span>
+          </div>
+          <p className={styles.userMeta}>
+            {currentUser?.username} · {userRole}
           </p>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+          <ul className={styles.nav}>
             {isAdminOrManager && (
               <>
-                <li onClick={() => setCurrentPage('dashboard')} style={{ padding: '12px 15px', cursor: 'pointer', borderRadius: '6px', backgroundColor: currentPage === 'dashboard' ? '#334155' : 'transparent', marginBottom: '8px' }}>📊 Dashboard</li>
-                <li onClick={() => setCurrentPage('products')} style={{ padding: '12px 15px', cursor: 'pointer', borderRadius: '6px', backgroundColor: currentPage === 'products' ? '#334155' : 'transparent', marginBottom: '8px' }}>📦 Products</li>
+                <li
+                  onClick={() => navigateTo('dashboard')}
+                  className={`${styles.navItem} ${currentPage === 'dashboard' ? styles.active : ''}`}
+                >
+                  📊 Dashboard
+                </li>
+                <li
+                  onClick={() => navigateTo('products')}
+                  className={`${styles.navItem} ${currentPage === 'products' ? styles.active : ''}`}
+                >
+                  📦 Products
+                </li>
               </>
             )}
             {userRole === 'cashier' && (
-              <li onClick={() => setCurrentPage('sales')} style={{ padding: '12px 15px', cursor: 'pointer', borderRadius: '6px', backgroundColor: currentPage === 'sales' ? '#334155' : 'transparent' }}>🛒 Sales (POS)</li>
+              <li
+                onClick={() => navigateTo('sales')}
+                className={`${styles.navItem} ${currentPage === 'sales' ? styles.active : ''}`}
+              >
+                🛒 Sales (POS)
+              </li>
             )}
-            {userRole === 'admin' && (
-              <li onClick={() => setCurrentPage('users_control')} style={{ padding: '12px 15px', cursor: 'pointer', borderRadius: '6px', backgroundColor: currentPage === 'users_control' ? '#334155' : 'transparent', marginTop: '15px', borderTop: '1px solid #475569', color: '#fbbf24' }}>👥 Users Control</li>
+            {isAdminOrManager && (
+              <li
+                onClick={() => navigateTo('users_control')}
+                className={`${styles.navItem} ${styles.navDivider} ${styles.navAccent} ${currentPage === 'users_control' ? styles.active : ''}`}
+              >
+                👥 Users Control
+              </li>
             )}
           </ul>
         </div>
-        <button onClick={handleLogout} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', width: '100%' }}>🚪 სისტემიდან გამოსვლა</button>
+        <button onClick={handleLogout} className={styles.logoutBtn}>🚪 სისტემიდან გამოსვლა</button>
       </div>
 
       {/* ძირითადი კონტენტი */}
-      <div style={{ flex: 1, backgroundColor: '#f8fafc', padding: '20px' }}>
-        {currentPage === 'dashboard' && isAdminOrManager && <Dashboard />}
-        {currentPage === 'products' && isAdminOrManager && <Products />}
-        {currentPage === 'sales' && userRole === 'cashier' && <Sales />}
-        {currentPage === 'users_control' && userRole === 'admin' && <UsersManagement />}
+      <div className={styles.content}>
+        {/* 🚧 Suspense — React.lazy()-ით დაშლილი გვერდების chunk-ის
+            ჩამოტვირთვის ხანმოკლე ფანჯარაში ჩანს (dist-ში ეს chunk
+            ცალკე ფაილია, პირველივე ვიზიტზე ერთხელ იტვირთება). */}
+        <Suspense fallback={<div className={styles.pageLoadingFallback}>იტვირთება...</div>}>
+          {currentPage === 'dashboard' && isAdminOrManager && <Dashboard />}
+          {currentPage === 'products' && isAdminOrManager && <Products />}
+          {/* 🖥️ Device Pairing (Roadmap STEP 2) — მხოლოდ POS/Sales გვერდზეა
+              საჭირო (ფიზიკური სალარო). Admin/Manager პანელი (Dashboard,
+              Products, Users Control) ამაზე დამოკიდებული არასდროს არ ყოფილა,
+              და Login-იც უკვე ცალკეა (isLoggedIn === false branch ზემოთ) —
+              ასე მენეჯერს/ადმინს ნებისმიერ მოწყობილობაზე შეუძლია შესვლა და
+              კოდის დადასტურება Users Control პანელიდან, დაწყვილების გარეშეც. */}
+          {currentPage === 'sales' && userRole === 'cashier' && (
+            <RegisterGuard>
+              <Sales />
+            </RegisterGuard>
+          )}
+          {currentPage === 'users_control' && isAdminOrManager && <UsersManagement currentUserRole={userRole} />}
+        </Suspense>
       </div>
     </div>
   );

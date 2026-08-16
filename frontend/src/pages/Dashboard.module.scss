@@ -1,0 +1,249 @@
+@use '../styles/variables' as v;
+@use '../styles/mixins' as m;
+
+.page {
+  animation: fadeInUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.heading {
+  color: v.$color-text-primary;
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0 0 24px 0;
+}
+
+// ==========================================================
+// 🗂 Tab Bar — ერთიანი, სუფთა
+// ==========================================================
+.tabBar {
+  // ⚠️ FIX: overflow-x:auto ადრე მხოლოდ @include m.mobile-ის (≤640px) შიგნით
+  // იყო — 640px-სა და sidebar-ის სრულ სიგანეზე (desktop) გადართვის
+  // brekpoint-ს (1024px) შორის "შუალედურ ზონაში" ტაბს overflow საერთოდ არ
+  // ჰქონდა და მესამე ტაბი უბრალოდ იჭრებოდა/ქრებოდა (html/body-ის გლობალურ
+  // overflow-x:hidden-ს ეკლიპებოდა), სანამ ჰამბურგერზე გადართვა content-ს
+  // ისევ საკმარის სივრცეს არ დაუბრუნებდა. ახლა ეს ყოველთვის აქტიურია.
+  display: flex;
+  max-width: 100%;
+  gap: 2px;
+  background: v.$color-bg-subtle;
+  padding: 4px;
+  border-radius: v.$radius-md;
+  margin-bottom: 24px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tabBtn {
+  border: none;
+  background: transparent;
+  padding: 9px 18px;
+  border-radius: v.$radius-sm;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13.5px;
+  color: v.$color-text-secondary;
+  transition: v.$transition-fast;
+  white-space: nowrap;
+
+  &:hover { color: v.$color-text-primary; }
+
+  &.tabActive {
+    background: v.$color-bg-card;
+    color: v.$color-primary;
+    box-shadow: v.$shadow-xs;
+  }
+}
+
+// ==========================================================
+// 💳 შემოსავლის ბარათი
+// ==========================================================
+.revenueCard {
+  @include m.card;
+  padding: 22px 24px;
+  margin-bottom: 20px;
+}
+
+.revenueLabel {
+  font-size: 13px;
+  color: v.$color-text-secondary;
+  font-weight: 600;
+}
+
+.revenueValue {
+  margin: 6px 0 0 0;
+  color: v.$color-success;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+// ==========================================================
+// 🔍 ფილტრები
+// ==========================================================
+.filters {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.filterInput {
+  @include m.input-base;
+  width: 180px;
+  cursor: default;
+
+  &[type='text'], &[type='date'] { cursor: text; }
+}
+
+.filterSelect {
+  @include m.input-base;
+  width: 180px;
+  cursor: pointer;
+}
+
+.exportBtn {
+  @include m.btn-base;
+  color: #fff;
+}
+.exportExcel { @include m.btn-success; }
+.exportPdf { @include m.btn-danger; }
+
+// ==========================================================
+// 📋 ცხრილი
+// ==========================================================
+.tableWrapper {
+  @include m.card;
+  overflow: hidden;
+  overflow-x: auto;
+}
+
+.table {
+  @include m.table-base;
+  min-width: 720px;
+}
+
+.emptyState {
+  padding: 40px;
+  text-align: center;
+  color: v.$color-text-muted;
+}
+
+.rowVoided {
+  opacity: 0.55;
+}
+
+.strike {
+  text-decoration: line-through;
+}
+
+.badgeStack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.badgeVoided { @include m.badge(v.$color-danger-soft, v.$color-danger); }
+.badgeDiscount { @include m.badge(v.$color-warning-soft, #B45309); }
+.badgeCash { @include m.badge(v.$color-success-soft, #15803D); }
+.badgeCard { @include m.badge(v.$color-primary-soft, #1D4ED8); }
+.badgeSplit { @include m.badge(v.$color-info-soft, #6D28D9); }
+.badgeOpen { @include m.badge(v.$color-success-soft, #15803D); }
+.badgeClosed { @include m.badge(v.$color-bg-subtle, v.$color-text-secondary); }
+// 🧾 Migration 012 — დაგვიანებული offline sync-ის მიერ შესწორებული ცვლა
+// (routes/sales.ts, syncSingleOfflineReceipt) — badgeOpen/badgeClosed-ის
+// გვერდით ჩნდება, არა მათ ნაცვლად.
+.badgeAmended {
+  @include m.badge(v.$color-danger-soft, v.$color-danger);
+  margin-left: 6px;
+}
+.reprintBtn {
+  @include m.btn-secondary;
+  padding: 6px 12px;
+  min-height: 30px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.expandBtn {
+  @include m.btn-ghost;
+  border: 1px solid v.$color-border;
+  padding: 5px 10px;
+  height: auto;
+  font-size: 13px;
+}
+
+.detailRow {
+  background: v.$color-bg-subtle;
+  padding: 0 20px 15px 40px;
+}
+
+.detailInner {
+  border-left: 2px solid v.$color-border-strong;
+  padding-left: 15px;
+  margin-top: 10px;
+}
+
+.detailItem {
+  font-size: 13.5px;
+  color: v.$color-text-secondary;
+  margin: 6px 0;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+
+  strong { color: v.$color-text-primary; font-family: v.$font-family-base; }
+}
+
+.detailDiscount {
+  font-size: 13px;
+  color: #B45309;
+  margin: 8px 0 0 0;
+  font-weight: 600;
+}
+
+.detailSplit {
+  font-size: 13px;
+  color: #6D28D9;
+  margin: 8px 0 0 0;
+  font-weight: 600;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+// ==========================================================
+// 📄 პაგინაცია
+// ==========================================================
+.pagination {
+  @include m.card;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+  padding: 12px 18px;
+  flex-wrap: wrap;
+  gap: 10px;
+
+  @include m.card-hover;
+}
+
+.pageInfo {
+  font-size: 13.5px;
+  color: v.$color-text-secondary;
+}
+
+.pageControls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pageBtn {
+  @include m.btn-secondary;
+  padding: 8px 16px;
+  height: auto;
+}
+
+.diffPositive { color: v.$color-success; font-weight: 700; }
+.diffNegative { color: v.$color-danger; font-weight: 700; }

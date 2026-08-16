@@ -1,0 +1,195 @@
+@use '../styles/variables' as v;
+@use '../styles/mixins' as m;
+
+.stateBox {
+  padding: 60px;
+  text-align: center;
+  color: v.$color-text-secondary;
+}
+
+.errorBox {
+  @extend .stateBox;
+  color: v.$color-danger;
+}
+
+.retryBtn {
+  @include m.btn-primary;
+  margin-top: 12px;
+}
+
+// ==========================================================
+// 🃏 ანალიტიკური ბარათები — უნიფიცირებული, თეთრ ფონზე
+// ==========================================================
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.statCard {
+  @include m.card;
+  @include m.card-hover;
+  padding: 20px 22px;
+  animation: fadeInUp 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.statHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: v.$color-text-secondary;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.statIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: v.$radius-sm;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.statValue {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: v.$color-text-primary;
+  letter-spacing: -0.02em;
+}
+
+.statSubtitle {
+  font-size: 12px;
+  color: v.$color-text-muted;
+  margin-top: 4px;
+}
+
+// ==========================================================
+// 🔔 Roadmap STEP 5 — Stock Deficit Notifications პანელი
+// ==========================================================
+.deficitPanel {
+  @include m.card;
+  padding: 22px;
+  margin-bottom: 16px;
+  border-color: v.$color-warning;
+  background: v.$color-warning-soft;
+}
+
+.deficitHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+
+  h3 { margin: 0; }
+}
+
+.deficitCountBadge {
+  @include m.badge(v.$color-warning, #7c4a03);
+}
+
+.deficitList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.deficitRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: v.$color-bg-card;
+  border: 1px solid v.$color-border;
+  border-radius: v.$radius-sm;
+  padding: 12px 16px;
+  flex-wrap: wrap;
+
+  @include m.mobile {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.deficitMain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 220px;
+
+  strong { color: v.$color-text-primary; font-size: 14px; }
+}
+
+.deficitQty {
+  font-size: 12.5px;
+  color: v.$color-text-secondary;
+}
+
+.deficitMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: v.$color-text-muted;
+  min-width: 140px;
+}
+
+.resolveBtn {
+  @include m.btn-secondary;
+  padding: 8px 14px;
+  min-height: 36px;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+// 🧾 Migration 012 — Shift Amendment ნოტიფიკაციები. .deficitHeader/
+// .deficitList/.deficitRow/.deficitMain/.deficitQty/.deficitMeta/.resolveBtn
+// ზემოთა კლასები გაზიარებულია (ვიზუალურად იდენტური card/row სტრუქტურა) —
+// მხოლოდ .amendmentPanel/.amendmentCountBadge ცალკეა, უფრო მაღალი
+// სიმძიმის ფინანსური (არა stock) რისკის აქცენტისთვის ($color-danger).
+.amendmentPanel {
+  @include m.card;
+  padding: 22px;
+  margin-bottom: 16px;
+  border-color: v.$color-danger;
+  background: v.$color-danger-soft;
+}
+
+.amendmentCountBadge {
+  @include m.badge(v.$color-danger, #ffffff);
+}
+
+// ==========================================================
+// 📈 გრაფიკები
+// ==========================================================
+.chartGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 16px;
+
+  @include m.tablet {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chartCard {
+  @include m.card;
+  padding: 22px;
+}
+
+.chartTitle {
+  margin: 0 0 16px 0;
+  color: v.$color-text-primary;
+  font-size: 14.5px;
+  font-weight: 700;
+}
+
+.chartEmpty {
+  color: v.$color-text-muted;
+  text-align: center;
+  padding: 40px;
+}

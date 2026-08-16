@@ -1,0 +1,371 @@
+@use '../styles/variables' as v;
+@use '../styles/mixins' as m;
+
+.page {
+  position: relative;
+  animation: fadeInUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.toastContainer {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 360px;
+
+  @include m.mobile {
+    left: 16px;
+    right: 16px;
+    max-width: none;
+  }
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: v.$color-bg-card;
+  border-left: 4px solid v.$color-primary;
+  color: v.$color-text-primary;
+  padding: 12px 16px;
+  border-radius: v.$radius-sm;
+  box-shadow: v.$shadow-lg;
+  font-size: 14px;
+  font-weight: 600;
+  animation: fadeInUp 0.2s ease-out;
+
+  &.toastSuccess { border-left-color: v.$color-success; }
+  &.toastError { border-left-color: v.$color-danger; }
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.heading {
+  color: v.$color-text-primary;
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.headerActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.historyBtn {
+  @include m.btn-secondary;
+  &.active { background: v.$color-text-primary; color: #fff; border-color: v.$color-text-primary; }
+}
+
+.addBtn { @include m.btn-primary; }
+
+.subtitle {
+  color: v.$color-text-secondary;
+  font-size: 13.5px;
+  margin-bottom: 24px;
+}
+
+// ==========================================================
+// 🕘 History panel
+// ==========================================================
+.historyPanel {
+  @include m.card;
+  margin-bottom: 20px;
+  padding: 18px 22px;
+}
+
+.historyPanelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
+
+  h3 { margin: 0; color: v.$color-text-primary; font-size: 14.5px; font-weight: 700; }
+}
+
+.historyPanelActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.exportLogsBtn {
+  @include m.btn-secondary;
+  padding: 6px 14px;
+  height: auto;
+  font-size: 12px;
+}
+
+.clearHistoryBtn {
+  @include m.btn-danger;
+  padding: 6px 14px;
+  height: auto;
+  font-size: 12px;
+}
+
+.historyEmpty {
+  color: v.$color-text-secondary;
+  font-size: 14px;
+  margin: 0;
+}
+
+.historyLogList {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.historyLogRow {
+  padding: 10px 0;
+  border-bottom: 1px solid v.$color-border;
+  font-size: 13px;
+  color: v.$color-text-primary;
+
+  &:last-child { border-bottom: none; }
+}
+
+.logTimestamp {
+  color: v.$color-text-muted;
+  margin-left: 8px;
+}
+
+.turnedOn { color: v.$color-success; font-weight: 700; }
+.turnedOff { color: v.$color-danger; font-weight: 700; }
+
+// ==========================================================
+// 📋 ცხრილი
+// ==========================================================
+.tableWrapper {
+  @include m.card;
+  overflow: hidden;
+  overflow-x: auto;
+
+  // 📱 ≤640px-ზე table-ს card view ცვლის (იხ. .userCardList) — 9-სვეტიანი
+  // ცხრილის ჰორიზონტალური სქროლი მოუხერხებელია, როცა row-ში select/
+  // checkbox/action-ღილაკებამდე მისაღწევად მუდმივად გვერდულად სქროლია საჭირო.
+  @include m.mobile {
+    display: none;
+  }
+}
+
+.table {
+  @include m.table-base;
+  min-width: 900px;
+}
+
+// ==========================================================
+// 📱 Card view — მხოლოდ ≤640px (table-ის ალტერნატივა)
+// ==========================================================
+.userCardList {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+
+  @include m.mobile {
+    display: flex;
+  }
+}
+
+.userCard {
+  @include m.card;
+  padding: 16px;
+}
+
+.userCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid v.$color-border;
+
+  .username { font-size: 15px; }
+}
+
+.cardRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid v.$color-border;
+
+  &:last-of-type { border-bottom: none; }
+}
+
+.cardRowLabel {
+  font-size: 13px;
+  color: v.$color-text-secondary;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.cardActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid v.$color-border;
+
+  .actionBtn { flex: 1; min-width: 100px; }
+}
+
+.username { font-weight: 700; color: v.$color-text-primary; }
+
+.roleBadgeAdmin { @include m.badge(v.$color-danger-soft, v.$color-danger); }
+.roleBadgeManager { @include m.badge(v.$color-warning-soft, #854D0E); }
+.roleBadgeCashier { @include m.badge(v.$color-success-soft, #166534); }
+
+.roleSelect {
+  @include m.input-base;
+  height: 36px;
+  padding: 6px 10px;
+  font-size: 13px;
+  width: auto;
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: v.$color-primary;
+
+  &:disabled { cursor: not-allowed; }
+}
+
+.statusBtn {
+  @include m.btn-base;
+  padding: 6px 14px;
+  height: auto;
+  font-size: 12.5px;
+  color: #fff;
+
+  &.statusActive { background: v.$color-success; &:hover:not(:disabled) { background: v.$color-success-hover; } }
+  &.statusBlocked { background: v.$color-danger; &:hover:not(:disabled) { background: v.$color-danger-hover; } }
+}
+
+.rowActions {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.actionBtn {
+  @include m.btn-base;
+  padding: 6px 10px;
+  height: auto;
+  font-size: 12px;
+  color: #fff;
+}
+.actionBtnPassword { background: v.$color-primary; &:hover:not(:disabled) { background: v.$color-primary-hover; } }
+.actionBtnPin { background: v.$color-info; &:hover:not(:disabled) { background: #7C3AED; } }
+.actionBtnPinSet { background: v.$color-warning; &:hover:not(:disabled) { background: #D97706; } }
+.actionBtnDelete { background: v.$color-danger; &:hover:not(:disabled) { background: v.$color-danger-hover; } }
+
+// ==========================================================
+// 🗔 მოდალები
+// ==========================================================
+.overlay { @include m.modal-overlay; }
+
+.modal {
+  @include m.modal-body;
+  max-width: 380px;
+}
+
+.modalTitle {
+  margin: 0 0 20px 0;
+  color: v.$color-text-primary;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.modalSubtitle {
+  margin: -12px 0 20px 0;
+  color: v.$color-text-secondary;
+  font-size: 14px;
+
+  strong { color: v.$color-text-primary; }
+}
+
+.field {
+  margin-bottom: 16px;
+}
+
+.label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: v.$color-text-secondary;
+}
+
+.fullInput { @include m.input-base; width: 100%; }
+
+.pinInput {
+  @include m.input-base;
+  width: 100%;
+  text-align: center;
+  font-size: 20px;
+  letter-spacing: 10px;
+}
+
+.errorText {
+  color: v.$color-danger;
+  font-size: 13px;
+  margin: -8px 0 14px 0;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.cancelBtn { @include m.btn-secondary; }
+.saveBtn { @include m.btn-primary; }
+.saveBtnGreen { @include m.btn-success; }
+.saveBtnPurple {
+  @include m.btn-base;
+  background: v.$color-info;
+  color: #fff;
+  &:hover:not(:disabled) { background: #7C3AED; }
+}
+
+// ⚠️ Confirm modal
+.confirmModal {
+  @include m.modal-body;
+  max-width: 380px;
+  text-align: center;
+}
+.confirmIcon { font-size: 32px; margin-bottom: 10px; }
+.confirmText { margin: 0 0 24px 0; color: v.$color-text-primary; font-size: 15px; line-height: 1.5; }
+.confirmWarning {
+  margin: 0 0 16px 0;
+  color: #92400E;
+  font-size: 13px;
+  background: v.$color-warning-soft;
+  padding: 10px 12px;
+  border-radius: v.$radius-sm;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  text-align: left;
+}
+.confirmActions { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }

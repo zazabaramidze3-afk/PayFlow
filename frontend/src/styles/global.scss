@@ -1,0 +1,87 @@
+@use './variables' as v;
+
+// ==========================================================
+// 🌐 გლობალური რესეტი და ბაზისური სტილები
+// ==========================================================
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  // 📱 მობილურზე ჰორიზონტალური overflow (და მისგან გამოწვეული "შევიწროებული
+  // კონტენტი + გვერდითი თეთრი ველები" ეფექტი) რომ არასდროს გაჩნდეს რომელიმე
+  // შვილი ელემენტის შემთხვევითი overflow-ის გამო.
+  overflow-x: hidden;
+}
+
+body {
+  background: v.$color-bg-page;
+  color: v.$color-text-primary;
+  font-family: v.$font-family-base;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+  width: 100%;
+}
+
+// ყველა ინტერაქციულ ელემენტზე გლობალური smooth transition
+a, button, input, select, textarea, [role='button'] {
+  transition: v.$transition-base;
+  font-family: inherit;
+}
+
+button {
+  font-family: inherit;
+}
+
+// ნაზი, თანამედროვე სქროლბარი
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: v.$color-border-strong;
+  border-radius: v.$radius-pill;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: v.$color-text-muted;
+}
+
+// ==========================================================
+// 🎬 გლობალური ანიმაციები
+// ==========================================================
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.fadeInUp {
+  animation: fadeInUp 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+}

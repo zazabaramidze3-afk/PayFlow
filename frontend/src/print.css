@@ -1,0 +1,119 @@
+/* ==========================================
+   🖨 ბეჭდვის გლობალური სტილები — Roadmap ეტაპი 7
+   ==========================================
+   ეს ფაილი გლობალურია (არა CSS module), განზრახ — @media print წესებმა
+   ერთდროულად უნდა მოიცვას რამდენიმე დამოუკიდებელი კომპონენტი (App.tsx-ის
+   Sidebar, Sales.tsx-ის/Dashboard.tsx-ის ღილაკები და ცხრილები), რაც CSS
+   module-ის სქოუფინგით შეუძლებელი იქნებოდა თითოეულ ფაილში ხელახლა
+   დაწერის გარეშე.
+
+   სტრატეგია — "print isolation": ბეჭდვისას მთელი გვერდი იმალება, გარდა
+   კონკრეტულად .print-area კლასის მქონე ბლოკისა (ჩეკი ან Z-Report). ეს
+   გაცილებით საიმედოა, ვიდრე Sidebar/ღილაკების ცალ-ცალკე .no-print
+   მარკირება ყველა კომპონენტში — ერთი წესების ნაკრები მთელ აპლიკაციას
+   ფარავს, მომავალში ახალი გვერდის/ღილაკის დამატებისას არაფრის
+   დამატებით მონიშვნა აღარ სჭირდება.
+   ========================================== */
+
+/* ეკრანზე ბეჭდვისთვის განკუთვნილი ბლოკები (ჩეკი, Z-Report) ნაგულისხმევად
+   დამალულია — ჩნდება მხოლოდ window.print()-ის დროს, @media print წესებით. */
+.print-area {
+  display: none;
+}
+
+@media print {
+  /* ერთი-ერთზე ISO ზომის ნაცვლად პრინტერს ვეუბნებით ზუსტ სიგანეს — Chrome/Edge
+     print preview-ს ეს ეხმარება, ავტომატურად აარჩიოს სწორი ზოლის სიგანე
+     ცარიელი მინდვრების გარეშე. სიმაღლე "auto" რჩება, რადგან თერმული ლენტა
+     უწყვეტია. */
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+
+  /* 1) მთელი გვერდი იმალება... */
+  body * {
+    visibility: hidden;
+  }
+
+  /* 2) ...გარდა .print-area-სი და მისი შვილი ელემენტებისა */
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+
+  /* 3) .print-area გამოაქვს layout flow-დან და გვერდის ზედა-მარცხენა
+     კუთხეში იდება — ისე, რომ დამალული (visibility: hidden) ელემენტების
+     დატოვებულმა "ცარიელმა ადგილმა" ცარიელი გვერდი არ დატოვოს. */
+  .print-area {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+}
+
+/* ==========================================
+   🧾 80mm/58mm თერმული პრინტერის ტიპოგრაფია
+   ==========================================
+   შენიშვნა: .receipt-80mm/.receipt-58mm კლასი ყოველთვის ერთვის .print-area-ს
+   გვერდით (მაგ. className="print-area receipt-80mm") — .print-area მართავს
+   ხილვადობას, receipt-*mm კი — ზომასა და ტიპოგრაფიას. */
+.receipt-80mm,
+.receipt-58mm {
+  font-family: 'Courier New', Courier, monospace;
+  color: #000;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.receipt-80mm {
+  width: 80mm;
+  font-size: 12px;
+  padding: 3mm;
+}
+
+.receipt-58mm {
+  width: 58mm;
+  font-size: 10px;
+  padding: 2mm;
+}
+
+.receipt-80mm h1,
+.receipt-80mm h2,
+.receipt-80mm h3,
+.receipt-58mm h1,
+.receipt-58mm h2,
+.receipt-58mm h3 {
+  text-align: center;
+  margin: 1.5mm 0;
+}
+
+.receipt-80mm hr,
+.receipt-58mm hr {
+  border: none;
+  border-top: 1px dashed #000;
+  margin: 2mm 0;
+}
+
+.receipt-80mm table,
+.receipt-58mm table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.receipt-80mm td,
+.receipt-80mm th,
+.receipt-58mm td,
+.receipt-58mm th {
+  padding: 0.5mm 0;
+  vertical-align: top;
+  word-break: break-word;
+}
+
+.receipt-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+}
