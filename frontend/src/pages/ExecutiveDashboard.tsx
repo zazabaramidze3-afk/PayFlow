@@ -189,7 +189,7 @@ export default function ExecutiveDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.get<DashboardStats>('http://localhost:5000/api/dashboard/stats');
+      const response = await axios.get<DashboardStats>('/api/dashboard/stats');
       setStats(response.data);
     } catch (err: unknown) {
       // "any"-ის ნაცვლად axios.isAxiosError ტიპის დამცველი — Clean Architecture წესი.
@@ -215,7 +215,7 @@ export default function ExecutiveDashboard() {
     setDeficitsLoading(true);
     try {
       const response = await axios.get<StockDeficitNotification[]>(
-        'http://localhost:5000/api/notifications/stock-deficits'
+        '/api/notifications/stock-deficits'
       );
       setDeficits(response.data);
     } catch {
@@ -233,7 +233,7 @@ export default function ExecutiveDashboard() {
   const handleResolveDeficit = async (id: string) => {
     setResolvingId(id);
     try {
-      await axios.put(`http://localhost:5000/api/notifications/stock-deficits/${id}/resolve`);
+      await axios.put(`/api/notifications/stock-deficits/${id}/resolve`);
       setDeficits((prev) => prev.filter((d) => d.id !== id));
     } catch {
       // 🔕 წარუმატებლობისას ჩანაწერი პანელში უბრალოდ რჩება — მენეჯერს
@@ -259,7 +259,7 @@ export default function ExecutiveDashboard() {
     setAmendmentsLoading(true);
     try {
       const response = await axios.get<ShiftAmendmentNotification[]>(
-        'http://localhost:5000/api/notifications/shift-amendments'
+        '/api/notifications/shift-amendments'
       );
       setAmendments(response.data);
     } catch {
@@ -277,7 +277,7 @@ export default function ExecutiveDashboard() {
   const handleResolveAmendment = async (id: string) => {
     setResolvingAmendmentId(id);
     try {
-      await axios.put(`http://localhost:5000/api/notifications/shift-amendments/${id}/resolve`);
+      await axios.put(`/api/notifications/shift-amendments/${id}/resolve`);
       setAmendments((prev) => prev.filter((a) => a.id !== id));
     } catch {
       // 🔕 წარუმატებლობისას ჩანაწერი პანელში უბრალოდ რჩება.

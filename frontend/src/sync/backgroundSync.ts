@@ -113,7 +113,7 @@ export async function syncOfflineReceipts(): Promise<SyncRunSummary> {
       // გარემოში) ფარდობითი გზა ბექენდის ნაცვლად frontend static
       // server-ს მიემართებოდა და 404/HTML-ს აბრუნებდა — ეს იყო STEP 5-ის
       // "საერთოდ არაფერი არ სინქრონდება" ბაგის ძირითადი მიზეზი.
-      response = await axios.post<OfflineSyncResponse>('http://localhost:5000/api/payments/sync-offline', payload);
+      response = await axios.post<OfflineSyncResponse>('/api/payments/sync-offline', payload);
     } catch {
       // 🌐 მთელი batch request ჩავარდა (ქსელი ისევ გაწყდა request-ის
       // შესრულებამდე, ან 401/500) — ყველა 'syncing'-ად მონიშნული ჩანაწერი

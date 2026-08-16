@@ -54,7 +54,7 @@ export function useNetworkStatus(): NetworkStatus {
       // პროექტის დანარჩენი, დადასტურებულად მომუშავე page-ების იგივე
       // კონვენცია (Sales.tsx, Dashboard.tsx, Products.tsx). იხ.
       // frontend/src/sync/backgroundSync.ts-ის იგივე FIX-ის კომენტარი.
-      await axios.get('http://localhost:5000/api/health', {
+      await axios.get('/api/health', {
         timeout: HEARTBEAT_TIMEOUT_MS,
         // 🚫 Authorization/X-Register-* headers-ს App.tsx/RegisterGuard.tsx-ის
         // interceptor-ები ისედაც ავტომატურად ურთავს — /api/health-ს ისინი

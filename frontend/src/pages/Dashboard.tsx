@@ -97,7 +97,7 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const res = await axios.get('http://localhost:5000/api/shifts/history');
+        const res = await axios.get('/api/shifts/history');
         const uniqueCashiers = Array.from(new Set(res.data.map((s: any) => JSON.stringify({ id: s.cashier_id, name: s.cashier_name }))))
           .map((s: any) => JSON.parse(s))
           .filter(c => c.name);
@@ -131,7 +131,7 @@ export default function Dashboard() {
 
   const loadPayments = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/payments', {
+      const res = await axios.get('/api/payments', {
         params: {
           cashierId: cashierId || undefined,
           productName: productName || undefined,
@@ -159,7 +159,7 @@ export default function Dashboard() {
 
   const loadShifts = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/shifts/history');
+      const res = await axios.get('/api/shifts/history');
       setShifts(res.data || []);
     } catch (err) {
       console.error("ცვლების წამოღების შეცდომა:", err);
@@ -184,7 +184,7 @@ export default function Dashboard() {
     if (paymentMethod) params.set('paymentMethod', paymentMethod);
     if (status) params.set('status', status);
     if (discount) params.set('discount', discount);
-    window.open(`http://localhost:5000/api/payments/export/${type}?${params.toString()}`, '_blank');
+    window.open(`/api/payments/export/${type}?${params.toString()}`, '_blank');
   };
 
   const toggleRow = (id: string) => {
