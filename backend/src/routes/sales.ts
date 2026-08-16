@@ -1488,14 +1488,21 @@ router.get('/payments/export/pdf', async (req: any, res: any) => {
       // Dashboard.tsx-ის ცხრილში ჩვენებული "🚫 გაუქმებული" ბეიჯის PDF-ის ანალოგი.
       doc.font(regularFont).fontSize(9);
       doc.fillColor(row.is_voided ? '#94a3b8' : '#000000');
-      doc.text(row.id.toString(), 40, currentY);
-      doc.text(row.cashier_name || 'N/A', 80, currentY);
-      doc.text(`${row.subtotal_amount} GEL`, 170, currentY);
-      doc.text(discountLabel, 250, currentY);
+      // 🩹 FIX (16.08) — row.id არის სრული UUID (36 სიმბოლო, მაგ.
+      // "712b0795-c382-49f7-9545-34e98fe50e1"), რომელიც ID სვეტის 40px
+      // სიგანეს (Cashier-მდე) 5x-ით აღემატებოდა და ვიზუალურად ედებოდა
+      // შემდეგ სვეტებს (Cashier/Subtotal/Total ტექსტს). სხვა ეკრანებზეც
+      // (POS, Users Control) მოკლე UUID-პრეფიქსი გამოიყენება საკმარისი
+      // იდენტიფიკაციისთვის — აქაც იგივე კონვენციას ვიცავთ. width+ellipsis
+      // დანარჩენ სვეტებზეც უსაფრთხოების ბადედაა (გრძელი Cashier სახელი და ა.შ.).
+      doc.text(row.id.toString().slice(0, 8), 40, currentY, { width: 35, ellipsis: true });
+      doc.text(row.cashier_name || 'N/A', 80, currentY, { width: 85, ellipsis: true });
+      doc.text(`${row.subtotal_amount} GEL`, 170, currentY, { width: 75, ellipsis: true });
+      doc.text(discountLabel, 250, currentY, { width: 85, ellipsis: true });
       // ⚠️ ემოჯი განზრახ არ გამოგვიყენებია — Helvetica/Sylfaen ფონტებს არ აქვთ
       // ემოჯი-გლიფები, PDF-ში ცარიელ ველად/broken glyph-ად აისახებოდა.
-      doc.text(`${row.total_amount} GEL${row.is_voided ? ' (VOID)' : ''}`, 340, currentY);
-      doc.text(row.created_at || '-', 420, currentY);
+      doc.text(`${row.total_amount} GEL${row.is_voided ? ' (VOID)' : ''}`, 340, currentY, { width: 75, ellipsis: true });
+      doc.text(row.created_at || '-', 420, currentY, { width: 130, ellipsis: true });
       doc.fillColor('#000000');
 
       currentY += 20;
