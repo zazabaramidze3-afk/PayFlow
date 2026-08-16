@@ -277,7 +277,7 @@ export default function Sales() {
 
   const fetchMyPermissions = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/me');
+      const response = await axios.get('/api/me');
       setCanViewHistory(response.data?.can_view_history !== false);
       setCanUseDiscount(response.data?.can_use_discount === true);
       setCanVoidReceipt(response.data?.can_void_receipt === true);
@@ -376,7 +376,7 @@ export default function Sales() {
   const performVoidReceipt = async (paymentId: string, overrideToken?: string) => {
     try {
       await axios.post(
-        `http://localhost:5000/api/payments/${paymentId}/void`,
+        `/api/payments/${paymentId}/void`,
         {},
         { headers: overrideToken ? { 'X-Manager-Override': `Bearer ${overrideToken}` } : undefined }
       );
@@ -399,7 +399,7 @@ export default function Sales() {
   const logCartOverride = async (action: 'clear-cart-override' | 'remove-item-override', overrideToken: string, detail?: string) => {
     try {
       await axios.post(
-        'http://localhost:5000/api/cart/confirm-override',
+        '/api/cart/confirm-override',
         { action, detail },
         { headers: { 'X-Manager-Override': `Bearer ${overrideToken}` } }
       );
@@ -446,7 +446,7 @@ export default function Sales() {
     setPinLoading(true);
     setPinError('');
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/verify-manager-pin', { pin: pinValue });
+      const response = await axios.post('/api/auth/verify-manager-pin', { pin: pinValue });
       const overrideToken: string | undefined = response.data?.managerOverrideToken;
 
       if (response.data?.success && overrideToken) {
@@ -549,7 +549,7 @@ export default function Sales() {
 
   const checkShiftStatus = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/shifts/status');
+      const response = await axios.get('/api/shifts/status');
       setHasActiveShift(response.data.hasActiveShift);
       setActiveShift(response.data.shift);
       cacheActiveShift(response.data.hasActiveShift, response.data.shift);
@@ -570,7 +570,7 @@ export default function Sales() {
 
   const loadProducts = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/products');
+      const response = await axios.get('/api/products');
       setProducts(response.data);
       // 📦 Roadmap STEP 4.1 — cached_products (Dexie) სინქრონიზდება ყოველ
       // წარმატებულ ჩატვირთვაზე (Cashier Login-ის/Shift-ის დაწყების დროს),
@@ -592,7 +592,7 @@ export default function Sales() {
   const handleOpenShift = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await axios.post('http://localhost:5000/api/shifts/open', { start_amount: parseFloat(startAmount) });
+      await axios.post('/api/shifts/open', { start_amount: parseFloat(startAmount) });
       checkShiftStatus();
     } catch (error: any) {
       showToast(error.response?.data?.message || 'შეცდომა', 'error');
@@ -636,7 +636,7 @@ export default function Sales() {
         showToast('✅ ყველა ოფლაინ ჩეკი დასინქრონდა', 'success');
       }
 
-      const response = await axios.put('http://localhost:5000/api/shifts/close', { end_amount_actual: parseFloat(endAmountActual) });
+      const response = await axios.put('/api/shifts/close', { end_amount_actual: parseFloat(endAmountActual) });
       setZReport(response.data);
       // 🖨 Roadmap ეტაპი 7 — დახურვის ზუსტი მომენტი, Z-Report-ის ბეჭდვისთვის.
       setShiftClosedAtDisplay(new Date().toLocaleString('ka-GE', { hour12: false }));
@@ -691,7 +691,7 @@ export default function Sales() {
   const fetchMyHistory = useCallback(async () => {
     setHistoryLoading(true);
     try {
-      const response = await axios.get('http://localhost:5000/api/payments/my-history');
+      const response = await axios.get('/api/payments/my-history');
       setHistoryReceipts(response.data.receipts || []);
       setHistorySummary(response.data.summary || { totalReceipts: 0, totalSum: 0 });
       setHistoryPage(1); // ახალი ჩატვირთვის შემდეგ ყოველთვის პირველ გვერდზე ვბრუნდებით
@@ -955,7 +955,7 @@ export default function Sales() {
       // can_use_discount არ გვყოფნის და ეს კონკრეტული checkout ფასდაკლებიან
       // override-ს ეყრდნობა. ტოკენს backend (sales.ts) ვერიფიცირებს ხელახლა —
       // ეს header უბრალოდ გადასცემს მას, არაფერს არ "ანდობს" frontend-ს.
-      const response = await axios.post('http://localhost:5000/api/payments', payload, {
+      const response = await axios.post('/api/payments', payload, {
         headers: usedOverrideToken ? { 'X-Manager-Override': `Bearer ${managerOverrideToken}` } : undefined,
       });
       showToast('გაყიდვა დასრულდა!', 'success');

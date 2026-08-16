@@ -236,7 +236,7 @@ export default function UsersManagement({ currentUserRole }: UsersManagementProp
 
   const loadUsers = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/users');
+      const response = await axios.get('/api/users');
       setUsers(response.data);
     } catch (error) {
       console.error(error);
@@ -248,7 +248,7 @@ export default function UsersManagement({ currentUserRole }: UsersManagementProp
   // "არსებულ სალაროზე მიბმა" dropdown-ისთვის).
   const loadRegisters = async () => {
     try {
-      const response = await axios.get<RegisterInfo[]>('http://localhost:5000/api/registers');
+      const response = await axios.get<RegisterInfo[]>('/api/registers');
       setRegistersList(response.data);
     } catch (error) {
       console.error(error);
@@ -287,7 +287,7 @@ export default function UsersManagement({ currentUserRole }: UsersManagementProp
     setPairLoading(true);
     setPairError('');
     try {
-      await axios.post('http://localhost:5000/api/registers/pair', {
+      await axios.post('/api/registers/pair', {
         code: pairCode,
         registerId: pairTarget === 'existing' ? pairRegisterId : undefined,
         newRegisterName: pairTarget === 'new' ? pairNewName.trim() : undefined,
@@ -309,7 +309,7 @@ export default function UsersManagement({ currentUserRole }: UsersManagementProp
       return;
     }
     try {
-      await axios.post('http://localhost:5000/api/users', {
+      await axios.post('/api/users', {
         username: newUsername,
         password: newPassword,
         role: newRole
@@ -327,7 +327,7 @@ export default function UsersManagement({ currentUserRole }: UsersManagementProp
 
   const handleRoleChange = async (id: string, currentStatus: string, newRole: 'admin' | 'manager' | 'cashier') => {
     try {
-      await axios.put(`http://localhost:5000/api/users/${id}`, { role: newRole, status: currentStatus });
+      await axios.put(`/api/users/${id}`, { role: newRole, status: currentStatus });
       setUsers(users.map(user => user.id === id ? { ...user, role: newRole } : user));
       showToast('უფლებები წარმატებით განახლდა!', 'success');
     } catch (error) {
@@ -338,7 +338,7 @@ export default function UsersManagement({ currentUserRole }: UsersManagementProp
   const toggleStatus = async (user: UserPermission) => {
     const nextStatus = user.status === 'ა ქ ტ ი უ რ ი ' ? 'და ბ ლო კ ი ლი ' : 'ა ქ ტ ი უ რ ი ';
     try {
-      await axios.put(`http://localhost:5000/api/users/${user.id}`, { role: user.role, status: nextStatus });
+      await axios.put(`/api/users/${user.id}`, { role: user.role, status: nextStatus });
       setUsers(users.map(u => u.id === user.id ? { ...u, status: nextStatus } : u));
       showToast(`სტატუსი შეიცვალა: ${nextStatus}`, 'success');
     } catch (error) {
@@ -349,7 +349,7 @@ export default function UsersManagement({ currentUserRole }: UsersManagementProp
   const loadAuditLogs = async () => {
     setHistoryLoading(true);
     try {
-      const response = await axios.get('http://localhost:5000/api/audit-logs');
+      const response = await axios.get('/api/audit-logs');
       setHistoryLogs(response.data);
     } catch (error) {
       console.error(error);
@@ -371,7 +371,7 @@ export default function UsersManagement({ currentUserRole }: UsersManagementProp
   // ბმულით ბრაუზერის ნავიგაცია ტოკენს ვერ გაატანდა და 401 დაგვიბრუნდებოდა.
   const handleExportLogs = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/audit-logs/export', {
+      const response = await axios.get('/api/audit-logs/export', {
         responseType: 'blob',
       });
       const url = window.URL.createObjectURL(new Blob([response.data], { type: 'text/csv;charset=utf-8;' }));
@@ -395,7 +395,7 @@ export default function UsersManagement({ currentUserRole }: UsersManagementProp
   // მხოლოდ ადმინს უჩნდება, მაგრამ ბექენდიც ცალკე ამოწმებს როლს).
   const performClearHistory = async () => {
     try {
-      const response = await axios.delete('http://localhost:5000/api/audit-logs');
+      const response = await axios.delete('/api/audit-logs');
       setHistoryLogs([]);
       showToast(response.data.message || 'ისტორია წარმატებით გასუფთავდა!', 'success');
     } catch (error: any) {
@@ -415,7 +415,7 @@ export default function UsersManagement({ currentUserRole }: UsersManagementProp
   const toggleHistoryAccess = async (u: UserPermission) => {
     const nextValue = !u.can_view_history;
     try {
-      await axios.put(`http://localhost:5000/api/users/${u.id}/history-access`, {
+      await axios.put(`/api/users/${u.id}/history-access`, {
         can_view_history: nextValue
       });
       setUsers(users.map(userItem => userItem.id === u.id ? { ...userItem, can_view_history: nextValue } : userItem));
@@ -433,7 +433,7 @@ export default function UsersManagement({ currentUserRole }: UsersManagementProp
   const toggleDiscountAccess = async (u: UserPermission) => {
     const nextValue = !u.can_use_discount;
     try {
-      await axios.put(`http://localhost:5000/api/users/${u.id}/discount-access`, {
+      await axios.put(`/api/users/${u.id}/discount-access`, {
         can_use_discount: nextValue
       });
       setUsers(users.map(userItem => userItem.id === u.id ? { ...userItem, can_use_discount: nextValue } : userItem));
@@ -449,7 +449,7 @@ export default function UsersManagement({ currentUserRole }: UsersManagementProp
   const toggleVoidAccess = async (u: UserPermission) => {
     const nextValue = !u.can_void_receipt;
     try {
-      await axios.put(`http://localhost:5000/api/users/${u.id}/void-access`, {
+      await axios.put(`/api/users/${u.id}/void-access`, {
         can_void_receipt: nextValue
       });
       setUsers(users.map(userItem => userItem.id === u.id ? { ...userItem, can_void_receipt: nextValue } : userItem));
@@ -465,7 +465,7 @@ export default function UsersManagement({ currentUserRole }: UsersManagementProp
   const toggleClearCartAccess = async (u: UserPermission) => {
     const nextValue = !u.can_clear_cart;
     try {
-      await axios.put(`http://localhost:5000/api/users/${u.id}/clear-cart-access`, {
+      await axios.put(`/api/users/${u.id}/clear-cart-access`, {
         can_clear_cart: nextValue
       });
       setUsers(users.map(userItem => userItem.id === u.id ? { ...userItem, can_clear_cart: nextValue } : userItem));
@@ -489,7 +489,7 @@ export default function UsersManagement({ currentUserRole }: UsersManagementProp
       return;
     }
     try {
-      const response = await axios.put(`http://localhost:5000/api/users/${userId}/password`, { newPassword: value });
+      const response = await axios.put(`/api/users/${userId}/password`, { newPassword: value });
       showToast(response.data.message || `პაროლი შეიცვალა [ ${username} ]-სთვის!`, 'success');
       setPasswordModal({ show: false, userId: null, username: '', value: '' });
     } catch (error: any) {
@@ -514,7 +514,7 @@ export default function UsersManagement({ currentUserRole }: UsersManagementProp
       return;
     }
     try {
-      const response = await axios.put(`http://localhost:5000/api/users/${userId}/pin`, { pin: value });
+      const response = await axios.put(`/api/users/${userId}/pin`, { pin: value });
       showToast(response.data.message || `PIN-კოდი დაყენდა [ ${username} ]-სთვის!`, 'success');
       closePinModal();
       loadUsers(); // has_manager_pin ცხრილში განახლდეს (Set → Change ღილაკის ტექსტი)
@@ -527,7 +527,7 @@ export default function UsersManagement({ currentUserRole }: UsersManagementProp
 
   const performDelete = async (id: string, username: string) => {
     try {
-      const response = await axios.delete(`http://localhost:5000/api/users/${id}`);
+      const response = await axios.delete(`/api/users/${id}`);
       setUsers(users.filter(user => user.id !== id));
       showToast(response.data.message || `მომხმარებელი [ ${username} ] წაიშალა!`, 'success');
     } catch (error: any) {

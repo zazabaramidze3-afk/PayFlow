@@ -72,7 +72,7 @@ export default function Products() {
   // პროდუქტების წამოღება API-დან
   const fetchProducts = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/products');
+      const response = await axios.get('/api/products');
       if (Array.isArray(response.data)) {
         setProducts(response.data);
       } else {
@@ -89,7 +89,7 @@ export default function Products() {
     setScannedBarcode(cleanBarcode);
     setScannerModalOpen(true);
     try {
-      const response = await axios.get(`http://localhost:5000/api/products/barcode/${cleanBarcode}`);
+      const response = await axios.get(`/api/products/barcode/${cleanBarcode}`);
       if (response.data.exists) {
         setFoundProduct(response.data.product);
         setIsNewProductMode(false);
@@ -116,7 +116,7 @@ export default function Products() {
     }
 
     try {
-      await axios.patch(`http://localhost:5000/api/products/${foundProduct.id}/restock`, {
+      await axios.patch(`/api/products/${foundProduct.id}/restock`, {
         quantityToAdd: qty
       });
       setProducts(products.map(p => p.id === foundProduct.id ? { ...p, stock: p.stock + qty } : p));
@@ -143,7 +143,7 @@ export default function Products() {
     }
 
     try {
-      const response = await axios.post('http://localhost:5000/api/products', {
+      const response = await axios.post('/api/products', {
         barcode: scannedBarcode, name, price: parsedPrice, stock: parsedStock
       });
       setProducts([...products, response.data]);
@@ -188,12 +188,12 @@ export default function Products() {
 
     try {
       if (editingId) {
-        const response = await axios.put(`http://localhost:5000/api/products/${editingId}`, productData);
+        const response = await axios.put(`/api/products/${editingId}`, productData);
         setProducts(products.map(p => p.id === editingId ? response.data : p));
         setEditingId(null);
         toast.success('პროდუქტი წარმატებით განახლდა!');
       } else {
-        const response = await axios.post('http://localhost:5000/api/products', productData);
+        const response = await axios.post('/api/products', productData);
         setProducts([...products, response.data]);
         toast.success('პროდუქტი წარმატებით დაემატა!');
       }
@@ -206,7 +206,7 @@ export default function Products() {
   // წაშლის ლოგიკა — ფაქტობრივი წაშლა (გამოიძახება confirm მოდალის დადასტურების შემდეგ)
   const performDelete = async (id: number) => {
     try {
-      await axios.delete(`http://localhost:5000/api/products/${id}`);
+      await axios.delete(`/api/products/${id}`);
       setProducts(products.filter(p => p.id !== id));
       toast.success('პროდუქტი წაიშალა');
     } catch (error) {
@@ -236,7 +236,7 @@ export default function Products() {
   // რეპორტების ექსპორტი (Excel / PDF)
   const exportToExcel = async () => {
     try {
-      const url = `http://localhost:5000/api/products/export/excel${showOnlyLowStock ? '?type=low' : ''}`;
+      const url = `/api/products/export/excel${showOnlyLowStock ? '?type=low' : ''}`;
       const response = await axios.get(url, { responseType: 'blob' });
       const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const link = document.createElement('a');
@@ -250,7 +250,7 @@ export default function Products() {
 
   const exportToPDF = async () => {
     try {
-      const url = `http://localhost:5000/api/products/export/pdf${showOnlyLowStock ? '?type=low' : ''}`;
+      const url = `/api/products/export/pdf${showOnlyLowStock ? '?type=low' : ''}`;
       const response = await axios.get(url, { responseType: 'blob' });
       const blob = new Blob([response.data], { type: 'application/pdf' });
       const link = document.createElement('a');
