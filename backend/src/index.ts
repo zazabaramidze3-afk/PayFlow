@@ -53,6 +53,16 @@ const ALLOWED_ORIGINS = [
   'http://localhost:5173',
 ];
 
+// ⚠️ Vercel ყოველ deployment-ს (production თუ preview) ავტომატურად
+// აძლევს საკუთარ უნიკალურ domain-ს VERCEL_URL-ში (მაგ. preview-ისთვის
+// "payflow-git-<branch>-<hash>-<team>.vercel.app" — წინასწარ არაპროგნო-
+// ზირებადი). ამის გარეშე frontend-ის საკუთარი "/api/..." request-იც კი
+// (თუნდაც სრულად same-origin) ჩვენივე origin-check-ს "ჩავარდებოდა",
+// რადგან preview-ის URL არასდროს იქნებოდა ჩვენს hardcoded სიაში.
+if (process.env.VERCEL_URL) {
+  ALLOWED_ORIGINS.push(`https://${process.env.VERCEL_URL}`);
+}
+
 app.use(
   cors({
     origin(origin, callback) {
