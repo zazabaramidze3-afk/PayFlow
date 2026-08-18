@@ -1,3 +1,8 @@
+// ⚠️ Sentry-ის ინიციალიზაცია — უნდა დარჩეს ყველაზე პირველ import-ად,
+// სანამ express/cors/pg და დანარჩენი module-ები ჩაიტვირთება (იხ. instrument.ts).
+import './instrument';
+import * as Sentry from '@sentry/node';
+
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -24,7 +29,60 @@ import notificationsRoutes from './routes/notifications';
 dotenv.config();
 
 const app = express();
-app.use(cors());
+
+// ==========================================
+//  🔒 CORS Allowlist (Roadmap STEP 0 / ცვლილება #7)
+// ==========================================
+// ⚠️ FIX: ადრე app.use(cors()) ყოველ origin-ს უშვებდა — ნებისმიერ საიტს
+// შეეძლო API-სთან პირდაპირი მიმართვა. ახლა მხოლოდ ცნობილი origin-ები.
+//
+// შენიშვნა: frontend თავად production-დან '/api/...' (რელატიური path)
+// მისამართებს იყენებს — ეს ინჰერენტულად same-origin request-ია,
+// CORS მასზე საერთოდ არ მოქმედებს. ეს allowlist იცავს backend-ს
+// მესამე მხარის საიტებიდან პირდაპირი (cross-origin) request-ებისგან
+// და უჭერს მხარს ლოკალურ დეველოპმენტს (Vite dev server production
+// API-სთან) და preview-დან production-ზე ხელით ტესტვას.
+const ALLOWED_ORIGINS = [
+  'https://pay-flow-coral.vercel.app',
+  'https://pay-flow-zet3.vercel.app',
+  // ⚠️ frontend/vite.config.ts-ში server.port === 3000 (არა Vite-ის
+  // default 5173) — ეს ზუსტად ის port-ია, საიდანაც dev-ში frontend
+  // მუშაობს. 5173 დამატებულია მხოლოდ fallback-ად, თუ port-კონფიგი
+  // მომავალში შეიცვლება.
+  'http://localhost:3000',
+  'http://localhost:5173',
+];
+
+// ⚠️ Vercel ყოველ deployment-ს (production თუ preview) ავტომატურად
+// აძლევს საკუთარ უნიკალურ domain-ს VERCEL_URL-ში (მაგ. preview-ისთვის
+// "payflow-git-<branch>-<hash>-<team>.vercel.app" — წინასწარ არაპროგნო-
+// ზირებადი). ამის გარეშე frontend-ის საკუთარი "/api/..." request-იც კი
+// (თუნდაც სრულად same-origin) ჩვენივე origin-check-ს "ჩავარდებოდა",
+// რადგან preview-ის URL არასდროს იქნებოდა ჩვენს hardcoded სიაში.
+if (process.env.VERCEL_URL) {
+  ALLOWED_ORIGINS.push(`https://${process.env.VERCEL_URL}`);
+}
+
+// ⚠️ Vercel-ს ასევე აქვს "branch alias" domain (*-git-<branch>-*.vercel.app),
+// რომელიც ერთი და იმავე branch-ის ყველა redeploy-ს შორის სტაბილურად
+// უცვლელი რჩება (განსხვავებით VERCEL_URL-ისგან, რომელიც ყოველ redeploy-ზე
+// იცვლება). ამის გარეშე branch-alias URL-ზე login CORS-ს ჩავარდებოდა.
+if (process.env.VERCEL_BRANCH_URL) {
+  ALLOWED_ORIGINS.push(`https://${process.env.VERCEL_BRANCH_URL}`);
+}
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      // curl/Postman/server-to-server მოთხოვნებს Origin header არ აქვს —
+      // დაშვებულია (ბრაუზერის CORS-ს ეს შემთხვევები არც ეხება).
+      if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`CORS: origin "${origin}" დაშვებული არ არის`));
+    },
+  })
+);
 app.use(express.json());
 
 // სხვა ფაილებისთვის თავსებადობის შესანარჩუნებლად (ექსპორტი db სახელით)
@@ -59,6 +117,13 @@ app.use('/api', auditLogsRoutes);
 app.use('/api', dashboardRoutes);
 app.use('/api', registersRoutes);
 app.use('/api', notificationsRoutes);
+
+// ==========================================
+//  🛰️ Sentry Error Handler (Roadmap STEP 0 / ცვლილება #7)
+// ==========================================
+// უნდა დარჩეს ყველა route/controller-ის შემდეგ და ნებისმიერი
+// custom error-handling middleware-ის წინ (ჯერჯერობით ასეთი არ გვაქვს).
+Sentry.setupExpressErrorHandler(app);
 
 // ==========================================
 // 💓 GET /api/health — Roadmap STEP 5 (useNetworkStatus hook)
