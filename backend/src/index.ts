@@ -29,7 +29,42 @@ import notificationsRoutes from './routes/notifications';
 dotenv.config();
 
 const app = express();
-app.use(cors());
+
+// ==========================================
+//  🔒 CORS Allowlist (Roadmap STEP 0 / ცვლილება #7)
+// ==========================================
+// ⚠️ FIX: ადრე app.use(cors()) ყოველ origin-ს უშვებდა — ნებისმიერ საიტს
+// შეეძლო API-სთან პირდაპირი მიმართვა. ახლა მხოლოდ ცნობილი origin-ები.
+//
+// შენიშვნა: frontend თავად production-დან '/api/...' (რელატიური path)
+// მისამართებს იყენებს — ეს ინჰერენტულად same-origin request-ია,
+// CORS მასზე საერთოდ არ მოქმედებს. ეს allowlist იცავს backend-ს
+// მესამე მხარის საიტებიდან პირდაპირი (cross-origin) request-ებისგან
+// და უჭერს მხარს ლოკალურ დეველოპმენტს (Vite dev server production
+// API-სთან) და preview-დან production-ზე ხელით ტესტვას.
+const ALLOWED_ORIGINS = [
+  'https://pay-flow-coral.vercel.app',
+  'https://pay-flow-zet3.vercel.app',
+  // ⚠️ frontend/vite.config.ts-ში server.port === 3000 (არა Vite-ის
+  // default 5173) — ეს ზუსტად ის port-ია, საიდანაც dev-ში frontend
+  // მუშაობს. 5173 დამატებულია მხოლოდ fallback-ად, თუ port-კონფიგი
+  // მომავალში შეიცვლება.
+  'http://localhost:3000',
+  'http://localhost:5173',
+];
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      // curl/Postman/server-to-server მოთხოვნებს Origin header არ აქვს —
+      // დაშვებულია (ბრაუზერის CORS-ს ეს შემთხვევები არც ეხება).
+      if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`CORS: origin "${origin}" დაშვებული არ არის`));
+    },
+  })
+);
 app.use(express.json());
 
 // სხვა ფაილებისთვის თავსებადობის შესანარჩუნებლად (ექსპორტი db სახელით)
