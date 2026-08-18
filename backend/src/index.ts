@@ -63,6 +63,14 @@ if (process.env.VERCEL_URL) {
   ALLOWED_ORIGINS.push(`https://${process.env.VERCEL_URL}`);
 }
 
+// ⚠️ Vercel-ს ასევე აქვს "branch alias" domain (*-git-<branch>-*.vercel.app),
+// რომელიც ერთი და იმავე branch-ის ყველა redeploy-ს შორის სტაბილურად
+// უცვლელი რჩება (განსხვავებით VERCEL_URL-ისგან, რომელიც ყოველ redeploy-ზე
+// იცვლება). ამის გარეშე branch-alias URL-ზე login CORS-ს ჩავარდებოდა.
+if (process.env.VERCEL_BRANCH_URL) {
+  ALLOWED_ORIGINS.push(`https://${process.env.VERCEL_BRANCH_URL}`);
+}
+
 app.use(
   cors({
     origin(origin, callback) {
