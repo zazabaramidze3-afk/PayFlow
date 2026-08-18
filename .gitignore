@@ -1,2 +1,18 @@
 
 _to_delete/
+
+# ⚠️ Security (18.08.2026-ის შემდეგ დამატებული) — VS Code Local History
+# extension ავტომატურად ინახავს ყოველი ფაილის (მათ შორის .env-ის)
+# snapshot-ებს .history/-ში. ეს იყო 16.08.2026-ის secrets-leak
+# incident-ის მიზეზი (Neon DB პაროლი + JWT_SECRET გაჟონა). ეს root
+# .gitignore ფარავს მთელ workspace-ს (backend/, frontend/, root),
+# რადგან Local History workspace-ის სრულ სტრუქტურას იმეორებს.
+.history/
+.env
+.env.*
+!.env.example
+
+node_modules/
+dist/
+build/
+.DS_Store

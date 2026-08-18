@@ -1,3 +1,8 @@
+// ⚠️ Sentry-ის ინიციალიზაცია — უნდა დარჩეს ყველაზე პირველ import-ად,
+// სანამ express/cors/pg და დანარჩენი module-ები ჩაიტვირთება (იხ. instrument.ts).
+import './instrument';
+import * as Sentry from '@sentry/node';
+
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -59,6 +64,13 @@ app.use('/api', auditLogsRoutes);
 app.use('/api', dashboardRoutes);
 app.use('/api', registersRoutes);
 app.use('/api', notificationsRoutes);
+
+// ==========================================
+//  🛰️ Sentry Error Handler (Roadmap STEP 0 / ცვლილება #7)
+// ==========================================
+// უნდა დარჩეს ყველა route/controller-ის შემდეგ და ნებისმიერი
+// custom error-handling middleware-ის წინ (ჯერჯერობით ასეთი არ გვაქვს).
+Sentry.setupExpressErrorHandler(app);
 
 // ==========================================
 // 💓 GET /api/health — Roadmap STEP 5 (useNetworkStatus hook)
