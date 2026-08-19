@@ -109,11 +109,18 @@ app.use(
 
 ---
 
-## ⚠️ დარჩენილი STEP 0 პუნქტები (16.08-ის სიიდან, ჯერ არ გაკეთებული)
+## ✅ დასრულებულია — STEP 0-ის დარჩენილი 3 პუნქტი + STEP 2.3 ტესტების ჩონჩხი (19.08.2026, სესიის გაგრძელება)
 
-1. `backend/tsconfig.json` + `tsc --noEmit` — type-checking-ის სისუფთავის დადასტურება
-2. `GET /users` route-ის `ORDER BY` ფიქსი
-3. რეალური ბრენდინგის PWA icons (placeholder-ები კვლავ placeholder-ია)
+STEP 0-ის ბოლო სამივე პუნქტი (16.08-ის სიიდან) დღეს დაიხურა, პარალელურად დაიწერა STEP 2.3-ის (tenant-isolation ტესტები) ჩონჩხიც — Roadmap "16.08.2026" ცვლილება #3-ის მოთხოვნით, STEP 1-ის migration-ის დაწერამდე:
+
+1. **`tsc --noEmit`** — გადამოწმებულია, უკვე სუფთაა (`strict: true`-ით, კოდის ცვლილება არ დასჭირდა). ლოკალურად აწყობილი clean environment-ით დამოწმებული.
+2. **`GET /users` `ORDER BY`** — კოდში უკვე იყო `ORDER BY id ASC` (`auth.ts:345`, git history-ის მიხედვით — თავიდანვე ასე იყო). 16.08-ის roadmap-ის ჩანაწერი მოძველებული აღმოჩნდა, რეალური ფიქსი აღარ დასჭირდა.
+3. **PWA icons** — placeholder "P" ასო შეიცვალა დროებითი გაუმჯობესებული ლოგოთი (blue squircle + monogram + flow accent) ოთხივე ზომაზე (`favicon.ico`, `apple-touch-icon.png`, `pwa-192x192.png`, `pwa-512x512.png`). ეს **დროებითია** — რეალური ბრენდინგი მომავალშია დასამატებელი (`vite.config.ts`-ის manifest-ის მიხედვით).
+4. **STEP 2.3 — tenant-isolation ტესტების ჩონჩხი** (`backend/tests/isolation/`, vitest + supertest): `env.ts` (TEST_DATABASE_URL სავალდებულო, Neon production-ზე შემთხვევითი გაშვების დაცვა), `schema.ts` (runtime-ზე STEP 1-ის migration-ის detection), `seed.ts`/`api.ts` (org/user/product seed + login helper-ები), `tenant-isolation.test.ts` — ახლა (STEP 1-მდე) მხოლოდ trivial smoke ტესტები გადის, STEP 1-ის merge-ის შემდეგ ავტომატურად ჩაირთვება რეალური Org A vs Org B შემოწმება `users`/`products`-ზე; დანარჩენი endpoint-ები (`payments`/`shifts`/`dashboard`/`notifications`/`registers`/`audit-logs`) `it.todo`-დაა მონიშნული, ცვლილება #4-ის რისკის-ზრდადობის თანმიმდევრობით.
+
+**დადასტურება:** ლოკალურად აწყობილი Postgres 16 + ყველა migration (001-012) + რეალურად გაშვებული backend-ის წინააღმდეგ. `tsc --noEmit` სუფთაა, smoke ტესტები მწვანეა. დამატებით, ხელოვნურად დამატებული `organizations`/`organization_id` სვეტებით (STEP 1-ის სიმულაცია) დადასტურდა, რომ ტესტი სწორად იჭერს ამჟამინდელ, ჯერ განუხორციელებელ cross-tenant გაჟონვას `GET /users`/`GET /products`-ზე — ანუ ტესტის ლოგიკა რეალურად მუშაობს, არა მხოლოდ ტრივიალურად გადის.
+
+**Git:** ახალი branch `feat/pwa-icons-and-tenant-isolation-tests` (წინა, merged `feat/step0-sentry-cors`-ის თავზე), commit `ed9c173` — 12 ფაილი, +641/−34. PR გახსნილია (`main` ← `feat/pwa-icons-and-tenant-isolation-tests`).
 
 ## ⚠️ სხვა ცნობილი, გადავადებული ხარვეზები
 
@@ -127,12 +134,12 @@ app.use(
 
 ## განახლებული პრიორიტეტების რიგი (Multi-Tenant SaaS მიმართულებით)
 
-1. ~~Sentry + CORS allowlist~~ ✅ **დასრულებული და production-ზე დადასტურებული (ეს სესია)**
-2. STEP 0-ის დარჩენილი 3 პუნქტი (ზემოთ) — დამოუკიდებელი, სწრაფი
-3. **Neon branch-ის მომზადება** — production ბაზის branch STEP 1-ის migration-ის უსაფრთხო ტესტვისთვის
-4. **STEP 2-ის იზოლაციის ტესტების ჩონჩხი** — დაწერეთ ჯერ, სანამ STEP 1-ის migration საერთოდ დაიწერება
+1. ~~Sentry + CORS allowlist~~ ✅ **დასრულებული და production-ზე დადასტურებული**
+2. ~~STEP 0-ის დარჩენილი 3 პუნქტი~~ ✅ **დასრულებული (19.08, ეს სესია)** — `tsc --noEmit`, `GET /users` ORDER BY (უკვე იყო), PWA icons
+3. ~~STEP 2-ის იზოლაციის ტესტების ჩონჩხი~~ ✅ **დაწერილია და დამოწმებული (19.08, ეს სესია)** — STEP 1-ის migration-ის დაწერამდე, roadmap-ის მოთხოვნისამებრ
+4. **Neon branch-ის მომზადება** — production ბაზის branch STEP 1-ის migration-ის უსაფრთხო ტესტვისთვის. **ბლოკილია მომხმარებელზე** — საჭიროა Neon API key (Neon dashboard → Settings → API Keys)
 5. **STEP 1** — `organizations` ცხრილი, `organization_id` backfill, UNIQUE constraints-ის განახლება
-6. **STEP 2** — route-ების გადასინჯვა რისკის ზრდადობით (read-only → write-heavy), RLS, ტესტების საბოლოო დამტკიცება
+6. **STEP 2** — route-ების გადასინჯვა რისკის ზრდადობით (read-only → write-heavy), RLS, ტესტების საბოლოო დამტკიცება (STEP 2.3-ის ჩონჩხი უკვე მზადაა, ივსება route-review-ის პარალელურად)
 7. **გადაწყვეტილების წერტილი** — SaaS vs Multi-Store, STEP 2-ის შედეგების საფუძველზე
 8. **STEP 3-4** (SaaS-ის შემთხვევაში) ან **ხელით org-მართვა** (Multi-Store-ის შემთხვევაში)
 9. **STEP 5-7** — საჭიროებისამებრ, მოცულობის ზრდასთან ერთად, launch-ს არ ბლოკავს
