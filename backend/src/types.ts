@@ -3,7 +3,7 @@
 // ==========================================
 // ერთადერთი წყარო users ცხრილის row-ის ფორმისთვის ბექენდზე.
 // სვეტების ნუსხა უნდა ემთხვეოდეს backend/migrations/*.sql-ს
-// (ბოლო: 010_add_activation_codes.sql). ახალი მიგრაციის
+// (ბოლო: 013_add_organizations_and_tenant_scope.sql). ახალი მიგრაციის
 // დამატებისას აქაც უნდა აისახოს შესაბამისი ველი — "any"-ის ნაცვლად
 // ყოველთვის ეს ინტერფეისი გამოვიყენოთ db.query-ის generic ტიპად.
 //
@@ -12,6 +12,14 @@
 // TypeScript-ის მხარეს) — Offline Mode-ში სხვადასხვა Register-ზე
 // კლიენტის მიერ დამოუკიდებლად გენერირებული ID-ების კოლიზიის
 // თავიდან ასაცილებლად.
+//
+// 🏢 Multi-Tenant SaaS STEP 1 (migration 013): `organizations` ცხრილი +
+// `organization_id` FK ემატება ყველა ქვემოთა ინტერფეისს, გარდა
+// `ActivationCode`-ისა (იხ. მისი განსხვავებული, nullable ტიპი და
+// კომენტარი ქვემოთ — migration 013-ის თავსართის იგივე დასაბუთებით).
+// STEP 2-მდე (route-level `WHERE organization_id = $1` scoping) ეს ველი
+// ჯერ არცერთ routes/*.ts ფაილში არ გამოიყენება — მხოლოდ ტიპის დონეზეა
+// უკვე ასახული, რომ STEP 2-ის route-review მას მზად დახვდეს.
 
 export type UserRole = 'admin' | 'manager' | 'cashier';
 
@@ -39,6 +47,31 @@ export interface User {
   // 🔐 bcrypt ჰეში (10 salt rounds), არასდროს plain text. NULL == PIN
   // ჯერ არ დაუყენებია ადმინს ამ მენეჯერისთვის (Roadmap ეტაპი 2).
   manager_pin: string | null;
+  // 🏢 Multi-Tenant SaaS STEP 1 (migration 013) — NOT NULL, ბექფილილი
+  // ერთი "default" org-ით ყველა არსებული production მომხმარებლისთვის.
+  organization_id: string;
+}
+
+// ==========================================
+// public.organizations ცხრილი — Multi-Tenant SaaS STEP 1 (migration 013)
+// ==========================================
+// Root ცხრილი ტენანტებისთვის — `users`/`registers`/`shifts`/`payments`/
+// `products`/`audit_logs`/`stock_deficit_notifications`/`shift_amendments`-ის
+// `organization_id` FK-ები ყველა აქ მიუთითებს.
+export type OrganizationStatus = 'trial' | 'active' | 'suspended' | 'cancelled';
+
+export interface Organization {
+  id: string;
+  name: string;
+  // subdomain/URL-ისთვის (Roadmap STEP 7) — ჯერჯერობით მხოლოდ უნიკალური
+  // იდენტიფიკატორია, routing ჯერ არ არსებობს.
+  slug: string;
+  status: OrganizationStatus;
+  // TEXT ჯერჯერობით (არა FK ცალკე `plans`-ცხრილზე) — STEP 4-ის (Stripe
+  // billing) წინაპირობა, STEP 1-ის დათქმის მიხედვით.
+  plan: string;
+  trial_ends_at: string | null;
+  created_at: string;
 }
 
 // PIN-ის ვერიფიკაციისთვის საკმარისი მინიმალური ველების ქვესიმრავლე —
@@ -56,6 +89,8 @@ export interface Register {
   name: string;
   is_active: boolean;
   created_at: string;
+  // 🏢 Multi-Tenant SaaS STEP 1 (migration 013) — NOT NULL, ბექფილილი.
+  organization_id: string;
 }
 
 // ==========================================
@@ -76,6 +111,14 @@ export interface ActivationCode {
   expires_at: string;
   confirmed_by: string | null;
   confirmed_at: string | null;
+  // 🏢 Multi-Tenant SaaS STEP 1 (migration 013) — ⚠️ NULLABLE, დანარჩენი
+  // ცხრილებისგან განსხვავებით: POST /api/registers/generate-code
+  // ავტორიზაციის გარეშე გამოიძახება (ჯერ დაუკავშირებელი მოწყობილობა —
+  // org context ჯერ არ არსებობს request-ის დროს), ამიტომ NOT NULL ვერ
+  // დაიდგმება. STEP 2-მ უნდა გადაწყვიტოს, ზუსტად როდის (სავარაუდოდ
+  // pairing-ის დადასტურების მომენტში, register_id-ის ანალოგიით)
+  // მიენიჭება org.
+  organization_id: string | null;
 }
 
 // ==========================================
@@ -155,6 +198,8 @@ export interface StockDeficitNotification {
   resolved_by: string | null;
   resolved_at: string | null;
   created_at: string;
+  // 🏢 Multi-Tenant SaaS STEP 1 (migration 013) — NOT NULL, ბექფილილი.
+  organization_id: string;
 }
 
 // ==========================================
@@ -181,4 +226,6 @@ export interface ShiftAmendmentNotification {
   resolved_by: string | null;
   resolved_at: string | null;
   created_at: string;
+  // 🏢 Multi-Tenant SaaS STEP 1 (migration 013) — NOT NULL, ბექფილილი.
+  organization_id: string;
 }

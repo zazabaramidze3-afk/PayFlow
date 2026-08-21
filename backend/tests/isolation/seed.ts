@@ -7,6 +7,7 @@
 
 import bcrypt from 'bcrypt';
 import { Pool } from 'pg';
+import { columnExists } from './schema';
 
 export const ISOLATION_TEST_PREFIX = 'isolation_test_';
 
@@ -26,9 +27,45 @@ export interface SeededOrg {
 const DEFAULT_TEST_PASSWORD = 'IsolationTest123!';
 
 /**
+ * STEP 1 migration (013) გატარების შემდეგ `users.organization_id` NOT
+ * NULL-ია — ნებისმიერი INSERT-ს (ორგანიზაციაზე დამოუკიდებელ smoke ტესტსაც
+ * კი) სჭირდება რომელიმე org id. ვიღებთ ყველაზე ძველ (migration 013-ის
+ * backfill-ით შექმნილ "default") org-ს; თუ ცხრილი ცარიელია (მაგ. სუფთა
+ * CI DB, სადაც migration-ები just now გავიდა ნულოვან production
+ * მონაცემზე), ერთს ვქმნით ადგილზე — migration 013-ის იგივე bootstrap
+ * ჩანაწერის ანალოგიით.
+ */
+async function getOrCreateDefaultOrganizationId(pool: Pool): Promise<string> {
+  const existing = await pool.query<{ id: string }>(
+    `SELECT id FROM organizations ORDER BY created_at ASC LIMIT 1`
+  );
+  const existingId = existing.rows[0]?.id;
+  if (existingId) {
+    return existingId;
+  }
+
+  const created = await pool.query<{ id: string }>(
+    `INSERT INTO organizations (name, slug, status)
+     VALUES ('PayFlow — Default Organization', 'default', 'active')
+     ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name
+     RETURNING id`
+  );
+  const createdId = created.rows[0]?.id;
+  if (!createdId) {
+    throw new Error('ვერ შეიქმნა/მოიძებნა default organization ტესტ-user-ისთვის');
+  }
+  return createdId;
+}
+
+/**
  * ერთი user-ის შექმნა (idempotent — თუ სახელით უკვე არსებობს, ხელახლა
- * ჰეშავს პაროლს და აბრუნებს არსებულ id-ს). ორგანიზაციის გარეშე რეჟიმისთვის
- * (STEP 1-მდე, ამჟამინდელი production schema).
+ * ჰეშავს პაროლს და აბრუნებს არსებულ id-ს). ორგანიზაციის კონცეფციისგან
+ * დამოუკიდებელი "smoke" ტესტებისთვის — ამიტომ არ იღებს `organizationId`-ს
+ * პარამეტრად. STEP 1-მდე (`users.organization_id` სვეტი არ არსებობს)
+ * ორგანიზაციის გარეშე წერს; STEP 1-ის შემდეგ (NOT NULL) ავტომატურად
+ * იყენებს `getOrCreateDefaultOrganizationId`-ს — ორივე რეჟიმში იგივე
+ * ფუნქცია იძახება უცვლელად (STEP 1-2-ის schema-detection-ის იგივე
+ * პატერნი, რასაც `schema.ts`/`tenant-isolation.test.ts` მიჰყვება).
  */
 export async function seedTestUser(
   pool: Pool,
@@ -36,14 +73,23 @@ export async function seedTestUser(
 ): Promise<SeededUser> {
   const username = `${ISOLATION_TEST_PREFIX}${opts.usernameSuffix}`;
   const passwordHash = await bcrypt.hash(DEFAULT_TEST_PASSWORD, 10);
+  const hasOrgColumn = await columnExists(pool, 'users', 'organization_id');
 
-  const result = await pool.query<{ id: string }>(
-    `INSERT INTO users (name, password_hash, role, status, requires_password_reset)
-     VALUES ($1, $2, $3, 'active', false)
-     ON CONFLICT (name) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = EXCLUDED.role
-     RETURNING id`,
-    [username, passwordHash, opts.role]
-  );
+  const result = hasOrgColumn
+    ? await pool.query<{ id: string }>(
+        `INSERT INTO users (name, password_hash, role, status, requires_password_reset, organization_id)
+         VALUES ($1, $2, $3, 'active', false, $4)
+         ON CONFLICT (name) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = EXCLUDED.role, organization_id = EXCLUDED.organization_id
+         RETURNING id`,
+        [username, passwordHash, opts.role, await getOrCreateDefaultOrganizationId(pool)]
+      )
+    : await pool.query<{ id: string }>(
+        `INSERT INTO users (name, password_hash, role, status, requires_password_reset)
+         VALUES ($1, $2, $3, 'active', false)
+         ON CONFLICT (name) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = EXCLUDED.role
+         RETURNING id`,
+        [username, passwordHash, opts.role]
+      );
 
   const id = result.rows[0]?.id;
   if (!id) {
@@ -123,10 +169,16 @@ export async function seedOrgProduct(
   const name = `${ISOLATION_TEST_PREFIX}product_${opts.nameSuffix}`;
   const barcode = `${ISOLATION_TEST_PREFIX}${opts.nameSuffix}`;
 
+  // ⚠️ ON CONFLICT (organization_id, barcode) — migration 013-ის შემდეგ
+  // products-ს აღარ აქვს გლობალური UNIQUE(barcode), მხოლოდ composite
+  // UNIQUE(organization_id, barcode) (`uq_products_org_barcode`). ეს
+  // ფუნქცია მხოლოდ multiTenantReady-ს დროს გამოიძახება (იხ. ზემოთა
+  // docstring), ამიტომ ეს constraint ყოველთვის არსებობს, როცა აქამდე
+  // მივდივართ.
   const result = await pool.query<{ id: string }>(
     `INSERT INTO products (barcode, name, price, stock, organization_id)
      VALUES ($1, $2, 9.99, 10, $3)
-     ON CONFLICT (barcode) DO UPDATE SET organization_id = EXCLUDED.organization_id
+     ON CONFLICT (organization_id, barcode) DO UPDATE SET organization_id = EXCLUDED.organization_id
      RETURNING id`,
     [barcode, name, opts.organizationId]
   );
