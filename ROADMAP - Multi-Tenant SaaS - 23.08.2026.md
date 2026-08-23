@@ -56,6 +56,24 @@ STEP 1-ის შემდეგაც JWT token-ი (POST `/login`) მხო�
 
 ---
 
+## ✅ დასრულებულია — STEP 2, ტიერი 2: write-blocker fix (`POST /users`, `POST /products`)
+
+იგივე სესიის გაგრძელება. Migration 013-ის შემდეგ `users.organization_id`/`products.organization_id` NOT NULL-ია — ეს ორი endpoint კი `organization_id`-ის გარეშე აკეთებდა INSERT-ს, ანუ STEP 1-ის merge-ის შემდეგ **500-ით ჩავარდებოდა**. გასწორდა:
+
+- **`POST /users`** (`auth.ts`) — INSERT-ს დაემატა `organization_id = req.user.organizationId` (ახალი user ყოველთვის შემქმნელი ადმინის org-ში იქმნება).
+- **`POST /products`** (`products.ts`) — იგივე INSERT-ზე, პლუს **dupCheck query**-საც დაემატა `organization_id` ფილტრი: migration 013-ის შემდეგ `products.name` მხოლოდ per-org უნიკალურია (`uq_products_org_name`), ორგ-ის ფილტრის გარეშე dupCheck არასწორად უარყოფდა Org A-ს მოთხოვნას, თუ Org B-ს უკვე ჰქონდა იგივე სახელით პროდუქტი — ეს ცალკე, functional bug იყო (არა უსაფრთხოების), პირდაპირ migration 013-ის შედეგი.
+
+**ახალი ტესტები** (`tenant-isolation.test.ts`, ახალი `authorizedPost` helper `api.ts`-ში):
+- `POST /api/products` — ახალი პროდუქტი შემქმნელის org-ში ჯდება, მეორე org ვერ ხედავს.
+- `POST /api/products` — ორივე org-ს შეუძლია იგივე სახელით პროდუქტის შექმნა (per-org uniqueness რეალურად მუშაობს).
+- `POST /api/users` — ახალი user შემქმნელის org-ში ჯდება, მეორე org ვერ ხედავს.
+
+**დადასტურება:** იგივე ლოკალური Postgres 16 + backend — **11/11 აქტიური ტესტი მწვანე** (წინა 8 + ახალი 3), 7 კვლავ `it.todo`. დამატებით ხელით curl-შემოწმება: პროდუქტის/user-ის შექმნა 201-ით, დუბლიკატი იმავე org-ში კვლავ 409-ს აბრუნებს (behavior უცვლელია), სერვერი მდგრადია.
+
+**⚠️ გვერდითი, გადაუწყვეტელი დათქმა:** `users.name` კვლავ **გლობალურად** უნიკალურია (migration 013-მა მხოლოდ `products`-ის constraint გადააკეთა per-org-ად, `users`-ს არ შეხებია). ანუ ორ სხვადასხვა org-ს ჯერ არ შეუძლია ერთი და იმავე username-ის ქონა (მაგ. ორივემ ვერ დაარეგისტრირონ "admin"). ეს **schema-decision-ია**, არა route-ის ბაგი — გადასაწყვეტია STEP 1-ის revizia-ს ან STEP 2.2-ის (RLS) ფარგლებში, დამოკიდებულია საბოლოო SaaS-vs-Multi-Store გადაწყვეტილებაზეც.
+
+---
+
 ## ⚠️ STEP 2-ის დარჩენილი, ჯერ **არ**-scoped ნაწილი
 
 **Read-only, jერ არ გადასინჯული:**
@@ -63,31 +81,31 @@ STEP 1-ის შემდეგაც JWT token-ი (POST `/login`) მხო�
 - `GET /api/registers` (`registers.ts`)
 - `GET /api/shifts/history`, `GET /api/payments` (`sales.ts`)
 
-**Write-heavy — ყველაზე მაღალი პრიორიტეტი შემდეგი სესიისთვის, roadmap-ის ("16.08.2026" ცვლილება #4) მიხედვით ბოლოს დაგეგმილი, მაგრამ ერთი კონკრეტული პუნქტი უფრო სასწრაფოა ვიდრე დანარჩენი:**
-
-- **`POST /users` და `POST /products`** (და სავარაუდოდ `registers.ts`/`sales.ts`-ის ანალოგიური INSERT-ები) **ამჟამად INSERT-ს აკეთებენ `organization_id`-ის გარეშე.** Migration 013-ის შემდეგ ეს სვეტი NOT NULL-ია — ანუ STEP 1-ის merge-ის შემდეგ ეს endpoint-ები **500 შეცდომით ჩავარდება** (არა მხოლოდ tenant-leak რისკი, არამედ funkცional crash). ეს არ არის "დაბალი რისკის read-only" კატეგორია, მაგრამ functional blocker-ია STEP 1-ის production-ზე გასვლისთვის — რეკომენდებულია STEP 2-ის write-heavy ტიერის **პირველი** პუნქტი იყოს (არა ბოლო), რადგან ის STEP 1-ის merge-ის უშუალო წინაპირობაა.
-- `POST/PUT/PATCH/DELETE /products/*`, `PUT/DELETE /users/*` — ჯერ არ scoped.
+**Write-heavy, ჯერ scoped არ არის:**
+- `PUT /products/:id`, `PATCH /products/:id/restock`, `DELETE /products/:id` — ამ სამივეს **object-level** (IDOR-ტიპის) ხარვეზი აქვს: `WHERE id = $1`-ს არ ემატება `AND organization_id = $2`, ანუ Org A-ს ადმინს, თუ Org B-ს პროდუქტის (UUID) id გამოიცნობს/გაუჟონავს, შეუძლია მისი რედაქტირება/წაშლა/restock. იგივე ტიპის ხარვეზი სავარაუდოდ `PUT/DELETE /users/:id`-ზეც (`auth.ts`) და `registers.ts`-ის write route-ებზეც.
 - `sales.ts` (90KB+, roadmap-ის ცვლილება #1-ის მიხედვით "მაღალი მოცულობის, მაღალი ფხიზლობის" ფაილი) — მთლიანად შეხებული არ არის. STEP 2.2 (RLS) ჯერ არ დაწყებულა.
 
 ---
 
-## 🔧 გვერდითი აღმოჩენა — stale `.git/index.lock`
+## 🔧 გვერდითი აღმოჩენა — stale `.git/index.lock` (გადაწყვეტილი)
 
-სესიის განმავლობაში repo-ში დარჩა `.git/index.lock` (ალბათ ჩემი პარალელური `git status` გამოძახებების კოლიზიით). device-bridge-ის sandbox-მა ამ ფაილის წაშლა არ დამრთო (delete-permission საჭიროებს ცალკე დადასტურებას, რომელიც ამ სესიაში ვერ მოვითხოვე). **თუ VS Code-დან git add/commit "another git process is running"-ს გიჩვენებთ — წაშალეთ ეს ფაილი ხელით** (`PayFlow/.git/index.lock`, 0 ბაიტიანი).
+ტიერი 1-ის commit-ის დროს repo-ში დარჩა stale `.git/index.lock`, device-bridge-ის sandbox-მა ავტომატური წაშლა არ დამრთო. **მომხმარებელმა ხელით წაშალა** (File Explorer/VS Code) და commit წარმატებით გავიდა (`db73b3c`). თუ მომავალშიც განმეორდება ("another git process is running" VS Code-ში) — იგივე ხელით წაშლა (`PayFlow\.git\index.lock`, 0 ბაიტიანი) წყვეტს პრობლემას.
 
-**Commit არ გაკეთებულა** — ცვლილებები დისკზეა (6 ფაილი, იხ. ცხრილი ზემოთ), მაგრამ `git add`/`commit` არ შესრულებულა (მხოლოდ მოთხოვნაზე ვაკეთებ commit-ს). ასევე გაითვალისწინეთ, რომ `git status`-ში ჩანს **დიდი რაოდენობის line-ending (CRLF/LF) noise** 26+ ფაილზე — ეს ჩემი ცვლილება არაა (`git diff -w` ადასტურებს, რომ ამ ფაილებში რეალური კონტენტი უცვლელია), სავარაუდოდ `core.autocrlf`-ის არარსებობა Windows-ზე. Commit-ის გაკეთებისას ეს ფაილები ცალკე უნდა გამოირიცხოს (მხოლოდ ჩემ მიერ რეალურად შეცვლილი 6 ფაილის `git add`).
+**ტიერი 1 commit:** `db73b3c` — `feat/pwa-icons-and-tenant-isolation-tests` branch-ზე, STEP 1-ის (`35a1bf1`) თავზე.
+**ტიერი 2-ის ცვლილებები** (ეს სესია, POST /users + POST /products fix) **დისკზეა, ჯერ commit არ გაკეთებულა** — 4 ფაილი: `auth.ts`, `products.ts`, `tests/isolation/api.ts`, `tests/isolation/tenant-isolation.test.ts`.
 
 ---
 
 ## განახლებული პრიორიტეტების რიგი
 
 1. ~~STEP 0, STEP 1~~ ✅ დასრულებული (feature branch-ზე, jერ არ production-ზე)
-2. ~~STEP 2, ტიერი 1 (read-only)~~ ✅ **დასრულებული და ტესტირებული (23.08, ეს სესია)** — dashboard.ts, products.ts GET-ები, auth.ts GET/DELETE `/audit-logs`, GET `/users`, audit-logs.ts export + bonus fix (`verify-manager-pin`)
-3. **STEP 2, ტიერი 2 (write-blocker, სასწრაფო)** — `POST /users`/`POST /products`-ს `organization_id` დაემატოს INSERT-ში, თორემ STEP 1-ის merge production-ს crash-ს გაუკეთებს ამ ორ endpoint-ზე
-4. **STEP 2, ტიერი 3 (დანარჩენი read-only)** — `notifications.ts`, `registers.ts`, `sales.ts`-ის GET route-ები
-5. **STEP 2, ტიერი 4 (write-heavy, ფინანსური)** — `sales.ts` მთლიანად (POST/PUT payments/shifts), RLS (STEP 2.2)
-6. **Neon branch-ის მომზადება** — კვლავ ბლოკილია მომხმარებელზე (Neon API key)
-7. **STEP 1-ის merge** main-ში — ტიერი 2-ის (write-blocker) fix-ის შემდეგ, არა უადრეს
-8. **გადაწყვეტილების წერტილი** — SaaS vs Multi-Store
+2. ~~STEP 2, ტიერი 1 (read-only)~~ ✅ **დასრულებული, ტესტირებული, commit `db73b3c`** — dashboard.ts, products.ts GET-ები, auth.ts GET/DELETE `/audit-logs`, GET `/users`, audit-logs.ts export + bonus fix (`verify-manager-pin`)
+3. ~~STEP 2, ტიერი 2 (write-blocker)~~ ✅ **დასრულებული და ტესტირებული (23.08, ეს სესია) — ჯერ commit არ გაკეთებულა** — `POST /users`/`POST /products`-ს `organization_id` დაემატა INSERT-ში
+4. **STEP 2, ტიერი 3 (object-level write-scoping)** — `PUT/PATCH/DELETE /products/:id`, `PUT/DELETE /users/:id`, `registers.ts`-ის write route-ები: `WHERE id = $1 AND organization_id = $2`-ის დამატება ყველგან (IDOR-ტიპის ხარვეზი)
+5. **STEP 2, ტიერი 4 (დანარჩენი read-only)** — `notifications.ts`, `registers.ts`, `sales.ts`-ის GET route-ები
+6. **STEP 2, ტიერი 5 (write-heavy, ფინანსური)** — `sales.ts` მთლიანად (POST/PUT payments/shifts), RLS (STEP 2.2)
+7. **Neon branch-ის მომზადება** — კვლავ ბლოკილია მომხმარებელზე (Neon API key)
+8. **STEP 1-ის merge** main-ში — ტიერი 3-ის (მაინც STEP 2-ის write route-ების ძირითადი ნაწილის) დასრულების შემდეგ, არა უადრეს
+9. **გადაწყვეტილების წერტილი** — SaaS vs Multi-Store (მოიცავს `users.name` per-org uniqueness-ის გადაწყვეტასაც)
 
 დანარჩენი უცვლელად ვალიდურია `ROADMAP - Multi-Tenant SaaS - 16.08.2026.md`-დან.

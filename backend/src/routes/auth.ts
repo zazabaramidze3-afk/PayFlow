@@ -317,13 +317,25 @@ router.post('/users', authenticateToken, async (req: CustomRequest, res) => {
     // can_view_history: თუ ფრონტენდმა არ გამოაგზავნა, DEFAULT true ბაზაშივე ავტომატურად ჩაიწერება.
     // requires_password_reset ცალკე არ იგზავნება — ბაზის DEFAULT true
     // ავტომატურად ავალდებულებს ახალ მომხმარებელს პაროლის შეცვლას.
+    // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 2 (Roadmap "23.08.2026", write-blocker
+    // fix) — organization_id დაემატა: migration 013-ის შემდეგ ეს სვეტი
+    // NOT NULL-ია, ამის გარეშე ეს INSERT 500-ით ჩავარდებოდა. ახალი user
+    // ყოველთვის ადმინის (req.user, ე.ი. ვინც ქმნის) საკუთარ org-ში იქმნება
+    // — ეს ერთადერთი სწორი მნიშვნელობაა authenticateToken-ის შემდეგ, სხვა
+    // org-ის ID არსად მოდის request body-დან და არც უნდა მოვიდეს.
     const query = `
-      INSERT INTO users (name, password_hash, role, status, can_view_history)
-      VALUES ($1, $2, $3, 'active', COALESCE($4, true))
+      INSERT INTO users (name, password_hash, role, status, can_view_history, organization_id)
+      VALUES ($1, $2, $3, 'active', COALESCE($4, true), $5)
       RETURNING id, can_view_history, requires_password_reset
     `;
 
-    const result = await db.query(query, [username.trim(), hashedPassword, role, can_view_history]);
+    const result = await db.query(query, [
+      username.trim(),
+      hashedPassword,
+      role,
+      can_view_history,
+      req.user?.organizationId,
+    ]);
     const newUserId = result.rows[0].id;
 
     res.status(201).json({

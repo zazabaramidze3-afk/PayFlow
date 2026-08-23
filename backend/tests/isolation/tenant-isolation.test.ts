@@ -33,13 +33,14 @@ import { loadIsolationTestConfig } from './env';
 import { detectSchemaCapabilities, columnExists, type SchemaCapabilities } from './schema';
 import {
   cleanupIsolationTestData,
+  ISOLATION_TEST_PREFIX,
   seedAuditLogEntry,
   seedOrgProduct,
   seedOrgWithAdmin,
   seedTestUser,
   type SeededOrg,
 } from './seed';
-import { authorizedGet, login } from './api';
+import { authorizedGet, authorizedPost, login } from './api';
 
 const config = loadIsolationTestConfig();
 const pool = new Pool({ connectionString: config.databaseUrl, max: 5 });
@@ -134,6 +135,80 @@ describe('Cross-tenant data isolation (გაშვება მხოლოდ 
     const names = (response.body as Array<{ name: string }>).map((p) => p.name);
     expect(names.some((n) => n.includes('orgA'))).toBe(true);
     expect(names.some((n) => n.includes('orgB'))).toBe(false);
+  });
+
+  // 🏢 STEP 2, ტიერი 2 (Roadmap "23.08.2026", write-blocker fix) — POST
+  // /products/POST /users ახლა organization_id-ს თავად ინიშნავენ (creator-ის
+  // საკუთარი org), migration 013-ის NOT NULL constraint-ის garda ისინი
+  // 500-ით ჩაივარდებოდნენ. ეს ტესტები ადასტურებს ორივეს: (ა) INSERT
+  // წარმატებულია, (ბ) ახალი row სწორ org-ში ჯდება (isolation, არა მხოლოდ
+  // "არ ჩავარდა").
+  it('POST /api/products — ახალი პროდუქტი Org A-ს ტოკენით Org A-ს org-ში იქმნება', async (ctx) => {
+    if (!schema.multiTenantReady || !productsOrgColumnExists) return ctx.skip();
+
+    const createResponse = await authorizedPost(config.apiBaseUrl, '/api/products', tokenA, {
+      name: `${ISOLATION_TEST_PREFIX}post_product_orgA`,
+      price: 9.99,
+      stock: 3,
+      barcode: `${ISOLATION_TEST_PREFIX}post_barcode_orgA`,
+    });
+    expect(createResponse.status).toBe(201);
+
+    const [productsAsA, productsAsB] = await Promise.all([
+      authorizedGet(config.apiBaseUrl, '/api/products', tokenA),
+      authorizedGet(config.apiBaseUrl, '/api/products', tokenB),
+    ]);
+
+    const namesA = (productsAsA.body as Array<{ name: string }>).map((p) => p.name);
+    const namesB = (productsAsB.body as Array<{ name: string }>).map((p) => p.name);
+    expect(namesA).toContain(`${ISOLATION_TEST_PREFIX}post_product_orgA`);
+    expect(namesB).not.toContain(`${ISOLATION_TEST_PREFIX}post_product_orgA`);
+  });
+
+  it('POST /api/products — Org B-ს იგივე სახელით პროდუქტის შექმნა არ ბლოკავს dupCheck-ს (per-org uniqueness)', async (ctx) => {
+    if (!schema.multiTenantReady || !productsOrgColumnExists) return ctx.skip();
+
+    // ორივე org-ს ერთი და იგივე სახელით პროდუქტი — თუ dupCheck org-ს არ
+    // ითვალისწინებდა, Org B-ს მოთხოვნა 409-ს დააბრუნებდა, თუმცა
+    // migration 013-ის შემდეგ products.name მხოლოდ per-org უნიკალურია.
+    const sharedName = `${ISOLATION_TEST_PREFIX}post_product_shared_name`;
+
+    const createA = await authorizedPost(config.apiBaseUrl, '/api/products', tokenA, {
+      name: sharedName,
+      price: 5,
+      stock: 1,
+      barcode: `${ISOLATION_TEST_PREFIX}post_barcode_shared_a`,
+    });
+    const createB = await authorizedPost(config.apiBaseUrl, '/api/products', tokenB, {
+      name: sharedName,
+      price: 5,
+      stock: 1,
+      barcode: `${ISOLATION_TEST_PREFIX}post_barcode_shared_b`,
+    });
+
+    expect(createA.status).toBe(201);
+    expect(createB.status).toBe(201);
+  });
+
+  it('POST /api/users — ახალი user Org A-ს ადმინის ტოკენით Org A-ს org-ში იქმნება', async (ctx) => {
+    if (!schema.multiTenantReady) return ctx.skip();
+
+    const createResponse = await authorizedPost(config.apiBaseUrl, '/api/users', tokenA, {
+      username: `${ISOLATION_TEST_PREFIX}post_user_orgA`,
+      password: 'IsolationTest123!',
+      role: 'cashier',
+    });
+    expect(createResponse.status).toBe(201);
+
+    const [usersAsA, usersAsB] = await Promise.all([
+      authorizedGet(config.apiBaseUrl, '/api/users', tokenA),
+      authorizedGet(config.apiBaseUrl, '/api/users', tokenB),
+    ]);
+
+    const usernamesA = (usersAsA.body as Array<{ username: string }>).map((u) => u.username);
+    const usernamesB = (usersAsB.body as Array<{ username: string }>).map((u) => u.username);
+    expect(usernamesA).toContain(`${ISOLATION_TEST_PREFIX}post_user_orgA`);
+    expect(usernamesB).not.toContain(`${ISOLATION_TEST_PREFIX}post_user_orgA`);
   });
 
   // 🏢 STEP 2 route-review (Roadmap "23.08.2026") — auth.ts GET /audit-logs

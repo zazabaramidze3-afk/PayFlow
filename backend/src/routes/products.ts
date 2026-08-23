@@ -89,14 +89,24 @@ router.post('/products', authenticateToken, async (req: CustomRequest, res: Resp
   }
 
   try {
-    const dupCheck = await db.query('SELECT id FROM products WHERE LOWER(name) = LOWER($1)', [name.trim()]);
+    // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 2 (Roadmap "23.08.2026", write-blocker
+    // fix) — dupCheck-საც და INSERT-საც დაემატა organization_id.
+    // migration 013-ის შემდეგ products.name per-org უნიკალურია
+    // (uq_products_org_name), აღარ არის გლობალურად უნიკალური — ორგ-ის
+    // ფილტრის გარეშე dupCheck არასწორად უარყოფდა Org A-ს მოთხოვნას,
+    // თუ Org B-ს უკვე ჰქონდა იგივე სახელით პროდუქტი. INSERT-ის
+    // organization_id-ის გარეშე კი (NOT NULL constraint) 500 იქნებოდა.
+    const dupCheck = await db.query(
+      'SELECT id FROM products WHERE LOWER(name) = LOWER($1) AND organization_id = $2',
+      [name.trim(), req.user?.organizationId]
+    );
     if (dupCheck.rows.length > 0) {
       return res.status(409).json({ error: 'ამ სახელით პროდუქტი უკვე არსებობს!' });
     }
 
     const result = await db.query(
-      `INSERT INTO products (name, price, stock, barcode) VALUES ($1, $2, $3, $4) RETURNING *`,
-      [name.trim(), price, stock ?? 0, barcode || null]
+      `INSERT INTO products (name, price, stock, barcode, organization_id) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [name.trim(), price, stock ?? 0, barcode || null, req.user?.organizationId]
     );
 
     res.status(201).json(result.rows[0]);

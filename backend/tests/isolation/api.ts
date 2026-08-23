@@ -27,3 +27,9 @@ export async function login(apiBaseUrl: string, username: string, password: stri
 export function authorizedGet(apiBaseUrl: string, path: string, token: string) {
   return request(apiBaseUrl).get(path).set('Authorization', `Bearer ${token}`);
 }
+
+// 🏢 STEP 2, ტიერი 2 (Roadmap "23.08.2026") — POST /users/POST /products-ის
+// write-blocker fix-ის ტესტებისთვის (organization_id INSERT-ში).
+export function authorizedPost(apiBaseUrl: string, path: string, token: string, body: Record<string, unknown>) {
+  return request(apiBaseUrl).post(path).set('Authorization', `Bearer ${token}`).send(body);
+}
