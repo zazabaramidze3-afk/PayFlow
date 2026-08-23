@@ -1,6 +1,11 @@
 import { Response, NextFunction, Request } from 'express';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import pool from '../db';
+// 🏢 Multi-Tenant SaaS STEP 2, ტიერი 5 (Roadmap "23.08.2026") — CustomRequest
+// auth.ts-იდან, რომ req.user?.organizationId ხელმისაწვდომი იყოს ქვემოთ.
+// ⚠️ ციკლური იმპორტის რისკი არ არსებობს: auth.ts registerAuth.ts-ს არ
+// შემოაქვს (requireRole.ts-იც იმავე პატერნს იყენებს, `../routes/auth`-დან).
+import { CustomRequest } from '../routes/auth';
 
 // ==========================================
 // 🖥️ Register (ფიზიკური სალარო) ავტორიზაცია — Roadmap STEP 2
@@ -71,7 +76,13 @@ function verifyRegisterToken(token: string): RegisterTokenPayload | null {
 // 🛡️ მკაცრი გუარდი — headers არასავალდებულოა/არავალიდურია → 401.
 // გამოსაყენებელია STEP 2.1-ის Shift/Payment route-ებზე, სადაც register_id
 // ცალსახად აუცილებელია (ახალი shift-ის გახსნა, ჩეკის გატარება).
-export async function requireRegister(req: RegisterAwareRequest, res: Response, next: NextFunction) {
+//
+// 🏢 Multi-Tenant SaaS STEP 2, ტიერი 5 (Roadmap "23.08.2026") — `req` ტიპი
+// გაფართოვდა `CustomRequest`-ითაც (`req.user?.organizationId`-ისთვის).
+// ⚠️ ეს middleware ყოველთვის `authenticateToken`-ის ᲨᲔᲛᲓᲔᲒ გამოიძახება
+// sales.ts-ის ყველა route-ზე (POST /shifts/open, POST /payments, POST
+// /payments/sync-offline) — ამიტომ `req.user` ამ წერტილში უკვე ავსებულია.
+export async function requireRegister(req: RegisterAwareRequest & CustomRequest, res: Response, next: NextFunction) {
   const registerIdHeader = req.headers['x-register-id'];
   const registerTokenHeader = req.headers['x-register-token'];
 
@@ -88,8 +99,14 @@ export async function requireRegister(req: RegisterAwareRequest, res: Response, 
   }
 
   try {
-    const result = await pool.query<{ id: string; is_active: boolean }>(
-      'SELECT id, is_active FROM registers WHERE id = $1',
+    // 🏢 organization_id-იც ვკითხულობთ, ქვემოთ req.user-ის org-თან
+    // შესადარებლად — ამის გარეშე ლეგიტიმური Org A-ს user-ს (თუ ვინმემ,
+    // მაგ. ერთი ფიზიკური მოწყობილობა ორ org-ს შორის გადაინაცვლა, ან
+    // X-Register-Id/-Token ხელით/malicious კლიენტიდან მოვიდა) შეეძლო
+    // ცვლის/ჩეკის ჩაწერა Org B-ს register-ზე — register_id/organization_id
+    // მისმატება, cross-tenant მონაცემების "დაბინძურება".
+    const result = await pool.query<{ id: string; is_active: boolean; organization_id: string }>(
+      'SELECT id, is_active, organization_id FROM registers WHERE id = $1',
       [registerId]
     );
 
@@ -99,6 +116,10 @@ export async function requireRegister(req: RegisterAwareRequest, res: Response, 
 
     if (result.rows[0].is_active !== true) {
       return res.status(403).json({ error: 'ეს სალარო დეაქტივირებულია — მიმართეთ ადმინისტრატორს!' });
+    }
+
+    if (req.user?.organizationId !== undefined && result.rows[0].organization_id !== req.user.organizationId) {
+      return res.status(403).json({ error: 'ეს სალარო თქვენს ორგანიზაციას არ ეკუთვნის!' });
     }
 
     req.registerId = registerId;

@@ -36,12 +36,23 @@ import {
   ISOLATION_TEST_PREFIX,
   seedAuditLogEntry,
   seedOrgProduct,
+  seedOrgRegister,
+  seedOrgUser,
   seedOrgWithAdmin,
+  seedStockDeficitNotification,
   seedTestUser,
   type SeededOrg,
   type SeededProduct,
+  type SeededRegister,
+  type SeededUser,
 } from './seed';
 import { authorizedDelete, authorizedGet, authorizedPatch, authorizedPost, authorizedPut, login } from './api';
+// 🏢 STEP 2, ტიერი 5 (Roadmap "23.08.2026") — register-authenticated
+// route-ების (POST /shifts/open, POST /payments) ტესტებისთვის, seedOrgRegister-ით
+// შექმნილი register-ისთვის ვალიდური X-Register-Token-ის ხელმოწერა
+// Pairing UI-ს/POST /registers/pair-ის გვერდის ავლით (tier 3-ში ეს ნაკადი
+// უკვე ცალკე დაფარულია).
+import { signRegisterToken } from '../../src/middleware/registerAuth';
 
 const config = loadIsolationTestConfig();
 const pool = new Pool({ connectionString: config.databaseUrl, max: 5 });
@@ -446,6 +457,215 @@ describe('Cross-tenant data isolation (გაშვება მხოლოდ 
     });
   });
 
+  // 🏢 STEP 2, ტიერი 4/5 (Roadmap "23.08.2026") — register-authenticated
+  // (X-Register-Id/X-Register-Token) და write-heavy ფინანსური route-ები:
+  // POST /shifts/open, POST /payments, POST /payments/:id/void, GET
+  // /shifts/history, GET /payments, GET /notifications/stock-deficits.
+  // ყველა state (cashier/register/shift/payment) beforeAll-ში შენდება
+  // (POST /registers/pair-ის describe-ის იგივე პატერნი) — ქვემოთა it()-ები
+  // მხოლოდ ადასტურებენ. seedOrgRegister + signRegisterToken (Pairing UI-ის
+  // გვერდის ავლით) ვალიდურ register-headers-ს გვაძლევს ორივე org-ისთვის.
+  describe('POST /shifts/open, POST /payments, void, history — register-auth + write-blocker/IDOR fix (ტიერი 4/5)', () => {
+    let cashierA: SeededUser;
+    let cashierB: SeededUser;
+    let tokenCashierA: string;
+    let tokenCashierB: string;
+    let registerA: SeededRegister | undefined;
+    let registerB: SeededRegister | undefined;
+    let registerTokenA: string | undefined;
+    let registerTokenB: string | undefined;
+    let cartProductA: SeededProduct | undefined;
+    let cartProductB: SeededProduct | undefined;
+    let crossOrgOpenStatus: number | undefined;
+    let shiftIdA: string | undefined;
+    let shiftIdB: string | undefined;
+    let paymentIdA: string | undefined;
+    let paymentIdB: string | undefined;
+    let deficitNotifOrgAExists = false;
+
+    beforeAll(async () => {
+      if (!schema.multiTenantReady) return;
+
+      cashierA = await seedOrgUser(pool, { organizationId: orgA.id, usernameSuffix: 'tier5_cashierA', role: 'cashier' });
+      cashierB = await seedOrgUser(pool, { organizationId: orgB.id, usernameSuffix: 'tier5_cashierB', role: 'cashier' });
+      tokenCashierA = (await login(config.apiBaseUrl, cashierA.username, cashierA.password)).token;
+      tokenCashierB = (await login(config.apiBaseUrl, cashierB.username, cashierB.password)).token;
+
+      registerA = await seedOrgRegister(pool, { organizationId: orgA.id, nameSuffix: 'tier5_regA' });
+      registerB = await seedOrgRegister(pool, { organizationId: orgB.id, nameSuffix: 'tier5_regB' });
+      registerTokenA = signRegisterToken(registerA.id);
+      registerTokenB = signRegisterToken(registerB.id);
+
+      // 🔓 cross-org register-hijack ცდა — რეგისტრირებული ჯერ, სანამ
+      // cashierA-ს რომელიმე register-ზე ცვლა გახსნილი აქვს, რომ
+      // requireRegister-ის org-mismatch გუარდი (403) ცალსახად "ცვლის
+      // უკვე ღიაობის" ლოგიკამდე დაფიქსირდეს ტესტში.
+      const hijackAttempt = await authorizedPost(
+        config.apiBaseUrl,
+        '/api/shifts/open',
+        tokenCashierA,
+        { start_amount: 0 },
+        { 'X-Register-Id': registerB.id, 'X-Register-Token': registerTokenB }
+      );
+      crossOrgOpenStatus = hijackAttempt.status;
+
+      const openA = await authorizedPost(
+        config.apiBaseUrl,
+        '/api/shifts/open',
+        tokenCashierA,
+        { start_amount: 100 },
+        { 'X-Register-Id': registerA.id, 'X-Register-Token': registerTokenA }
+      );
+      shiftIdA = openA.body.shiftId;
+
+      const openB = await authorizedPost(
+        config.apiBaseUrl,
+        '/api/shifts/open',
+        tokenCashierB,
+        { start_amount: 50 },
+        { 'X-Register-Id': registerB.id, 'X-Register-Token': registerTokenB }
+      );
+      shiftIdB = openB.body.shiftId;
+
+      if (productsOrgColumnExists) {
+        cartProductA = await seedOrgProduct(pool, { organizationId: orgA.id, nameSuffix: 'tier5_cartA' });
+        cartProductB = await seedOrgProduct(pool, { organizationId: orgB.id, nameSuffix: 'tier5_cartB' });
+
+        const paymentA = await authorizedPost(
+          config.apiBaseUrl,
+          '/api/payments',
+          tokenCashierA,
+          { items: [{ productId: cartProductA.id, quantity: 1, price: 9.99 }], paymentMethod: 'cash' },
+          { 'X-Register-Id': registerA.id, 'X-Register-Token': registerTokenA }
+        );
+        paymentIdA = paymentA.body.paymentId;
+
+        const paymentB = await authorizedPost(
+          config.apiBaseUrl,
+          '/api/payments',
+          tokenCashierB,
+          { items: [{ productId: cartProductB.id, quantity: 1, price: 9.99 }], paymentMethod: 'cash' },
+          { 'X-Register-Id': registerB.id, 'X-Register-Token': registerTokenB }
+        );
+        paymentIdB = paymentB.body.paymentId;
+
+        if (paymentIdA) {
+          await seedStockDeficitNotification(pool, {
+            organizationId: orgA.id,
+            paymentId: paymentIdA,
+            productNameSuffix: 'orgA',
+          });
+          deficitNotifOrgAExists = true;
+        }
+        if (paymentIdB) {
+          await seedStockDeficitNotification(pool, {
+            organizationId: orgB.id,
+            paymentId: paymentIdB,
+            productNameSuffix: 'orgB',
+          });
+        }
+      }
+
+      // 🕵️ ამავე დროს ეს არის writeAuditLog-ის silent-write-blocker-ის
+      // რეგრესიის რეალური exercise (იხ. ქვემოთა ბოლო it()) — cashierA-ს
+      // ეძლევა can_void_receipt, Manager PIN Override-ის საჭიროების გარეშე.
+      await authorizedPut(config.apiBaseUrl, `/api/users/${cashierA.id}/void-access`, tokenA, {
+        can_void_receipt: true,
+      });
+    });
+
+    it('POST /shifts/open — cross-org register hijack რეჯექტდება (403, registerAuth.ts-ის org-check)', (ctx) => {
+      if (!schema.multiTenantReady) return ctx.skip();
+      expect(crossOrgOpenStatus).toBe(403);
+    });
+
+    it('POST /shifts/open — write-blocker fix-ის გარეშე Org A-ს/Org B-ს cashier-ს ცვლა ეხსნება', (ctx) => {
+      if (!schema.multiTenantReady) return ctx.skip();
+      expect(typeof shiftIdA).toBe('string');
+      expect(typeof shiftIdB).toBe('string');
+    });
+
+    it('GET /api/shifts/history — Org A ვერ ხედავს Org B-ს ცვლას', async (ctx) => {
+      if (!schema.multiTenantReady || !shiftIdA || !shiftIdB) return ctx.skip();
+
+      const asA = await authorizedGet(config.apiBaseUrl, '/api/shifts/history', tokenA);
+      expect(asA.status).toBe(200);
+      const idsA = (asA.body as Array<{ id: string }>).map((s) => s.id);
+      expect(idsA).toContain(shiftIdA);
+      expect(idsA).not.toContain(shiftIdB);
+
+      const asB = await authorizedGet(config.apiBaseUrl, '/api/shifts/history', tokenB);
+      const idsB = (asB.body as Array<{ id: string }>).map((s) => s.id);
+      expect(idsB).toContain(shiftIdB);
+      expect(idsB).not.toContain(shiftIdA);
+    });
+
+    it('POST /api/payments — write-blocker fix-ის გარეშე ორივე org-ისთვის ჩეკი იქმნება', (ctx) => {
+      if (!schema.multiTenantReady || !productsOrgColumnExists) return ctx.skip();
+      expect(typeof paymentIdA).toBe('string');
+      expect(typeof paymentIdB).toBe('string');
+    });
+
+    it('GET /api/payments — Org A ვერ ხედავს Org B-ს ჩეკს', async (ctx) => {
+      if (!schema.multiTenantReady || !paymentIdA || !paymentIdB) return ctx.skip();
+
+      const asA = await authorizedGet(config.apiBaseUrl, '/api/payments', tokenA);
+      expect(asA.status).toBe(200);
+      const idsA = (asA.body as Array<{ id: string }>).map((p) => p.id);
+      expect(idsA).toContain(paymentIdA);
+      expect(idsA).not.toContain(paymentIdB);
+
+      const asB = await authorizedGet(config.apiBaseUrl, '/api/payments', tokenB);
+      const idsB = (asB.body as Array<{ id: string }>).map((p) => p.id);
+      expect(idsB).toContain(paymentIdB);
+      expect(idsB).not.toContain(paymentIdA);
+    });
+
+    it('GET /api/notifications/stock-deficits — Org A ვერ ხედავს Org B-ს ნოტიფიკაციას', async (ctx) => {
+      if (!schema.multiTenantReady || !deficitNotifOrgAExists) return ctx.skip();
+
+      const response = await authorizedGet(config.apiBaseUrl, '/api/notifications/stock-deficits', tokenA);
+      expect(response.status).toBe(200);
+      const productNames = (response.body as Array<{ product_name: string }>).map((n) => n.product_name);
+      expect(productNames).toContain(`${ISOLATION_TEST_PREFIX}deficit_orgA`);
+      expect(productNames).not.toContain(`${ISOLATION_TEST_PREFIX}deficit_orgB`);
+    });
+
+    it('POST /api/payments/:id/void — Org A ვერ აუქმებს Org B-ს ჩეკს (IDOR fix, 404)', async (ctx) => {
+      if (!schema.multiTenantReady || !paymentIdB) return ctx.skip();
+
+      const response = await authorizedPost(config.apiBaseUrl, `/api/payments/${paymentIdB}/void`, tokenCashierA, {});
+      expect(response.status).toBe(404);
+    });
+
+    it('POST /api/payments/:id/void — happy path, Org A აუქმებს საკუთარ ჩეკს', async (ctx) => {
+      if (!schema.multiTenantReady || !paymentIdA) return ctx.skip();
+
+      const response = await authorizedPost(config.apiBaseUrl, `/api/payments/${paymentIdA}/void`, tokenCashierA, {});
+      expect(response.status).toBe(200);
+      expect(response.body.payment?.is_voided).toBe(true);
+    });
+
+    // 🕵️ writeAuditLog silent write-blocker-ის რეგრესია — მანამდე (ტიერი
+    // 4/5-მდე) audit_logs.organization_id-ის NOT NULL-ის დამატების შემდეგ
+    // ეს INSERT-ი ჩუმად ჩავარდებოდა (console.error-ის მიღმა), ანუ
+    // void-access toggle-ს (ზემოთ, beforeAll-ში) რეალურად არასდროს
+    // დარჩებოდა კვალი. ეს ტესტი ამოწმებს არა mock-ს, არამედ ნამდვილ,
+    // ცოცხალ endpoint-ს (PUT /users/:id/void-access) → real audit_logs row.
+    it('writeAuditLog silent write-blocker რეგრესია — void-access toggle-მა რეალური audit ჩანაწერი დატოვა', async (ctx) => {
+      if (!schema.multiTenantReady) return ctx.skip();
+
+      const response = await authorizedGet(config.apiBaseUrl, '/api/audit-logs', tokenA);
+      expect(response.status).toBe(200);
+      // ℹ️ GET /audit-logs `target_id`-ს არ აბრუნებს (მხოლოდ `target_name`/
+      // `target_role`, JOIN-ით) — იხ. auth.ts GET /audit-logs SELECT.
+      const entry = (response.body as Array<{ action: string; target_name: string | null }>).find(
+        (log) => log.action === 'void-access' && log.target_name === cashierA.username
+      );
+      expect(entry).toBeDefined();
+    });
+  });
+
   // ==========================================
   // 🚧 TODO — დარჩენილი endpoint-ები (Roadmap "16.08.2026" ცვლილება #4-ის
   // რისკის-ზრდადობის თანმიმდევრობით). თითოეული აქტიური გახდება, როცა
@@ -457,18 +677,11 @@ describe('Cross-tenant data isolation (გაშვება მხოლოდ 
   // (ყველა query-ს `WHERE organization_id = $1` აქვს), მაგრამ ეს კონკრეტული
   // ტესტი განზრახ კვლავ it.todo-დ რჩება: სრულფასოვანი შემოწმება
   // (Org A-ს დღევანდელი revenue-ში Org B-ს გაყიდვა არ ერევა) registers/
-  // shifts/payments-ის მთელი FK ჯაჭვის seed-ს საჭიროებს, რომელიც STEP 2-ის
-  // write-heavy (sales.ts) ეტაპზეა აშენებული — მანამდე ცალკე დუბლირება
-  // არ ღირს.
+  // shifts/payments-ის მთელი FK ჯაჭვის seed-ს საჭიროებს, რომელიც ტიერი
+  // 4/5-ის ზემოთა describe-ში უკვე აშენებულია სხვა route-ებისთვის, მაგრამ
+  // dashboard.ts-ის საკუთარი revenue-aggregation ცალკე გადამოწმებას
+  // მაინც მოითხოვს — მომავალი სესიის ცალკე scope-ია.
   // ==========================================
 
-  // read-only, დაბალი რისკი
   it.todo('GET /api/dashboard/stats — Org A-ს რიცხვებში Org B-ს გაყიდვები არ ერევა');
-  it.todo('GET /api/notifications/stock-deficits — Org A ვერ ხედავს Org B-ს ნოტიფიკაციას');
-
-  // write-heavy, ფინანსური — ბოლოს (ცვლილება #4-ის თანახმად)
-  it.todo('GET /api/shifts/history — Org A ვერ ხედავს Org B-ს ცვლას');
-  it.todo('GET /api/payments — Org A ვერ ხედავს Org B-ს ჩეკს');
-  it.todo('POST /api/payments — Org A-ს ტოკენით Org B-ს register_id/product_id მიუღებელია (400/403)');
-  it.todo('PUT /api/payments/:id/void — Org A ვერ აუქმებს Org B-ს ჩეკს (403/404, არა 200)');
 });

@@ -24,14 +24,32 @@ export async function login(apiBaseUrl: string, username: string, password: stri
   return { token: response.body.token as string, userId: response.body.user?.id as string };
 }
 
-export function authorizedGet(apiBaseUrl: string, path: string, token: string) {
-  return request(apiBaseUrl).get(path).set('Authorization', `Bearer ${token}`);
+// 🏢 STEP 2, ტიერი 5 (Roadmap "23.08.2026") — `extraHeaders` არასავალდებულო
+// პარამეტრი დაემატა (backward-compatible, ძველი call-ები ხელუხლებელია) —
+// sales.ts-ის register-დამოკიდებულ route-ებს (POST /shifts/open, POST
+// /payments) X-Register-Id/X-Register-Token headers სჭირდება.
+export function authorizedGet(apiBaseUrl: string, path: string, token: string, extraHeaders?: Record<string, string>) {
+  let req = request(apiBaseUrl).get(path).set('Authorization', `Bearer ${token}`);
+  if (extraHeaders) {
+    for (const [key, value] of Object.entries(extraHeaders)) req = req.set(key, value);
+  }
+  return req;
 }
 
 // 🏢 STEP 2, ტიერი 2 (Roadmap "23.08.2026") — POST /users/POST /products-ის
 // write-blocker fix-ის ტესტებისთვის (organization_id INSERT-ში).
-export function authorizedPost(apiBaseUrl: string, path: string, token: string, body: Record<string, unknown>) {
-  return request(apiBaseUrl).post(path).set('Authorization', `Bearer ${token}`).send(body);
+export function authorizedPost(
+  apiBaseUrl: string,
+  path: string,
+  token: string,
+  body: Record<string, unknown>,
+  extraHeaders?: Record<string, string>
+) {
+  let req = request(apiBaseUrl).post(path).set('Authorization', `Bearer ${token}`);
+  if (extraHeaders) {
+    for (const [key, value] of Object.entries(extraHeaders)) req = req.set(key, value);
+  }
+  return req.send(body);
 }
 
 // 🏢 STEP 2, ტიერი 3 (Roadmap "23.08.2026") — PUT/PATCH/DELETE by-id

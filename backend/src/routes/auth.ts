@@ -268,7 +268,7 @@ router.post('/auth/verify-manager-pin', authenticateToken, async (req: CustomReq
 
     // 🕵️ აუდიტის ლოგი: რომელმა მენეჯერმა (actor) დაუშვა override
     // რომელი მოლარის (target) მიმდინარე ტრანზაქციისთვის.
-    await writeAuditLog(matchedManager.id, cashierId, 'manager-pin-override', 'approved');
+    await writeAuditLog(matchedManager.id, cashierId, 'manager-pin-override', 'approved', req.user?.organizationId);
 
     // 🔑 მოკლევადიანი (5წთ) JWT — POST /api/payments ამას X-Manager-Override
     // ჰედერით მიიღებს და გამოიყენებს, თუ მოლარეს can_use_discount გამორთული
@@ -419,11 +419,30 @@ router.put('/users/:id', authenticateToken, async (req: CustomRequest, res) => {
 // checkout-ის დროს), რომ ლოგის ფორმატი ერთი წყაროდან იმართებოდეს.
 // 🆔 UUID მიგრაცია — actorId/targetId ახლა ორივე UUID string-ია
 // (users.id-ის ტიპის შესაბამისად).
-export const writeAuditLog = async (actorId: string | undefined, targetId: string | undefined, action: string, newValue: unknown) => {
+//
+// 🏢 Multi-Tenant SaaS STEP 2, ტიერი 5 (Roadmap "23.08.2026") — **კრიტიკული
+// write-blocker fix**: migration 013-ის შემდეგ `audit_logs.organization_id`
+// NOT NULL-ია, მაგრამ ეს INSERT მას საერთოდ არ ავსებდა — ანუ ყოველი
+// გამოძახება 500-ით ჩავარდებოდა. ეს კი catch-ბლოკს ეჭერდა და console.error-ით
+// ჩუმად "ინთქმებოდა" (განზრახ, ზემოთა კომენტარის მიხედვით — ლოგირების
+// შეცდომამ არ უნდა შეაფერხოს რეალური ცვლილება). შედეგად STEP 1-ის merge-ის
+// შემდეგ მთელი აუდიტ-ისტორია (PIN override, toggle-ცვლილებები, void-override
+// და ა.შ.) **ჩუმად აღარ იწერებოდა საერთოდ** — არც ერთი შეცდომა არ ჩანდა
+// API-response-ში, მხოლოდ server log-ში. `organizationId` ახლა სავალდებულო
+// პარამეტრია (არა optional actorId/targetId-ის მსგავსად) — TypeScript-ი
+// აიძულებს ყველა 11 caller-ს ცხადად გადასცეს, რომ მომავალში იგივე ტიპის
+// "ჩუმი" გამორჩევა აღარ განმეორდეს.
+export const writeAuditLog = async (
+  actorId: string | undefined,
+  targetId: string | undefined,
+  action: string,
+  newValue: unknown,
+  organizationId: string | undefined
+) => {
   try {
     await db.query(
-      'INSERT INTO audit_logs (actor_id, target_id, action, new_value) VALUES ($1, $2, $3, $4)',
-      [actorId, targetId, action, String(newValue)]
+      'INSERT INTO audit_logs (actor_id, target_id, action, new_value, organization_id) VALUES ($1, $2, $3, $4, $5)',
+      [actorId, targetId, action, String(newValue), organizationId]
     );
   } catch (logErr: any) {
     console.error('⚠️ აუდიტის ლოგის ჩაწერა ჩავარდა:', logErr.message);
@@ -448,7 +467,7 @@ router.put('/users/:id/history-access', authenticateToken, async (req: CustomReq
     if (result.rows.length === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა' });
 
     // 🕵️ აუდიტის ლოგი: ვინ (actor) ვის (target) შეუცვალა ისტორიის ნახვის უფლება.
-    await writeAuditLog(req.user?.id, req.params.id, 'history-access', can_view_history);
+    await writeAuditLog(req.user?.id, req.params.id, 'history-access', can_view_history, req.user?.organizationId);
 
     res.json({ success: true, user: result.rows[0] });
   } catch (err: any) {
@@ -478,7 +497,7 @@ router.put('/users/:id/discount-access', authenticateToken, async (req: CustomRe
     if (result.rows.length === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა' });
 
     // 🕵️ აუდიტის ლოგი: ვინ (actor) ვის (target) რა უფლება შეუცვალა.
-    await writeAuditLog(req.user?.id, req.params.id, 'discount-access', can_use_discount);
+    await writeAuditLog(req.user?.id, req.params.id, 'discount-access', can_use_discount, req.user?.organizationId);
 
     res.json({ success: true, user: result.rows[0] });
   } catch (err: any) {
@@ -507,7 +526,7 @@ router.put('/users/:id/void-access', authenticateToken, async (req: CustomReques
     if (result.rows.length === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა' });
 
     // 🕵️ აუდიტის ლოგი: ვინ (actor) ვის (target) შეუცვალა ჩეკის გაუქმების უფლება.
-    await writeAuditLog(req.user?.id, req.params.id, 'void-access', can_void_receipt);
+    await writeAuditLog(req.user?.id, req.params.id, 'void-access', can_void_receipt, req.user?.organizationId);
 
     res.json({ success: true, user: result.rows[0] });
   } catch (err: any) {
@@ -536,7 +555,7 @@ router.put('/users/:id/clear-cart-access', authenticateToken, async (req: Custom
     if (result.rows.length === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა' });
 
     // 🕵️ აუდიტის ლოგი: ვინ (actor) ვის (target) შეუცვალა კალათის გასუფთავების უფლება.
-    await writeAuditLog(req.user?.id, req.params.id, 'clear-cart-access', can_clear_cart);
+    await writeAuditLog(req.user?.id, req.params.id, 'clear-cart-access', can_clear_cart, req.user?.organizationId);
 
     res.json({ success: true, user: result.rows[0] });
   } catch (err: any) {
@@ -670,7 +689,7 @@ router.put('/users/:id/pin', authenticateToken, async (req: CustomRequest, res: 
     // 🕵️ აუდიტის ლოგი: არასდროს ვწერთ PIN-ის მნიშვნელობას (ჰეშსაც კი) —
     // მხოლოდ ფაქტს, რომ ადმინმა (actor) ცვლილება შეიტანა კონკრეტულ
     // მენეჯერზე (target).
-    await writeAuditLog(req.user?.id, req.params.id, 'manager-pin-update', 'updated');
+    await writeAuditLog(req.user?.id, req.params.id, 'manager-pin-update', 'updated', req.user?.organizationId);
 
     res.json({
       success: true,

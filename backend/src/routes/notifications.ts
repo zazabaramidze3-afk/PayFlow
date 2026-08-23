@@ -23,6 +23,9 @@ const router = Router();
 // 📜 გადაუჭარბებელი (is_resolved = false) ნოტიფიკაციები, უახლესი პირველი.
 // product_name/cashier_name/register_name — snapshot/join, რომ ცხადი
 // ტექსტი დაუყოვნებლივ გამოჩნდეს ცხრილში დამატებითი round-trip-ების გარეშე.
+// 🏢 Multi-Tenant SaaS STEP 2, ტიერი 4 (Roadmap "23.08.2026") —
+// `AND sdn.organization_id = $1` დაემატა. ამის გარეშე ერთი org-ის
+// admin/manager-ს ყველა org-ის oversell-ნოტიფიკაცია ეჩვენებოდა.
 router.get(
   '/notifications/stock-deficits',
   authenticateToken,
@@ -39,9 +42,10 @@ router.get(
          FROM stock_deficit_notifications sdn
          LEFT JOIN users u ON u.id = sdn.cashier_id
          LEFT JOIN registers r ON r.id = sdn.register_id
-         WHERE sdn.is_resolved = false
+         WHERE sdn.is_resolved = false AND sdn.organization_id = $1
          ORDER BY sdn.created_at DESC
-         LIMIT 100`
+         LIMIT 100`,
+        [req.user?.organizationId]
       );
       res.json(result.rows);
     } catch (err: any) {
@@ -52,6 +56,10 @@ router.get(
 
 // ✅ ერთი ნოტიფიკაციის "განხილულად" მონიშვნა — row არ იშლება (ისტორია
 // შენარჩუნებულია), მხოლოდ is_resolved/resolved_by/resolved_at ივსება.
+// 🏢 Multi-Tenant SaaS STEP 2, ტიერი 4 (Roadmap "23.08.2026", IDOR fix) —
+// `AND organization_id = $3` დაემატა — ამის გარეშე ერთი org-ის
+// admin/manager-ს შეეძლო სხვა org-ის ნოტიფიკაციის "განხილულად" მონიშვნა,
+// notification id-ის გამოცნობით.
 router.put(
   '/notifications/stock-deficits/:id/resolve',
   authenticateToken,
@@ -63,16 +71,16 @@ router.put(
          SET is_resolved = true,
              resolved_by = $1,
              resolved_at = CURRENT_TIMESTAMP
-         WHERE id = $2 AND is_resolved = false
+         WHERE id = $2 AND is_resolved = false AND organization_id = $3
          RETURNING id`,
-        [req.user?.id, req.params.id]
+        [req.user?.id, req.params.id, req.user?.organizationId]
       );
 
       if (result.rows.length === 0) {
         return res.status(404).json({ error: 'ნოტიფიკაცია ვერ მოიძებნა ან უკვე განხილულია' });
       }
 
-      await writeAuditLog(req.user?.id, undefined, 'stock-deficit-resolved', `notification:${req.params.id}`);
+      await writeAuditLog(req.user?.id, undefined, 'stock-deficit-resolved', `notification:${req.params.id}`, req.user?.organizationId);
 
       res.json({ success: true });
     } catch (err: any) {
@@ -92,6 +100,9 @@ router.put(
 // register_name/cashier_name JOIN-ით, რომ Manager Dashboard-ს დამატებითი
 // round-trip არ დასჭირდეს.
 
+// 🏢 Multi-Tenant SaaS STEP 2, ტიერი 4 (Roadmap "23.08.2026") —
+// `AND sa.organization_id = $1` დაემატა (იხ. stock-deficits-ის იგივე
+// კომენტარი ზემოთ).
 router.get(
   '/notifications/shift-amendments',
   authenticateToken,
@@ -108,9 +119,10 @@ router.get(
          FROM shift_amendments sa
          LEFT JOIN users u ON u.id = sa.cashier_id
          LEFT JOIN registers r ON r.id = sa.register_id
-         WHERE sa.is_resolved = false
+         WHERE sa.is_resolved = false AND sa.organization_id = $1
          ORDER BY sa.created_at DESC
-         LIMIT 100`
+         LIMIT 100`,
+        [req.user?.organizationId]
       );
       res.json(result.rows);
     } catch (err: any) {
@@ -121,6 +133,9 @@ router.get(
 
 // ✅ "ხელახლა დავბეჭდე Z-Report" დადასტურება — row არ იშლება (ისტორია
 // შენარჩუნებულია), მხოლოდ is_resolved/resolved_by/resolved_at ივსება.
+// 🏢 Multi-Tenant SaaS STEP 2, ტიერი 4 (Roadmap "23.08.2026", IDOR fix) —
+// `AND organization_id = $3` დაემატა (იხ. stock-deficits-ის resolve-ის
+// იგივე კომენტარი ზემოთ).
 router.put(
   '/notifications/shift-amendments/:id/resolve',
   authenticateToken,
@@ -132,16 +147,16 @@ router.put(
          SET is_resolved = true,
              resolved_by = $1,
              resolved_at = CURRENT_TIMESTAMP
-         WHERE id = $2 AND is_resolved = false
+         WHERE id = $2 AND is_resolved = false AND organization_id = $3
          RETURNING id`,
-        [req.user?.id, req.params.id]
+        [req.user?.id, req.params.id, req.user?.organizationId]
       );
 
       if (result.rows.length === 0) {
         return res.status(404).json({ error: 'ნოტიფიკაცია ვერ მოიძებნა ან უკვე განხილულია' });
       }
 
-      await writeAuditLog(req.user?.id, undefined, 'shift-amendment-resolved', `shift:${req.params.id}`);
+      await writeAuditLog(req.user?.id, undefined, 'shift-amendment-resolved', `shift:${req.params.id}`, req.user?.organizationId);
 
       res.json({ success: true });
     } catch (err: any) {

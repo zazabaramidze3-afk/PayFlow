@@ -1,5 +1,10 @@
 import { Router, Response } from 'express';
-import jwt from 'jsonwebtoken';
+// 🏢 Multi-Tenant SaaS STEP 2, ტიერი 5 (Roadmap "23.08.2026") — `JwtPayload`
+// დაემატა named import-ად: export/excel და export/pdf ორივე ხელით
+// (authenticateToken-ის გარეშე) ამოწმებს ტოკენს query param-იდან, ამიტომ
+// `req.user`-ი არასდროს ივსება — ორგანიზაციის ამოსაღებად decoded payload
+// თავად უნდა წაიკითხოს (იხ. ორივე route ქვემოთ).
+import jwt, { JwtPayload } from 'jsonwebtoken';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import path from 'path';
@@ -129,12 +134,19 @@ router.post('/shifts/open', authenticateToken, requireRegister, async (req: Cust
     // { timeZone: 'Asia/Tbilisi' })`). შედეგად Manager Dashboard-ის "მოლარეების
     // ცვლები" ცხრილში opened_at ~4 საათით ჩამორჩებოდა closed_at-ს (UTC vs
     // UTC+4). `AT TIME ZONE 'Asia/Tbilisi'` აქაც იმავე კონვენციაზე გადმოჰყავს.
+    // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 5 (Roadmap "23.08.2026") —
+    // **write-blocker fix**: migration 013-ის შემდეგ `shifts.organization_id`
+    // NOT NULL-ია — ამის გარეშე ეს INSERT 500-ით ჩავარდებოდა, ანუ "ცვლის
+    // გახსნა" (POS-ის სამუშაო ციკლის პირველი ნაბიჯი) საერთოდ არ იმუშავებდა
+    // STEP 1-ის production-ზე merge-ის შემდეგ. `requireRegister`-მა უკვე
+    // დაადასტურა (ზემოთ, registerAuth.ts), რომ req.registerId ამ user-ის
+    // საკუთარ org-ს ეკუთვნის.
     const insertQuery = `
-      INSERT INTO shifts (cashier_id, register_id, start_amount, status, opened_at)
-      VALUES ($1, $2, $3, 'open', TO_CHAR(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi', 'YYYY-MM-DD HH24:MI:SS'))
+      INSERT INTO shifts (cashier_id, register_id, start_amount, status, opened_at, organization_id)
+      VALUES ($1, $2, $3, 'open', TO_CHAR(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi', 'YYYY-MM-DD HH24:MI:SS'), $4)
       RETURNING id
     `;
-    const insertResult = await db.query(insertQuery, [req.user?.id, req.registerId, start_amount]);
+    const insertResult = await db.query(insertQuery, [req.user?.id, req.registerId, start_amount, req.user?.organizationId]);
 
     res.status(201).json({ message: "ცვლა გაიხსნა", shiftId: insertResult.rows[0].id });
   } catch (err: any) {
@@ -268,19 +280,22 @@ router.put('/shifts/close', authenticateToken, async (req: CustomRequest, res: R
 // შემთხვევით ჩნდებოდა სიის შუაში, არა თავში. `opened_at` (TEXT,
 // 'YYYY-MM-DD HH24:MI:SS' ფორმატით — dashboard.ts-ის იგივე ლექსიკოგრაფიული
 // სორტირების კონვენცია) კი ნამდვილად ასახავს რეალურ დროს.
-router.get('/shifts/history', authenticateToken, async (req: any, res: Response) => {
+// 🏢 Multi-Tenant SaaS STEP 2, ტიერი 4 (Roadmap "23.08.2026") —
+// `AND s.organization_id = $1` დაემატა. `req: any` → `req: CustomRequest`
+// (org-ის წვდომისთვის საჭირო).
+router.get('/shifts/history', authenticateToken, async (req: CustomRequest, res: Response) => {
   if (req.user?.role === 'cashier') return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
 
   const query = `
     SELECT s.*, u.name AS cashier_name
     FROM shifts s
     LEFT JOIN users u ON s.cashier_id = u.id
-    WHERE u.role IS NULL OR u.role != 'admin'
+    WHERE (u.role IS NULL OR u.role != 'admin') AND s.organization_id = $1
     ORDER BY s.opened_at DESC
   `;
 
   try {
-    const result = await db.query(query);
+    const result = await db.query(query, [req.user?.organizationId]);
     res.json(result.rows);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -467,9 +482,12 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
 
     // 🖥️ register_id (STEP 1.3) და created_at (STEP 1.4, DB DEFAULT-ის
     // ნაცვლად ცალსახად გადაცემული) დაემატა INSERT-ს.
+    // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 5 (Roadmap "23.08.2026") —
+    // **write-blocker fix**: `organization_id` NOT NULL-ია (migration 013)
+    // — ამის გარეშე ყოველი checkout 500-ით ჩავარდებოდა.
     const paymentQuery = `
-      INSERT INTO payments (cashier_id, shift_id, register_id, subtotal_amount, discount_type, discount_value, total_amount, payment_method, cash_received, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      INSERT INTO payments (cashier_id, shift_id, register_id, subtotal_amount, discount_type, discount_value, total_amount, payment_method, cash_received, created_at, organization_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING id
     `;
     const paymentResult = await db.query(paymentQuery, [
@@ -482,7 +500,8 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
       totalAmount,
       paymentMethod,
       cashReceivedToStore,
-      createdAtToStore
+      createdAtToStore,
+      req.user?.organizationId
     ]);
     const paymentId = paymentResult.rows[0].id;
 
@@ -528,7 +547,8 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
         managerOverrideUsed.managerId,
         req.user?.id ?? managerOverrideUsed.managerId,
         'manager-pin-override-used',
-        `payment:${paymentId}`
+        `payment:${paymentId}`,
+        req.user?.organizationId
       );
     }
 
@@ -580,9 +600,16 @@ router.post('/payments/:id/void', authenticateToken, async (req: CustomRequest, 
   }
 
   try {
+    // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 5 (Roadmap "23.08.2026", IDOR fix)
+    // — `AND organization_id = $2` დაემატა. ამის გარეშე ეს ერთ-ერთი
+    // ყველაზე სერიოზული IDOR იყო მთელ STEP 2-ში: ნებისმიერ ავტორიზებულ
+    // (can_void_receipt უფლების ან manager override-ის მქონე) user-ს,
+    // payment id-ის (UUID) გამოცნობით/გაუჟონვით, შეეძლო **სხვა org-ის
+    // რეალური ფინანსური ჩეკის გაუქმება** — მარაგის დაბრუნებით და
+    // ფინანსური ისტორიის შეცვლით ერთად.
     const paymentCheck = await db.query(
-      'SELECT id, is_voided FROM payments WHERE id = $1',
-      [paymentId]
+      'SELECT id, is_voided FROM payments WHERE id = $1 AND organization_id = $2',
+      [paymentId, req.user?.organizationId]
     );
 
     if (paymentCheck.rows.length === 0) {
@@ -635,14 +662,18 @@ router.post('/payments/:id/void', authenticateToken, async (req: CustomRequest, 
     // იყენებდა, payments.created_at კი formatDbTimestamp()-ით სამუშაოდ
     // ცხადად Asia/Tbilisi-ზეა კონვერტირებული. AT TIME ZONE იმავე
     // კონვენციაზე გადმოჰყავს voided_at-იც.
+    // 🏢 STEP 2, ტიერი 5 — `AND organization_id = $3` აქაც, თანმიმდევრობის
+    // გულისთვის (paymentCheck-ით უკვე დავრწმუნდით ორგ-საკუთრებაში, მაგრამ
+    // defense-in-depth — dupCheck+UPDATE-ის იგივე ორმაგი შემოწმების
+    // პატერნი, რასაც products.ts-ის PUT იყენებს).
     const voidResult = await db.query(
       `UPDATE payments
        SET is_voided = true,
            voided_at = TO_CHAR(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi', 'YYYY-MM-DD HH24:MI:SS'),
            voided_by = $1
-       WHERE id = $2
+       WHERE id = $2 AND organization_id = $3
        RETURNING id, is_voided, voided_at, voided_by`,
-      [req.user?.id, paymentId]
+      [req.user?.id, paymentId, req.user?.organizationId]
     );
 
     await db.query('COMMIT');
@@ -658,7 +689,8 @@ router.post('/payments/:id/void', authenticateToken, async (req: CustomRequest, 
         managerOverrideUsed.managerId,
         req.user?.id ?? managerOverrideUsed.managerId,
         'void-receipt-override',
-        `payment:${paymentId}`
+        `payment:${paymentId}`,
+        req.user?.organizationId
       );
     }
 
@@ -693,10 +725,16 @@ router.post('/payments/:id/void', authenticateToken, async (req: CustomRequest, 
 // ეს ავტომატურად "amend"-დება — shifts.end_amount_expected/difference
 // ხელახლა გამოითვლება და მენეჯერს ნოტიფიკაცია უჩნდება (shift_amendments,
 // notifications.ts-ის GET/PUT /notifications/shift-amendments).
+// 🏢 Multi-Tenant SaaS STEP 2, ტიერი 5 (Roadmap "23.08.2026") — `organizationId`
+// დაემატა პარამეტრად (call site-ი, POST /payments/sync-offline, req.user?.organizationId-ს
+// გადასცემს) — ქვემოთ shift-ის org-საკუთრების შესამოწმებლად და ყველა
+// ახალი row-ის (payments/stock_deficit_notifications/shift_amendments)
+// organization_id-ით ჩასაწერად.
 async function syncSingleOfflineReceipt(
   client: PoolClient,
   receipt: OfflineSyncReceiptPayload,
-  registerId: string
+  registerId: string,
+  organizationId: string | undefined
 ): Promise<OfflineSyncResult> {
   // 🖥️ receipt.registerId — Dexie-ში (Roadmap STEP 4.1) იმ ფიზიკური
   // Register-ის UUID-ია, რომელმაც ეს ჩეკი შექმნა. requireRegister
@@ -733,8 +771,13 @@ async function syncSingleOfflineReceipt(
   // end_amount_expected/difference დამატებით ვკითხულობთ, რომ ქვემოთ
   // (item-ების ჩაწერის შემდეგ) ცხადად ვიცოდეთ, ეს ცვლა უკვე დახურული
   // დაგვხვდა თუ არა — late-sync reconciliation-ისთვის.
+  // 🏢 STEP 2, ტიერი 5 — `organization_id`-იც ვკითხულობთ და ცალსახად
+  // ვამოწმებთ. registerId (requireRegister-ის მიერ) და shift.register_id
+  // (ზემოთ) უკვე ირიბად ზღუდავს org-ს, მაგრამ ცხადი შემოწმება defense-in-depth-ია
+  // — იმ შემთხვევისთვისაც, თუ ძველი (STEP 1-მდე შექმნილი) shift-ი
+  // organization_id-ის გარეშე/არასწორი მნიშვნელობით აღმოჩნდება.
   const shiftCheck = await client.query(
-    `SELECT id, cashier_id, register_id, status, start_amount, end_amount_actual, end_amount_expected, difference
+    `SELECT id, cashier_id, register_id, status, start_amount, end_amount_actual, end_amount_expected, difference, organization_id
      FROM shifts WHERE id = $1`,
     [receipt.shiftId]
   );
@@ -744,6 +787,9 @@ async function syncSingleOfflineReceipt(
   const shift = shiftCheck.rows[0];
   if (shift.cashier_id !== receipt.cashierId || shift.register_id !== registerId) {
     throw new Error('ჩეკის ცვლა/სალარო/მოლარე კომბინაცია არასწორია');
+  }
+  if (organizationId !== undefined && shift.organization_id !== organizationId) {
+    throw new Error('ჩეკის ცვლა თქვენს ორგანიზაციას არ ეკუთვნის');
   }
 
   // 🕐 client-side timestamp audit (Roadmap STEP 1.4/4.1-ის იგივე ფორმატი)
@@ -815,10 +861,16 @@ async function syncSingleOfflineReceipt(
   // payments.id-ად. ON CONFLICT DO NOTHING + RETURNING id — თუ ეს ჩეკი
   // უკვე სინქრონდა ადრე (retry/ორმაგი Worker-გაშვება), აქ 0 row ბრუნდება
   // და ვიცით, რომ 'duplicate'-ია, არა შეცდომა.
+  // 🏢 STEP 2, ტიერი 5 — **write-blocker fix**: `organization_id` NOT
+  // NULL-ია (migration 013), ამის გარეშე ყოველი offline sync 'failed'
+  // status-ს დააბრუნებდა (throw ხდება, SAVEPOINT-ის catch-ში ეჭერა) —
+  // ანუ ONLINE checkout-ის იგივე write-blocker, უბრალოდ Background Sync-ის
+  // batch-ში "ჩუმად" (თითოეული ჩეკის შედეგი results[]-შია, არა top-level
+  // 500).
   const insertResult = await client.query(
     `INSERT INTO payments
-       (id, cashier_id, shift_id, register_id, subtotal_amount, discount_type, discount_value, total_amount, payment_method, cash_received, created_at, is_offline_sync)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true)
+       (id, cashier_id, shift_id, register_id, subtotal_amount, discount_type, discount_value, total_amount, payment_method, cash_received, created_at, is_offline_sync, organization_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, $12)
      ON CONFLICT (id) DO NOTHING
      RETURNING id`,
     [
@@ -833,6 +885,7 @@ async function syncSingleOfflineReceipt(
       receipt.paymentMethod,
       cashReceivedToStore,
       createdAtToStore,
+      organizationId,
     ]
   );
 
@@ -880,11 +933,13 @@ async function syncSingleOfflineReceipt(
     if (availableBefore < item.quantity) {
       hadStockDeficit = true;
       const deficitQuantity = item.quantity - availableBefore;
+      // 🏢 STEP 2, ტიერი 5 — write-blocker fix (organization_id NOT NULL,
+      // migration 013), payments-ის ზემოთა INSERT-ის იგივე მიზეზით.
       await client.query(
         `INSERT INTO stock_deficit_notifications
-           (payment_id, product_id, product_name, register_id, cashier_id, requested_quantity, available_quantity, deficit_quantity)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [receipt.id, item.productId, item.name, registerId, receipt.cashierId, item.quantity, availableBefore, deficitQuantity]
+           (payment_id, product_id, product_name, register_id, cashier_id, requested_quantity, available_quantity, deficit_quantity, organization_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [receipt.id, item.productId, item.name, registerId, receipt.cashierId, item.quantity, availableBefore, deficitQuantity, organizationId]
       );
     }
   }
@@ -936,11 +991,13 @@ async function syncSingleOfflineReceipt(
       ]
     );
 
+    // 🏢 STEP 2, ტიერი 5 — write-blocker fix (organization_id NOT NULL,
+    // migration 013), იგივე მიზეზით, რაც ზემოთა ორ INSERT-ს.
     await client.query(
       `INSERT INTO shift_amendments
-         (shift_id, payment_id, cashier_id, register_id, previous_expected, new_expected, previous_difference, new_difference)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [shift.id, receipt.id, receipt.cashierId, registerId, previousExpected, newExpected, previousDifference, newDifference]
+         (shift_id, payment_id, cashier_id, register_id, previous_expected, new_expected, previous_difference, new_difference, organization_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [shift.id, receipt.id, receipt.cashierId, registerId, previousExpected, newExpected, previousDifference, newDifference, organizationId]
     );
 
     causedShiftAmendment = true;
@@ -1002,7 +1059,7 @@ router.post(
         const savepoint = `sp_${receipt.id.replace(/-/g, '')}`;
         try {
           await client.query(`SAVEPOINT ${savepoint}`);
-          const result = await syncSingleOfflineReceipt(client, receipt, req.registerId as string);
+          const result = await syncSingleOfflineReceipt(client, receipt, req.registerId as string, req.user?.organizationId);
           await client.query(`RELEASE SAVEPOINT ${savepoint}`);
           results.push(result);
         } catch (itemErr: any) {
@@ -1072,7 +1129,8 @@ router.post('/cart/confirm-override', authenticateToken, async (req: CustomReque
     managerOverrideUsed.managerId,
     req.user?.id ?? managerOverrideUsed.managerId,
     action,
-    newValue
+    newValue,
+    req.user?.organizationId
   );
 
   res.json({ success: true });
@@ -1098,12 +1156,20 @@ const PAYMENT_METHOD_FILTER_VALUES = ['cash', 'card', 'split'] as const;
 const STATUS_FILTER_VALUES = ['active', 'voided'] as const;
 const DISCOUNT_FILTER_VALUES = ['yes', 'no'] as const;
 
-function buildPaymentsFilterQuery(baseSelect: string, query: any) {
+// 🏢 Multi-Tenant SaaS STEP 2, ტიერი 5 (Roadmap "23.08.2026") — `organizationId`
+// დაემატა სავალდებულო (არა optional filter-ების მსგავსად) პარამეტრად —
+// ყოველთვის, ცალსახად გამოიყენება (არა `if`-ით პირობითი, სხვა ფილტრების
+// მსგავსად), რომ ვერცერთმა caller-მა (GET /payments და ორივე export)
+// შემთხვევით ვერ "დაავიწყოს". ამის გარეშე ეს ერთი helper (ფაილის
+// თავშივე მითითებული, "ეკრანი და ექსპორტი ერთმანეთს ემთხვევა" პრინციპით)
+// სამივე endpoint-ს ერთდროულად ტოვებდა cross-tenant გახსნილს — ერთი org-ის
+// admin/manager-ს ყველა org-ის ფინანსური ისტორიის ნახვა/ექსპორტი შეეძლო.
+function buildPaymentsFilterQuery(baseSelect: string, query: any, organizationId: string | undefined) {
   const { from, to, cashierId, productName, paymentMethod, status, discount } = query;
 
-  let sql = baseSelect + ' WHERE 1=1';
-  const params: any[] = [];
-  let index = 1;
+  let sql = baseSelect + ' WHERE p.organization_id = $1';
+  const params: any[] = [organizationId];
+  let index = 2;
 
   if (from) {
     sql += ` AND p.created_at >= $${index}`;
@@ -1194,7 +1260,7 @@ router.get('/payments', authenticateToken, async (req: CustomRequest, res: any) 
     FROM payments p
     LEFT JOIN users u ON p.cashier_id = u.id
   `;
-  const { sql, params } = buildPaymentsFilterQuery(baseSelect, req.query);
+  const { sql, params } = buildPaymentsFilterQuery(baseSelect, req.query, req.user?.organizationId);
 
   try {
     const paymentsResult = await db.query(sql, params);
@@ -1360,12 +1426,21 @@ router.get('/payments/export/excel', async (req: any, res: any) => {
   if (!token) return res.status(401).json({ error: 'ტოკენი არ არსებობს!' });
 
   try {
-    await new Promise((resolve, reject) => {
-      jwt.verify(token, secretKey, (err) => {
-        if (err) reject(new Error('ტოკენი არავალიდურია!'));
-        resolve(true);
+    // 🏢 STEP 2, ტიერი 5 — decoded payload-იც ვიღებთ (არა მხოლოდ
+    // ვალიდურობის დადასტურებას), რომ organizationId ამოვიღოთ. ეს route
+    // authenticateToken-ს არ იყენებს (token query param-იდან მოდის,
+    // header-ის ნაცვლად — excel/PDF ბმულები პირდაპირ ბრაუზერში იხსნება),
+    // ამიტომ req.user აქ არასდროს არსებობს.
+    const decoded = await new Promise<JwtPayload>((resolve, reject) => {
+      jwt.verify(token, secretKey, (err, payload) => {
+        if (err || !payload || typeof payload === 'string') {
+          reject(new Error('ტოკენი არავალიდურია!'));
+          return;
+        }
+        resolve(payload);
       });
     });
+    const organizationId = typeof decoded.organizationId === 'string' ? decoded.organizationId : undefined;
 
     // 🧾 p.is_voided დამატებულია (Roadmap ეტაპი 4 fix) — ბუღალტერმა Excel-შიც
     // ცალსახად უნდა დაინახოს, რომელი ჩეკია გაუქმებული (იხ. 'სტატუსი' სვეტი ქვემოთ).
@@ -1374,7 +1449,7 @@ router.get('/payments/export/excel', async (req: any, res: any) => {
       FROM payments p
       LEFT JOIN users u ON p.cashier_id = u.id
     `;
-    const { sql, params } = buildPaymentsFilterQuery(baseSelect, req.query);
+    const { sql, params } = buildPaymentsFilterQuery(baseSelect, req.query, organizationId);
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Payments');
@@ -1425,12 +1500,17 @@ router.get('/payments/export/pdf', async (req: any, res: any) => {
   if (!token) return res.status(401).json({ error: 'ტოკენი არ არსებობს!' });
 
   try {
-    await new Promise((resolve, reject) => {
-      jwt.verify(token, secretKey, (err) => {
-        if (err) reject(new Error('ტოკენი არავალიდურია!'));
-        resolve(true);
+    // 🏢 STEP 2, ტიერი 5 — იგივე, რაც export/excel-ს (იხ. მისი კომენტარი).
+    const decoded = await new Promise<JwtPayload>((resolve, reject) => {
+      jwt.verify(token, secretKey, (err, payload) => {
+        if (err || !payload || typeof payload === 'string') {
+          reject(new Error('ტოკენი არავალიდურია!'));
+          return;
+        }
+        resolve(payload);
       });
     });
+    const organizationId = typeof decoded.organizationId === 'string' ? decoded.organizationId : undefined;
 
     // 🧾 p.is_voided დამატებულია (Roadmap ეტაპი 4 fix) — Grand Total-ს ქვემოთ
     // გაუქმებული ჩეკები აღარ უნდა ერთვებოდეს (იხ. grandTotal-ის გამოთვლა).
@@ -1439,7 +1519,7 @@ router.get('/payments/export/pdf', async (req: any, res: any) => {
       FROM payments p
       LEFT JOIN users u ON p.cashier_id = u.id
     `;
-    const { sql, params } = buildPaymentsFilterQuery(baseSelect, req.query);
+    const { sql, params } = buildPaymentsFilterQuery(baseSelect, req.query, organizationId);
 
     const result = await db.query(sql, params);
     const rows = result.rows;
