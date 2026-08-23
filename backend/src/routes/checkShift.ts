@@ -4,7 +4,13 @@ import pool from '../db';
 export interface CustomRequest extends Request {
     // 🆔 UUID მიგრაცია (Roadmap STEP 1, migration 009) — user.id/activeShiftId
     // ახლა UUID string-ია, აღარ არის SERIAL INTEGER.
-    user?: { id: string; role: string; username: string };
+    // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 4/5 (Roadmap "23.08.2026") —
+    // organizationId დაემატა, auth.ts-ის CustomRequest-ის შესაბამისად.
+    // sales.ts ამ (და არა auth.ts-ის) ტიპს იყენებს — მის გარეშე
+    // `req.user?.organizationId` compile-ში ჩავარდებოდა, თუმცა runtime-ზე
+    // authenticateToken (auth.ts-იდან, ორივეგან იგივე middleware) ამ ველს
+    // ისედაც ავსებდა.
+    user?: { id: string; role: string; username: string; organizationId: string };
     activeShiftId?: string;
     // 🖥️ Roadmap STEP 2 — registerAuth middleware-ის მიერ დასეტილი,
     // "მხოლოდ ერთი აქტიური Shift Per Register" წესისთვის (sales.ts).

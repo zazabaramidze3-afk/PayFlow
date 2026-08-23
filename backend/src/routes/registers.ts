@@ -170,8 +170,19 @@ router.post(
 
       let finalRegisterId: string;
 
+      // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 3 (Roadmap "23.08.2026") —
+      // registers.ts-ს საერთოდ არ ჰქონდა org-ცნობიერება (migration 013
+      // ამატებს registers.organization_id NOT NULL-ს, მაგრამ ეს ფაილი
+      // მანამდე დაწერილი იყო). ორი ცალკე პრობლემა ერთდროულად:
+      //   1) IDOR — არსებული registerId ნებისმიერი org-იდან შეიძლებოდა
+      //      დაწყვილებულიყო, org-ის საკუთრების შემოწმების გარეშე.
+      //   2) write-blocker — ახალი register-ის INSERT organization_id-ის
+      //      გარეშე 500-ით ჩავარდებოდა (NOT NULL constraint, migration 013).
       if (hasExistingRegisterId) {
-        const regResult = await db.query('SELECT id, is_active FROM registers WHERE id = $1', [registerId]);
+        const regResult = await db.query(
+          'SELECT id, is_active FROM registers WHERE id = $1 AND organization_id = $2',
+          [registerId, req.user?.organizationId]
+        );
         if (regResult.rows.length === 0) {
           return res.status(404).json({ error: 'სალარო ვერ მოიძებნა' });
         }
@@ -181,8 +192,8 @@ router.post(
         finalRegisterId = regResult.rows[0].id;
       } else {
         const createResult = await db.query(
-          `INSERT INTO registers (name, is_active) VALUES ($1, true) RETURNING id`,
-          [String(newRegisterName).trim()]
+          `INSERT INTO registers (name, is_active, organization_id) VALUES ($1, true, $2) RETURNING id`,
+          [String(newRegisterName).trim(), req.user?.organizationId]
         );
         finalRegisterId = createResult.rows[0].id;
       }
@@ -208,9 +219,19 @@ router.post(
 // 4) სალაროების სია — Pairing UI-ს სჭირდება (Manager/Admin-მა უნდა
 //    შეძლოს არჩევა უკვე არსებულ Register-ს შორის ან ახლის შექმნა).
 // ==========================================
-router.get('/registers', authenticateToken, requireAnyRole('admin', 'manager'), async (_req: CustomRequest, res: Response) => {
+// 🏢 Multi-Tenant SaaS STEP 2, ტიერი 3-სთან ერთად გასწორდა (Roadmap
+// "23.08.2026") — `WHERE organization_id = $1` დაემატა. ეს ტექნიკურად
+// tier 4-ის (დარჩენილი read-only route-ები) ფარგლისაა, მაგრამ იმავე
+// ფაილშია და პირდაპირ დაკავშირებულია ზემოთა POST /registers/pair-ის
+// IDOR ფიქსთან — pairing UI-ს picker-ი წინააღმდეგ შემთხვევაში ყველა
+// org-ის register-ს აჩვენებდა (data leak), მიუხედავად იმისა, რომ
+// pair-ის დროს ახლა org-შემოწმება უკვე დგას.
+router.get('/registers', authenticateToken, requireAnyRole('admin', 'manager'), async (req: CustomRequest, res: Response) => {
   try {
-    const result = await db.query('SELECT id, name, is_active, created_at FROM registers ORDER BY created_at ASC');
+    const result = await db.query(
+      'SELECT id, name, is_active, created_at FROM registers WHERE organization_id = $1 ORDER BY created_at ASC',
+      [req.user?.organizationId]
+    );
     res.json(result.rows);
   } catch (err: unknown) {
     res.status(500).json({ error: 'სერვერის შეცდომა: ' + getErrorMessage(err) });
