@@ -16,6 +16,9 @@ router.get('/audit-logs/export', authenticateToken, async (req: CustomRequest, r
   }
 
   try {
+    // 🏢 Multi-Tenant SaaS STEP 2 (Roadmap "23.08.2026") — `WHERE
+    // al.organization_id = $1` დაემატა, იგივე მიზეზით, რაც auth.ts-ის
+    // GET/DELETE /audit-logs-ს.
     const result = await db.query(
       `SELECT
          al.id,
@@ -27,7 +30,9 @@ router.get('/audit-logs/export', authenticateToken, async (req: CustomRequest, r
        FROM audit_logs al
        LEFT JOIN users actor ON actor.id = al.actor_id
        LEFT JOIN users target ON target.id = al.target_id
-       ORDER BY al.created_at DESC`
+       WHERE al.organization_id = $1
+       ORDER BY al.created_at DESC`,
+      [req.user?.organizationId]
     );
 
     // CSV-ს სტანდარტული escaping — მძიმე, ბრჭყალი ან newline რომ

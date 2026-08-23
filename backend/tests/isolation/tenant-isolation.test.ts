@@ -33,6 +33,7 @@ import { loadIsolationTestConfig } from './env';
 import { detectSchemaCapabilities, columnExists, type SchemaCapabilities } from './schema';
 import {
   cleanupIsolationTestData,
+  seedAuditLogEntry,
   seedOrgProduct,
   seedOrgWithAdmin,
   seedTestUser,
@@ -135,17 +136,73 @@ describe('Cross-tenant data isolation (გაშვება მხოლოდ 
     expect(names.some((n) => n.includes('orgB'))).toBe(false);
   });
 
+  // 🏢 STEP 2 route-review (Roadmap "23.08.2026") — auth.ts GET /audit-logs
+  // ახლა org-scoped-ია. ორივე org-ს თავისი ჩანაწერი სჭირდება ცალკე
+  // beforeAll-ში (audit_logs.organization_id NOT NULL-ია STEP 1-ის შემდეგ,
+  // seedOrgWithAdmin თავად audit ჩანაწერს არ ქმნის).
+  describe('GET /api/audit-logs — org-scoping (STEP 2, dependent on audit_logs.organization_id)', () => {
+    let auditColumnExists = false;
+
+    beforeAll(async () => {
+      if (!schema.multiTenantReady) return;
+      auditColumnExists = await columnExists(pool, 'audit_logs', 'organization_id');
+      if (!auditColumnExists) return;
+
+      await seedAuditLogEntry(pool, {
+        organizationId: orgA.id,
+        actorId: orgA.admin.id,
+        targetId: orgA.admin.id,
+        action: 'history-access',
+      });
+      await seedAuditLogEntry(pool, {
+        organizationId: orgB.id,
+        actorId: orgB.admin.id,
+        targetId: orgB.admin.id,
+        action: 'history-access',
+      });
+    });
+
+    it('Org A ვერ ხედავს Org B-ს audit ჩანაწერს', async (ctx) => {
+      if (!schema.multiTenantReady || !auditColumnExists) return ctx.skip();
+
+      const response = await authorizedGet(config.apiBaseUrl, '/api/audit-logs', tokenA);
+      expect(response.status).toBe(200);
+
+      const actorIds = (response.body as Array<{ actor_id: string }>).map((log) => log.actor_id);
+      expect(actorIds).toContain(orgA.admin.id);
+      expect(actorIds).not.toContain(orgB.admin.id);
+    });
+
+    it('მიმართულება საწინააღმდეგო მხარესაც მუშაობს', async (ctx) => {
+      if (!schema.multiTenantReady || !auditColumnExists) return ctx.skip();
+
+      const response = await authorizedGet(config.apiBaseUrl, '/api/audit-logs', tokenB);
+      expect(response.status).toBe(200);
+
+      const actorIds = (response.body as Array<{ actor_id: string }>).map((log) => log.actor_id);
+      expect(actorIds).toContain(orgB.admin.id);
+      expect(actorIds).not.toContain(orgA.admin.id);
+    });
+  });
+
   // ==========================================
   // 🚧 TODO — დარჩენილი endpoint-ები (Roadmap "16.08.2026" ცვლილება #4-ის
   // რისკის-ზრდადობის თანმიმდევრობით). თითოეული აქტიური გახდება, როცა
   // STEP 2-ის route-review ამ კონკრეტულ endpoint-ს მიაღწევს — მანამდე
   // `it.todo`-დ დარჩება (vitest-ი ამას "pending"-ად აჩვენებს, ტესტს არ
   // ჩავარდნის ჩათვლის, უბრალოდ არ დავიწყებია).
+  //
+  // 🏢 STEP 2 (23.08.2026 სესია) — dashboard.ts route თავად უკვე org-scoped-ია
+  // (ყველა query-ს `WHERE organization_id = $1` აქვს), მაგრამ ეს კონკრეტული
+  // ტესტი განზრახ კვლავ it.todo-დ რჩება: სრულფასოვანი შემოწმება
+  // (Org A-ს დღევანდელი revenue-ში Org B-ს გაყიდვა არ ერევა) registers/
+  // shifts/payments-ის მთელი FK ჯაჭვის seed-ს საჭიროებს, რომელიც STEP 2-ის
+  // write-heavy (sales.ts) ეტაპზეა აშენებული — მანამდე ცალკე დუბლირება
+  // არ ღირს.
   // ==========================================
 
   // read-only, დაბალი რისკი
   it.todo('GET /api/dashboard/stats — Org A-ს რიცხვებში Org B-ს გაყიდვები არ ერევა');
-  it.todo('GET /api/audit-logs — Org A ვერ ხედავს Org B-ს audit ჩანაწერს');
   it.todo('GET /api/notifications/stock-deficits — Org A ვერ ხედავს Org B-ს ნოტიფიკაციას');
   it.todo('GET /api/registers — Org A ვერ ხედავს Org B-ს სალაროებს');
 

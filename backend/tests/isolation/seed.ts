@@ -190,16 +190,45 @@ export async function seedOrgProduct(
   return { id, name, barcode };
 }
 
+export interface SeededAuditLog {
+  readonly id: string;
+}
+
+/**
+ * ერთი audit_logs ჩანაწერი კონკრეტულ ორგანიზაციაში — GET /api/audit-logs-ის
+ * (auth.ts) STEP 2 org-scoping-ის ტესტისთვის. `seedOrgProduct`-ის იგივე
+ * წინაპირობით (`multiTenantReady === true`) გამოსაძახებელი, migration
+ * 013-ის შემდეგ `audit_logs.organization_id` NOT NULL-ია.
+ */
+export async function seedAuditLogEntry(
+  pool: Pool,
+  opts: { readonly organizationId: string; readonly actorId: string; readonly targetId: string; readonly action: string }
+): Promise<SeededAuditLog> {
+  const result = await pool.query<{ id: string }>(
+    `INSERT INTO audit_logs (actor_id, target_id, action, new_value, organization_id)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id`,
+    [opts.actorId, opts.targetId, opts.action, `${ISOLATION_TEST_PREFIX}marker`, opts.organizationId]
+  );
+  const id = result.rows[0]?.id;
+  if (!id) {
+    throw new Error('ვერ შეიქმნა ტესტ-audit-log ჩანაწერი');
+  }
+  return { id };
+}
+
 /** ტესტ-მონაცემების სრული გასუფთავება — `beforeAll`/`afterAll`-ში გამოსაძახებელი. */
 export async function cleanupIsolationTestData(pool: Pool): Promise<void> {
   const likePattern = `${ISOLATION_TEST_PREFIX}%`;
 
+  // ⚠️ audit_logs ჯერ იშლება, users-მდე — actor_id/target_id FK users(id)-ზეა
+  // და ON DELETE CASCADE არაა (იხ. migrations/009), ამიტომ users-ის წაშლა
+  // audit_logs-ის ტესტ-ჩანაწერების არსებობისას FK violation-ს გამოიწვევდა
+  // (STEP 2-მდე ეს პრობლემა არ იყო, რადგან ტესტები audit_logs-ს არ ქმნიდნენ).
+  await pool.query(`DELETE FROM audit_logs WHERE new_value = $1`, [`${ISOLATION_TEST_PREFIX}marker`]);
+
   await pool.query(`DELETE FROM products WHERE barcode LIKE $1`, [likePattern]);
 
-  // users-ის FK-ები (payments/shifts/audit_logs) ON DELETE CASCADE არაა
-  // ყველგან (იხ. migrations/009) — ტესტ-user-ები განზრახ არასდროს ქმნიან
-  // sales/shifts მონაცემს (STEP 2-ის ორგანიზაციული ტესტები მხოლოდ read
-  // endpoint-ებს ამოწმებს), ამიტომ უბრალო DELETE საკმარისია.
   await pool.query(`DELETE FROM users WHERE name LIKE $1`, [likePattern]);
 
   const orgsTableExists = await pool.query<{ exists: boolean }>(

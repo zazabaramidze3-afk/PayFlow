@@ -15,15 +15,18 @@ const LOW_STOCK_THRESHOLD = 5;
 // ==========================================
 
 // 🟢 ყველა პროდუქტის წამოღება (+ სურვილისამებრ low-stock ფილტრი)
+// 🏢 Multi-Tenant SaaS STEP 2 (Roadmap "23.08.2026") — `WHERE organization_id
+// = $1` დაემატა (ყოველთვის, არა მხოლოდ lowStockOnly-ის დროს). `tests/isolation/
+// tenant-isolation.test.ts`-ის "GET /api/products" ამ ცვლილებას ამოწმებს.
 router.get('/products', authenticateToken, async (req: CustomRequest, res: Response) => {
   const { lowStockOnly } = req.query;
 
   try {
-    let query = 'SELECT * FROM products';
-    const params: any[] = [];
+    let query = 'SELECT * FROM products WHERE organization_id = $1';
+    const params: any[] = [req.user?.organizationId];
 
     if (lowStockOnly === 'true') {
-      query += ' WHERE stock <= $1';
+      query += ' AND stock <= $2';
       params.push(LOW_STOCK_THRESHOLD);
     }
 
@@ -39,13 +42,20 @@ router.get('/products', authenticateToken, async (req: CustomRequest, res: Respo
 // 🔍 პროდუქტის ძებნა ბარკოდით (Restock/Registration მოდალისთვის)
 // ⚠️ FIX: Products.tsx ელოდება ზუსტად { exists, product } ფორმატს
 // (response.data.exists შემოწმებით), წინა ვერსია product-ს პირდაპირ აბრუნებდა.
+// 🏢 Multi-Tenant SaaS STEP 2 (Roadmap "23.08.2026") — `AND organization_id
+// = $2` დაემატა. Migration 013-ის შემდეგ ბარკოდი აღარაა გლობალურად
+// უნიკალური (მხოლოდ per-org, `uq_products_org_barcode`) — ამის გარეშე
+// org A-ს მოლარეს org B-ს იმავე ბარკოდიანი პროდუქტიც შეეძლო აღმოეჩინა.
 router.get('/products/barcode/:barcode', authenticateToken, async (req: CustomRequest, res: Response) => {
   if (req.user?.role === 'cashier') {
     return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
   }
 
   try {
-    const result = await db.query('SELECT * FROM products WHERE barcode = $1 LIMIT 1', [req.params.barcode]);
+    const result = await db.query(
+      'SELECT * FROM products WHERE barcode = $1 AND organization_id = $2 LIMIT 1',
+      [req.params.barcode, req.user?.organizationId]
+    );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ exists: false, error: 'პროდუქტი ამ ბარკოდით ვერ მოიძებნა' });
@@ -202,14 +212,16 @@ router.delete('/products/:id', authenticateToken, async (req: CustomRequest, res
 // ⚠️ FIX: ეს endpoint საერთოდ არ არსებობდა — Products.tsx-ის
 // "Excel ექსპორტი" ღილაკი 404-ს იძლეოდა (იხ. screenshot).
 // ==========================================
+// 🏢 Multi-Tenant SaaS STEP 2 (Roadmap "23.08.2026") — `WHERE organization_id
+// = $1` დაემატა, ამის გარეშე ექსპორტი ყველა org-ის პროდუქტს გადმოწერდა.
 router.get('/products/export/excel', authenticateToken, async (req: CustomRequest, res: Response) => {
   try {
     const isLowStockOnly = req.query.type === 'low';
 
-    let query = 'SELECT id, barcode, name, price, stock FROM products';
-    const params: any[] = [];
+    let query = 'SELECT id, barcode, name, price, stock FROM products WHERE organization_id = $1';
+    const params: any[] = [req.user?.organizationId];
     if (isLowStockOnly) {
-      query += ' WHERE stock <= $1';
+      query += ' AND stock <= $2';
       params.push(LOW_STOCK_THRESHOLD);
     }
     query += ' ORDER BY name ASC';
@@ -246,14 +258,16 @@ router.get('/products/export/excel', authenticateToken, async (req: CustomReques
 // 🟥 PDF ექსპორტი (პროდუქტები)
 // ⚠️ FIX: ეს endpoint-იც არ არსებობდა — "PDF ექსპორტი" ღილაკი 404-ს იძლეოდა.
 // ==========================================
+// 🏢 Multi-Tenant SaaS STEP 2 (Roadmap "23.08.2026") — `WHERE organization_id
+// = $1` დაემატა, იგივე მიზეზით, რაც Excel ექსპორტს ზემოთ.
 router.get('/products/export/pdf', authenticateToken, async (req: CustomRequest, res: Response) => {
   try {
     const isLowStockOnly = req.query.type === 'low';
 
-    let query = 'SELECT id, barcode, name, price, stock FROM products';
-    const params: any[] = [];
+    let query = 'SELECT id, barcode, name, price, stock FROM products WHERE organization_id = $1';
+    const params: any[] = [req.user?.organizationId];
     if (isLowStockOnly) {
-      query += ' WHERE stock <= $1';
+      query += ' AND stock <= $2';
       params.push(LOW_STOCK_THRESHOLD);
     }
     query += ' ORDER BY name ASC';

@@ -40,6 +40,12 @@ router.get(
   requireAnyRole('admin', 'manager'),
   async (req: CustomRequest, res: Response) => {
     try {
+      // 🏢 Multi-Tenant SaaS STEP 2 (Roadmap "23.08.2026") — ერთი, ყველა
+      // query-ს საერთო org id. ყოველ query-ს ცალკე `WHERE organization_id
+      // = $N` ემატება ქვემოთ (ცვლილება #4-ის მოთხოვნით — dashboard.ts
+      // read-only, დაბალი-რისკის ჯგუფშია, პირველი გადასინჯული STEP 2-ში).
+      const organizationId = req.user?.organizationId;
+
       // 1️⃣ დღევანდელი რეალური შემოსავალი + ჩეკების რაოდენობა + საშუალო ჩეკი
       const todayResult = await db.query(
         `SELECT
@@ -48,13 +54,16 @@ router.get(
            COALESCE(AVG(total_amount), 0) AS average_receipt
          FROM payments
          WHERE is_voided = false
+           AND organization_id = $1
            AND created_at >= TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD')
-           AND created_at < TO_CHAR(CURRENT_DATE + INTERVAL '1 day', 'YYYY-MM-DD')`
+           AND created_at < TO_CHAR(CURRENT_DATE + INTERVAL '1 day', 'YYYY-MM-DD')`,
+        [organizationId]
       );
 
-      // 2️⃣ აქტიური (ღია) ცვლების რაოდენობა — მთელი სისტემის მასშტაბით
+      // 2️⃣ აქტიური (ღია) ცვლების რაოდენობა — ამ org-ის მასშტაბით
       const activeShiftsResult = await db.query(
-        `SELECT COUNT(*) AS active_shifts FROM shifts WHERE status = 'open'`
+        `SELECT COUNT(*) AS active_shifts FROM shifts WHERE status = 'open' AND organization_id = $1`,
+        [organizationId]
       );
 
       // 💰 Roadmap ეტაპი 8 — დღევანდელი გადახდები, დაშლილი მეთოდის მიხედვით
@@ -72,8 +81,10 @@ router.get(
            COUNT(*) FILTER (WHERE payment_method = 'split') AS split_count
          FROM payments
          WHERE is_voided = false
+           AND organization_id = $1
            AND created_at >= TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD')
-           AND created_at < TO_CHAR(CURRENT_DATE + INTERVAL '1 day', 'YYYY-MM-DD')`
+           AND created_at < TO_CHAR(CURRENT_DATE + INTERVAL '1 day', 'YYYY-MM-DD')`,
+        [organizationId]
       );
 
       // 🚫 Roadmap ეტაპი 8 — დღევანდელი გაუქმებული ჩეკები: რაოდენობა და ჯამური
@@ -85,12 +96,18 @@ router.get(
            COUNT(*) AS voided_count
          FROM payments
          WHERE is_voided = true
+           AND organization_id = $1
            AND created_at >= TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD')
-           AND created_at < TO_CHAR(CURRENT_DATE + INTERVAL '1 day', 'YYYY-MM-DD')`
+           AND created_at < TO_CHAR(CURRENT_DATE + INTERVAL '1 day', 'YYYY-MM-DD')`,
+        [organizationId]
       );
 
       // 3️⃣ ტოპ 5 პროდუქტი მიმდინარე თვეში, რაოდენობის მიხედვით დალაგებული
       // (შემოსავალიც ერთვის — ფრონტენდს Bar Chart-ისთვის ორივე შეიძლება დასჭირდეს)
+      // 🏢 STEP 2 — p.organization_id ფილტრავს, pr.organization_id კი
+      // defense-in-depth (payment_items-ს, migration 013-ის დათქმის
+      // მიხედვით, თავისი organization_id არ აქვს — payments-ის FK-ითაა
+      // ირიბად დაცული, იხ. migration 013-ის თავსართი).
       const topProductsResult = await db.query(
         `SELECT
            pr.id,
@@ -101,16 +118,23 @@ router.get(
          JOIN payments p ON pi.payment_id = p.id
          JOIN products pr ON pi.product_id = pr.id
          WHERE p.is_voided = false
+           AND p.organization_id = $1
+           AND pr.organization_id = $1
            AND p.created_at >= TO_CHAR(date_trunc('month', CURRENT_DATE), 'YYYY-MM-DD')
            AND p.created_at < TO_CHAR(date_trunc('month', CURRENT_DATE) + INTERVAL '1 month', 'YYYY-MM-DD')
          GROUP BY pr.id, pr.name
          ORDER BY total_quantity DESC
-         LIMIT 5`
+         LIMIT 5`,
+        [organizationId]
       );
 
       // 4️⃣ მიმდინარე თვის დღიური დინამიკა — 0-შევსებული სერია თვის დასაწყისიდან
       // დღემდე (generate_series + LEFT JOIN), რომ Line Chart-ს არ ჰქონდეს
       // ხარვეზი გაყიდვის-გარეშე დღეებზე.
+      // 🏢 STEP 2 — p.organization_id ფილტრი ცალსახად ON-კლაუზაშია, არა
+      // WHERE-ში: generate_series LEFT JOIN payments-ზეა, WHERE p.organization_id
+      // = $1 ინერტულად INNER JOIN-ად აქცევდა (NULL-ს ფილტრავს ცარიელ
+      // დღეებზეც) და ნულოვან-გაყიდვის დღეები Line Chart-იდან გაქრებოდა.
       const dailyTrendResult = await db.query(
         `SELECT
            TO_CHAR(d, 'YYYY-MM-DD') AS day,
@@ -121,8 +145,10 @@ router.get(
            ON p.created_at >= TO_CHAR(d, 'YYYY-MM-DD')
            AND p.created_at < TO_CHAR(d + interval '1 day', 'YYYY-MM-DD')
            AND p.is_voided = false
+           AND p.organization_id = $1
          GROUP BY d
-         ORDER BY d ASC`
+         ORDER BY d ASC`,
+        [organizationId]
       );
 
       res.json({

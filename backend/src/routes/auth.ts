@@ -18,7 +18,12 @@ const getErrorMessage = (err: unknown): string => (err instanceof Error ? err.me
 export interface CustomRequest extends Request {
     // 🆔 UUID მიგრაცია (Roadmap STEP 1, migration 009) — id ახლა UUID
     // string-ია, აღარ არის SERIAL INTEGER (users.id).
-    user?: { id: string; role: string; username: string };
+    // 🏢 Multi-Tenant SaaS STEP 2 (route-level tenant scoping, Roadmap
+    // "23.08.2026") — organizationId ემატება JWT payload-ს POST /login-სა
+    // და POST /auth/reset-password-initial-ში (იხ. ორივე ქვემოთ). STEP
+    // 2-ით გადასინჯული ყველა route ამ ველზეა დამოკიდებული
+    // `WHERE organization_id = $1` scoping-ისთვის.
+    user?: { id: string; role: string; username: string; organizationId: string };
 }
 
 // 🛡️ Middleware ტოკენის შესამოწმებლად
@@ -33,7 +38,7 @@ export const authenticateToken = (req: CustomRequest, res: Response, next: NextF
     if (err) return res.status(403).json({ error: 'ტოკენი არავალიდურია!' });
     // 🆔 UUID მიგრაცია — id ახლა UUID string-ია (login-ზე jwt.sign-ში
     // ჩაწერილი users.id უკვე UUID-ია, იხ. POST /login ქვემოთ).
-    req.user = user as { id: string; role: string; username: string };
+    req.user = user as { id: string; role: string; username: string; organizationId: string };
     next();
   });
 };
@@ -44,8 +49,11 @@ router.post('/login', async (req: Request, res: Response) => {
 
   try {
     // PostgreSQL-ში ვიყენებთ db.query-ს და $1 პარამეტრს
+    // 🏢 organization_id დაემატა (Roadmap "23.08.2026", STEP 2) — JWT
+    // token-ს სჭირდება მომხმარებლის org, რომ STEP 2-ით გადასინჯულმა
+    // route-ებმა შეძლონ `WHERE organization_id = $1` scoping.
     const result = await db.query(
-      `SELECT id, name AS username, password_hash, role, status, can_view_history, requires_password_reset FROM users WHERE LOWER(name) = LOWER($1) LIMIT 1`,
+      `SELECT id, name AS username, password_hash, role, status, can_view_history, requires_password_reset, organization_id FROM users WHERE LOWER(name) = LOWER($1) LIMIT 1`,
       [username?.trim()]
     );
 
@@ -65,8 +73,8 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
     const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role }, 
-      process.env.JWT_SECRET || 'super-secret-key', 
+      { id: user.id, username: user.username, role: user.role, organizationId: user.organization_id },
+      process.env.JWT_SECRET || 'super-secret-key',
       { expiresIn: '1d' }
     );
 
@@ -130,11 +138,13 @@ router.post('/auth/reset-password-initial', async (req: Request, res: Response) 
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
+    // 🏢 organization_id დაემატა RETURNING-ში (Roadmap "23.08.2026", STEP 2)
+    // — ამ ენდპოინტსაც სჭირდება login-ის იგივე, org-ის შემცველი ტოკენი.
     const result = await db.query(
       `UPDATE users
        SET password_hash = $1, requires_password_reset = false
        WHERE id = $2
-       RETURNING id, name AS username, role, status, can_view_history, can_use_discount, requires_password_reset`,
+       RETURNING id, name AS username, role, status, can_view_history, can_use_discount, requires_password_reset, organization_id`,
       [hashedPassword, userId]
     );
 
@@ -143,7 +153,7 @@ router.post('/auth/reset-password-initial', async (req: Request, res: Response) 
     // ჩვეულებრივი login ტოკენი — რომ ფრონტენდმა ავტომატურად შეიყვანოს
     // მომხმარებელი, ისე თითქოს ჩვეულებრივად შევიდა.
     const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
+      { id: user.id, username: user.username, role: user.role, organizationId: user.organization_id },
       process.env.JWT_SECRET || 'super-secret-key',
       { expiresIn: '1d' }
     );
@@ -219,8 +229,16 @@ router.post('/auth/verify-manager-pin', authenticateToken, async (req: CustomReq
     // ბაზაში ვეძებთ ყველა მენეჯერს, ვისაც PIN დაყენებული აქვს — username
     // არ გვჭირდება, რადგან PIN თავად ავტორიზებს ("ვინმე მენეჯერმა
     // დაადასტურა", არა კონკრეტულად "ესა და ეს მენეჯერი").
+    // 🏢 Multi-Tenant SaaS STEP 2 (Roadmap "23.08.2026") — `organization_id
+    // = $1` დაემატა. ამის გარეშე ნებისმიერი org-ის მოლარეს შეეძლო SAAS-ის
+    // ნებისმიერი სხვა org-ის მენეჯერის PIN-ით override-ის მიღება (bcrypt
+    // compare ყველა org-ის მენეჯერზე მიდიოდა cashierId-ის org-ის
+    // გათვალისწინების გარეშე) — read-only route არაა, მაგრამ
+    // ავთენტიფიკაციის query-ია, ამიტომ იგივე STEP 2 review-ის ფარგლებში
+    // გასწორდა.
     const result = await db.query<Pick<User, 'id' | 'name' | 'status' | 'manager_pin'>>(
-      `SELECT id, name, status, manager_pin FROM users WHERE role = 'manager' AND manager_pin IS NOT NULL`
+      `SELECT id, name, status, manager_pin FROM users WHERE role = 'manager' AND manager_pin IS NOT NULL AND organization_id = $1`,
+      [req.user?.organizationId]
     );
 
     // 🔒 დაბლოკილი მენეჯერის PIN აღარ მუშაობს — იგივე სტატუსის შემოწმების
@@ -336,13 +354,19 @@ router.post('/users', authenticateToken, async (req: CustomRequest, res) => {
 // 🧾 can_void_receipt/can_clear_cart დაემატა (Roadmap ეტაპი 4/5) — UsersManagement.tsx-ის
 // ახალ ჩეკბოქსებს სჭირდება ამ ველების ფრეშად წამოღება, თორემ checkbox-ები ყოველთვის
 // გამორთულად აჩვენებდა (ბაზაში DEFAULT false-ია), თუნდაც ადმინს რეალურად ჩართული ჰქონდეს.
-router.get('/users', authenticateToken, async (req, res) => {
+// 🏢 Multi-Tenant SaaS STEP 2 (Roadmap "23.08.2026") — `WHERE organization_id
+// = $1` დაემატა: STEP 1-მდე ეს query ყველა org-ის (production-ზე ჯერ
+// მხოლოდ ერთია) ყველა user-ს აბრუნებდა განურჩევლად. `backend/tests/isolation/
+// tenant-isolation.test.ts`-ის "GET /api/users" ორივე მიმართულების ტესტი
+// ამ ცვლილებას ამოწმებს.
+router.get('/users', authenticateToken, async (req: CustomRequest, res) => {
   try {
     const result = await db.query(
       `SELECT id, name AS username, role, status, can_view_history, can_use_discount,
               can_void_receipt, can_clear_cart,
               requires_password_reset, (manager_pin IS NOT NULL) AS has_manager_pin
-       FROM users ORDER BY id ASC`
+       FROM users WHERE organization_id = $1 ORDER BY id ASC`,
+      [req.user?.organizationId]
     );
     res.json(result.rows);
   } catch (err: any) {
@@ -498,6 +522,10 @@ router.put('/users/:id/clear-cart-access', authenticateToken, async (req: Custom
 });
 
 // 📜 აუდიტის ლოგები — ფასდაკლების და ისტორიის ნახვის უფლების ცვლილებების ისტორია (admin/manager)
+// 🏢 Multi-Tenant SaaS STEP 2 (Roadmap "23.08.2026") — `al.organization_id
+// = $1` დაემატა WHERE-ში. LEFT JOIN users actor/target-ზე organization_id-ს
+// განზრახ არ ვამატებთ — ეს მხოლოდ სახელების საჩვენებლად join-ავს, filter-ი
+// უკვე თავად audit_logs-ის ჩანაწერზეა.
 router.get('/audit-logs', authenticateToken, async (req: CustomRequest, res: Response) => {
   if (req.user?.role !== 'admin' && req.user?.role !== 'manager') {
     return res.status(403).json({ error: 'მხოლოდ ადმინისთვის ან მენეჯერისთვის!' });
@@ -519,8 +547,10 @@ router.get('/audit-logs', authenticateToken, async (req: CustomRequest, res: Res
        FROM audit_logs al
        LEFT JOIN users actor ON actor.id = al.actor_id
        LEFT JOIN users target ON target.id = al.target_id
+       WHERE al.organization_id = $1
        ORDER BY al.created_at DESC
-       LIMIT 50`
+       LIMIT 50`,
+      [req.user?.organizationId]
     );
     res.json(result.rows);
   } catch (err: any) {
@@ -531,13 +561,19 @@ router.get('/audit-logs', authenticateToken, async (req: CustomRequest, res: Res
 // 🗑 აუდიტის ლოგების სრული გასუფთავება — მხოლოდ ADMIN-ისთვის (Roadmap ეტაპი 1.5.2).
 // განზრახ არ ვწერთ ამ მოქმედების საკუთარ თავზე აუდიტ-ლოგს — სწორედ ეს
 // ცხრილი იშლება, ასეთი ჩანაწერი აზრს დაკარგავდა.
+// 🏢 Multi-Tenant SaaS STEP 2 (Roadmap "23.08.2026") — `WHERE organization_id
+// = $1` დაემატა. ამის გარეშე ეს ენდპოინტი (destructive, cross-tenant)
+// ერთი org-ის ადმინს ყველა დანარჩენი org-ის მთელ audit-ისტორიასაც
+// წაუშლიდა — GET-ის გვერდით ერთდროულად გასწორდა, რადგან ერთი და იმავე
+// ცხრილის ორ endpoint-ს შორის ნახევრად-scoped მდგომარეობა აზრს
+// მოკლებული იქნებოდა.
 router.delete('/audit-logs', authenticateToken, async (req: CustomRequest, res: Response) => {
   if (req.user?.role !== 'admin') {
     return res.status(403).json({ error: 'მხოლოდ ადმინისტრატორს აქვს ისტორიის გასუფთავების უფლება!' });
   }
 
   try {
-    await db.query('DELETE FROM audit_logs');
+    await db.query('DELETE FROM audit_logs WHERE organization_id = $1', [req.user?.organizationId]);
     res.json({ success: true, message: 'აუდიტის ისტორია სრულად გასუფთავდა!' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
