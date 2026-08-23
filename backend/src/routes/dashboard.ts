@@ -47,6 +47,19 @@ router.get(
       const organizationId = req.user?.organizationId;
 
       // 1️⃣ დღევანდელი რეალური შემოსავალი + ჩეკების რაოდენობა + საშუალო ჩეკი
+      //
+      // ⚠️ FIX (24.08.2026) — "დღევანდელი" სტატისტიკა ნულოვანი ჩანდა, მიუხედავად
+      // იმისა, რომ "გაყიდვების ისტორია" ტაბში იმავე დღეს ჩაწერილი ჩეკი ჩანდა.
+      // მიზეზი: `payments.created_at` (TEXT) sales.ts/checkShift.ts-ის მიერ
+      // ცალსახად `AT TIME ZONE 'Asia/Tbilisi'`-ით იწერება (ადგილობრივი დრო),
+      // ეს query კი `CURRENT_DATE`-ს იყენებდა — Postgres სესიის (Neon-ზე UTC)
+      // "დღეს"-ს. UTC+4 offset-ის გამო, ყოველი დღის პირველი ~4 საათი
+      // (00:00–04:00 თბილისის დროით) "გუშინდელ" UTC-დღეს მოხვდებოდა და
+      // `< TO_CHAR(CURRENT_DATE + 1, ...)` პირობას ვერ აკმაყოფილებდა
+      // (სტრიქონი '2026-08-24 00:25:...' ლექსიკოგრაფიულად > '2026-08-24').
+      // ახლა `CURRENT_DATE`-ის ნაცვლად იგივე Asia/Tbilisi კონვერტაციას
+      // ვიყენებთ, რასაც created_at-ის ჩაწერისას — orders/sales.ts-თან
+      // თანმიმდევრულად.
       const todayResult = await db.query(
         `SELECT
            COALESCE(SUM(total_amount), 0) AS revenue,
@@ -55,8 +68,8 @@ router.get(
          FROM payments
          WHERE is_voided = false
            AND organization_id = $1
-           AND created_at >= TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD')
-           AND created_at < TO_CHAR(CURRENT_DATE + INTERVAL '1 day', 'YYYY-MM-DD')`,
+           AND created_at >= TO_CHAR((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date, 'YYYY-MM-DD')
+           AND created_at < TO_CHAR((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date + INTERVAL '1 day', 'YYYY-MM-DD')`,
         [organizationId]
       );
 
@@ -82,8 +95,8 @@ router.get(
          FROM payments
          WHERE is_voided = false
            AND organization_id = $1
-           AND created_at >= TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD')
-           AND created_at < TO_CHAR(CURRENT_DATE + INTERVAL '1 day', 'YYYY-MM-DD')`,
+           AND created_at >= TO_CHAR((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date, 'YYYY-MM-DD')
+           AND created_at < TO_CHAR((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date + INTERVAL '1 day', 'YYYY-MM-DD')`,
         [organizationId]
       );
 
@@ -97,8 +110,8 @@ router.get(
          FROM payments
          WHERE is_voided = true
            AND organization_id = $1
-           AND created_at >= TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD')
-           AND created_at < TO_CHAR(CURRENT_DATE + INTERVAL '1 day', 'YYYY-MM-DD')`,
+           AND created_at >= TO_CHAR((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date, 'YYYY-MM-DD')
+           AND created_at < TO_CHAR((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date + INTERVAL '1 day', 'YYYY-MM-DD')`,
         [organizationId]
       );
 
@@ -120,8 +133,8 @@ router.get(
          WHERE p.is_voided = false
            AND p.organization_id = $1
            AND pr.organization_id = $1
-           AND p.created_at >= TO_CHAR(date_trunc('month', CURRENT_DATE), 'YYYY-MM-DD')
-           AND p.created_at < TO_CHAR(date_trunc('month', CURRENT_DATE) + INTERVAL '1 month', 'YYYY-MM-DD')
+           AND p.created_at >= TO_CHAR(date_trunc('month', (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date), 'YYYY-MM-DD')
+           AND p.created_at < TO_CHAR(date_trunc('month', (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date) + INTERVAL '1 month', 'YYYY-MM-DD')
          GROUP BY pr.id, pr.name
          ORDER BY total_quantity DESC
          LIMIT 5`,
@@ -140,7 +153,11 @@ router.get(
            TO_CHAR(d, 'YYYY-MM-DD') AS day,
            COALESCE(SUM(p.total_amount), 0) AS revenue,
            COUNT(p.id) AS receipt_count
-         FROM generate_series(date_trunc('month', CURRENT_DATE), CURRENT_DATE::timestamp, interval '1 day') AS d
+         FROM generate_series(
+                date_trunc('month', (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date),
+                (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date::timestamp,
+                interval '1 day'
+              ) AS d
          LEFT JOIN payments p
            ON p.created_at >= TO_CHAR(d, 'YYYY-MM-DD')
            AND p.created_at < TO_CHAR(d + interval '1 day', 'YYYY-MM-DD')
