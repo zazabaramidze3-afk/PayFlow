@@ -300,7 +300,7 @@ Frontend-ის ცალკე ვერიფიკაცია (frontend-ს 
 13. ~~STEP 3 — კომპანიის Self-Service რეგისტრაცია~~ ✅ **სრულად დასრულებული, ტესტირებული (39/39), commit `9d13855`, push-ილი, migration 014 გატარებული ორივე გარემოში (ლოკალურად + production Neon), ხელით დადასტურებული production-ზეც** — იხ. "✅ STEP 3" სექცია ზემოთ.
 14. **STEP 7 (subdomain routing)** — STEP 3-ის `slug` ველი ჯერ მხოლოდ მონაცემია, რეალური subdomain-ზე routing/tenant-resolution ჯერ არ არსებობს.
 15. ~~Dashboard "დღეს" სტატისტიკის timezone ბაგი~~ ✅ **დასრულებული, 24.08.2026** — იხ. "🐛 Dashboard timezone ბაგი" სექცია ქვემოთ.
-16. ~~STEP 8 — Superadmin Panel~~ ✅ **კოდი დასრულებული, ვერიფიცირებული და მიწოდებული, 24.08.2026** (backend `tsc`/vitest 39/39/manual curl, frontend `vite build`/`tsc --strict`) — **deploy (migration 015 + `create-platform-admin` + git push) მომხმარებელზეა**. იხ. "✅ STEP 8" სექცია ზემოთ.
+16. ~~STEP 8 — Superadmin Panel~~ ✅ **სრულად დასრულებული, ტესტირებული, deploy-ილი და production-ზე დადასტურებული, 24.08.2026, commit `1a5e911`** — იხ. "✅ STEP 8" სექცია ზემოთ.
 
 დანარჩენი უცვლელად ვალიდურია `ROADMAP - Multi-Tenant SaaS - 16.08.2026.md`-დან.
 
@@ -324,7 +324,7 @@ Frontend-ის ცალკე ვერიფიკაცია (frontend-ს 
 
 ---
 
-## ✅ დასრულებულია (ეს სესია, კოდი მიწოდებულია — DEPLOY მომხმარებელზეა) — STEP 8: Superadmin Panel (პლატფორმის მართვა), 24.08.2026
+## ✅ დასრულებულია, ტესტირებული, production-ზეც დადასტურებული — STEP 8: Superadmin Panel (პლატფორმის მართვა), 24.08.2026
 
 ### გადაწყვეტილების წერტილი — მომხმარებლის კითხვიდან
 
@@ -380,11 +380,18 @@ Frontend-ის ცალკე ვერიფიკაცია (frontend-ს 
 4. **Frontend `vite build`** — სუფთად აშენდა (ცალკე sandbox-ში, სრული dependency-ნაკრებით), `PlatformAdminApp` დადასტურებულია ცალკე chunk-ად (`App`-ისგან განცალკევებული, lazy-loading-ის სისწორის დამადასტურებელი).
 5. **Frontend `tsc --strict --noEmit`** ახალ ფაილებზე (`index.tsx`, `admin/*`, `lib/platformAdminApi.ts`) — სუფთა, `any` არსად გამოყენებული (ხელით grep-ითაც დამატებით დადასტურებული).
 
-### 📋 საჭირო ნაბიჯები deploy-მდე (მომხმარებელზეა)
+### Deploy-ის თანმიმდევრობა (როგორც რეალურად შესრულდა)
 
-1. **Migration 015** — ჯერ ლოკალურად (pgAdmin), მერე production Neon-ზე (SQL Editor) — "🚨 Production ინციდენტი" სექციის lesson learned-ის მიხედვით, **migration ყოველთვის deploy/push-მდე**.
-2. **`npm run create-platform-admin -- "სახელი" "email" "პაროლი"`** — პირველი Superadmin ანგარიშის შესაქმნელად (ლოკალურად სატესტოდ, მერე production DB-ის წინააღმდეგაც ცალკე, დროებით `DATABASE_URL`-ის override-ით — იხ. ინსტრუქციები chat-ში).
-3. `git add` (ცხადი ფაილების სახელებით) → commit (ქართულად) → push `main`-ზე.
-4. Production-ზე ხელით დადასტურება: `/admin`-ზე login, org-სია, suspend/activate ციკლი რეალურ სატესტო org-ზე.
+1. **Migration 015** — ჯერ ლოკალურად (pgAdmin, `COMMIT`, შეცდომის გარეშე), მერე production Neon-ზე (SQL Editor, branch `production`) — 9/9 statement "Statement executed successfully".
+2. **`npm run create-platform-admin -- "სახელი" "email" "პაროლი"`** — ჯერ ლოკალურად (`backend/`-ის ქვეფოლდერიდან — `ENOENT`-ის ერთხელოვანი შეცდომა repo-root-იდან გაშვებისას, გასწორდა `cd backend`-ით), მერე production DB-ის წინააღმდეგაც ცალკე, დროებითი `$env:DATABASE_URL` override-ით (PowerShell სესია-scoped, `.env`-ს არაფერი ეხება).
+3. **ლოკალური სრული write-path ტესტი `/admin`-ზე deploy-მდე** — login, org-სია, Suspend → tenant login 403 → Activate → tenant login აღდგა → Trial +14 დღე — ოთხივე ზუსტად მოსალოდნელისამებრ.
+4. `git add`/`commit`/`push` — იხ. ⚠️ ქვემოთ, ეს ეტაპი ერთხელ გამოტოვებული აღმოჩნდა.
+5. Production migration 015 (item #1) გატარდა commit/push-ზე **ადრე**, roadmap-ის სტანდარტული lesson-ის მიხედვით.
+
+⚠️ **ახალი lesson learned — "push წარმატებულია" ≠ "ეს კოდი push-ილია".** STEP 8-ის ყველა ფაილი დროულად მიეწოდა მომხმარებლის დისკზე (device bridge-ით), მაგრამ `git add`/`commit` ამ ფაილებზე ამ სესიაში ფაქტობრივად არასდროს გაშვებულა — მომხმარებლის მიერ ადრე გაშვებული `git push` სინამდვილეში ძველ, უკვე არსებულ ლოკალურ commit-ებს (Dashboard timezone ბაგის) აგზავნიდა, არა STEP 8-ს. შედეგად production-ზე `/admin` 404-ს აბრუნებდა Vercel-იდან პირდაპირ (incognito-ტესტით დადასტურებული — Service Worker-ის ქეშის ვერსია გამოირიცხა). **დიაგნოსტიკა:** Vercel Dashboard → Deployments-ის სია — უახლესი Production-commit-ის შეტყობინება/თარიღი პირდაპირ აჩვენებს, რეალურად რა არის deploy-ილი (არა ვარაუდი "push ხომ გავუშვით"-ზე დაყრდნობით). **Fix:** `git status` → დადასტურდა, ყველა STEP 8 ფაილი (`modified`/`Untracked`) უცვლელად იდგა ლოკალურად → `git add`/`commit`/`push` ხელახლა, ამჯერად რეალურად STEP 8-ის ფაილებით.
+
+✅ **Commit:** `1a5e911` — ქართულად ("STEP 8: Superadmin პანელი — platform_admins auth, org მართვა (suspend/activate/trial), audit log"), push-ილია `main`-ზე (`a2c93ba..1a5e911`).
+
+✅ **Production-ზე ხელით დადასტურებული** (`pay-flow-zet3.vercel.app/admin`): login ახლადშექმნილი Superadmin ანგარიშით, org-სია სწორი სტატისტიკით — **ლოკალურის იდენტური ქცევა**.
 
 ⚠️ **დარჩენილი, მომავალი STEP-ების scope:** ცალკე UI Superadmin ანგარიშების შესაქმნელად (ამ ეტაპზე მხოლოდ CLI), billing/გეგმის მართვა, org-ის სრული წაშლა, უფრო დეტალური audit-ლოგის ფილტრაცია.
