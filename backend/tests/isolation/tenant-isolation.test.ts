@@ -46,13 +46,20 @@ import {
   type SeededRegister,
   type SeededUser,
 } from './seed';
-import { authorizedDelete, authorizedGet, authorizedPatch, authorizedPost, authorizedPut, login } from './api';
+import { authorizedDelete, authorizedGet, authorizedPatch, authorizedPost, authorizedPut, login, tokenQueryGet } from './api';
+// 🔒 დისციპლინის დარღვევის გაცნობიერებული უარის fix-ის ტესტებისთვის
+// (Roadmap "23.08.2026") — POST /payments/sync-offline-ის cashier-
+// impersonation რეგრესიის ტესტს სჭირდება ცალსახად ვალიდური v4 UUID
+// (UUID_V4_REGEX, routes/sales.ts), ისევე, როგორც frontend-ის
+// crypto.randomUUID()-ი (Roadmap STEP 4.1) რეალურ ჩეკებს გენერირებს.
+import { randomUUID } from 'crypto';
 // 🏢 STEP 2, ტიერი 5 (Roadmap "23.08.2026") — register-authenticated
 // route-ების (POST /shifts/open, POST /payments) ტესტებისთვის, seedOrgRegister-ით
 // შექმნილი register-ისთვის ვალიდური X-Register-Token-ის ხელმოწერა
 // Pairing UI-ს/POST /registers/pair-ის გვერდის ავლით (tier 3-ში ეს ნაკადი
 // უკვე ცალკე დაფარულია).
 import { signRegisterToken } from '../../src/middleware/registerAuth';
+import type { OfflineSyncReceiptPayload, OfflineSyncResult } from '../../src/types';
 
 const config = loadIsolationTestConfig();
 const pool = new Pool({ connectionString: config.databaseUrl, max: 5 });
@@ -663,6 +670,106 @@ describe('Cross-tenant data isolation (გაშვება მხოლოდ 
         (log) => log.action === 'void-access' && log.target_name === cashierA.username
       );
       expect(entry).toBeDefined();
+    });
+
+    // 🔒 დისციპლინის დარღვევის გაცნობიერებული უარის fix-ები (Roadmap
+    // "23.08.2026", "⛔ ეს 3 რამ განზრახ დარჩა შეუხებელი" სექცია) — ახლა
+    // მოგვარებულია, ტესტებით.
+    it('GET /api/payments — მოლარეს (cashier) წვდომა შეზღუდულია, 403', async (ctx) => {
+      if (!schema.multiTenantReady) return ctx.skip();
+
+      const response = await authorizedGet(config.apiBaseUrl, '/api/payments', tokenCashierA);
+      expect(response.status).toBe(403);
+    });
+
+    it('GET /api/payments/export/excel — მოლარეს (cashier) წვდომა შეზღუდულია, 403', async (ctx) => {
+      if (!schema.multiTenantReady) return ctx.skip();
+
+      const response = await tokenQueryGet(config.apiBaseUrl, '/api/payments/export/excel', tokenCashierA);
+      expect(response.status).toBe(403);
+    });
+
+    // 🕵️ Cashier-impersonation რეგრესია — POST /payments/sync-offline.
+    // საკუთარი, იზოლირებული seed-ი (გარე beforeAll-ის cashierA/registerA-ს
+    // არ ეხება), რომ ცვლის დახურვა/გახსნა ამ ტესტში სხვა ტესტებს არ
+    // დაარღვევდეს. სცენარი: cashierX-ი ხურავს თავის ცვლას registerX-ზე,
+    // შემდეგ იმავე ფიზიკურ registerX-ზე ცვლას ხსნის cashierY (shift
+    // handover). cashierX-ის ჯერ კიდევ ვალიდური token-ით (delayed sync-ის
+    // ლეგიტიმური სცენარის მსგავსად) ვცდით ორი ჩეკის სინქრონიზაციას ერთ
+    // batch-ში: (ა) საკუთარი, დახურულ ცვლაზე late-sync — უნდა გავიდეს
+    // ('synced', late-close reconciliation-ის უკვე ტესტირებული გზით), და
+    // (ბ) cashierY-ის (სხვის) ცვლაზე, cashierY-ის cashierId-ით — ეს არის
+    // impersonation ცდა, უნდა ჩავარდეს ('failed'), თუმცა batch-ის საერთო
+    // HTTP სტატუსი მაინც 200-ია (თითოეული ჩეკი დამოუკიდებელია).
+    it('POST /api/payments/sync-offline — cashier ვერ ასინქრონებს სხვისი (cashierId) ჩეკს', async (ctx) => {
+      if (!schema.multiTenantReady) return ctx.skip();
+
+      const cashierX = await seedOrgUser(pool, { organizationId: orgA.id, usernameSuffix: 'tier5_sync_cashierX', role: 'cashier' });
+      const cashierY = await seedOrgUser(pool, { organizationId: orgA.id, usernameSuffix: 'tier5_sync_cashierY', role: 'cashier' });
+      const registerX = await seedOrgRegister(pool, { organizationId: orgA.id, nameSuffix: 'tier5_sync_regX' });
+      const registerTokenX = signRegisterToken(registerX.id);
+
+      const tokenX = (await login(config.apiBaseUrl, cashierX.username, cashierX.password)).token;
+      const tokenY = (await login(config.apiBaseUrl, cashierY.username, cashierY.password)).token;
+
+      const openX = await authorizedPost(
+        config.apiBaseUrl,
+        '/api/shifts/open',
+        tokenX,
+        { start_amount: 0 },
+        { 'X-Register-Id': registerX.id, 'X-Register-Token': registerTokenX }
+      );
+      const shiftIdX: string = openX.body.shiftId;
+
+      await authorizedPut(config.apiBaseUrl, '/api/shifts/close', tokenX, { end_amount_actual: 0 });
+
+      const openY = await authorizedPost(
+        config.apiBaseUrl,
+        '/api/shifts/open',
+        tokenY,
+        { start_amount: 0 },
+        { 'X-Register-Id': registerX.id, 'X-Register-Token': registerTokenX }
+      );
+      const shiftIdY: string = openY.body.shiftId;
+
+      const makeReceipt = (shiftId: string, cashierId: string): OfflineSyncReceiptPayload => ({
+        id: randomUUID(),
+        shiftId,
+        registerId: registerX.id,
+        cashierId,
+        items: [{ productId: -999001, name: `${ISOLATION_TEST_PREFIX}sync_item`, price: 1, quantity: 1 }],
+        subtotalAmount: 1,
+        discountType: null,
+        discountValue: 0,
+        totalAmount: 1,
+        paymentMethod: 'cash',
+        splits: null,
+        cashReceived: null,
+        createdAt: new Date().toISOString(),
+      });
+
+      const ownLateSyncReceipt = makeReceipt(shiftIdX, cashierX.id);
+      const impersonationReceipt = makeReceipt(shiftIdY, cashierY.id);
+
+      const response = await authorizedPost(
+        config.apiBaseUrl,
+        '/api/payments/sync-offline',
+        tokenX,
+        { receipts: [ownLateSyncReceipt, impersonationReceipt] },
+        { 'X-Register-Id': registerX.id, 'X-Register-Token': registerTokenX }
+      );
+
+      expect(response.status).toBe(200);
+      const results = (response.body as { results: OfflineSyncResult[] }).results;
+
+      const ownResult = results.find((r) => r.id === ownLateSyncReceipt.id);
+      expect(ownResult?.status).toBe('synced');
+
+      const impersonationResult = results.find((r) => r.id === impersonationReceipt.id);
+      expect(impersonationResult?.status).toBe('failed');
+
+      const dbCheck = await pool.query('SELECT id FROM payments WHERE id = $1', [impersonationReceipt.id]);
+      expect(dbCheck.rows.length).toBe(0);
     });
   });
 

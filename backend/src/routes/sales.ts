@@ -734,7 +734,9 @@ async function syncSingleOfflineReceipt(
   client: PoolClient,
   receipt: OfflineSyncReceiptPayload,
   registerId: string,
-  organizationId: string | undefined
+  organizationId: string | undefined,
+  requestingUserId: string | undefined,
+  requestingUserRole: string | undefined
 ): Promise<OfflineSyncResult> {
   // 🖥️ receipt.registerId — Dexie-ში (Roadmap STEP 4.1) იმ ფიზიკური
   // Register-ის UUID-ია, რომელმაც ეს ჩეკი შექმნა. requireRegister
@@ -743,6 +745,19 @@ async function syncSingleOfflineReceipt(
   // იმავე ფიზიკურ მოწყობილობაზე მუშაობს, სადაც ჩეკი შეიქმნა.
   if (receipt.registerId !== registerId) {
     throw new Error('ჩეკის registerId არ ემთხვევა სინქრონიზაციის მომთხოვნელ სალაროს');
+  }
+
+  // 🔒 Cashier-impersonation დაცვა (Roadmap "23.08.2026", ადრე დისციპლინის
+  // დარღვევის გაცნობიერებული უარით გადადებული პუნქტი) — მოლარეს (role
+  // 'cashier') არ უნდა შეეძლოს offline sync-ის დროს receipt.cashierId-ად
+  // სხვისი id-ის მითითება, ავტორიზებული session-ისგან განსხვავებით.
+  // Admin/manager-ისთვის განზრახ გამონაკლისი დარჩა — ხანგრძლივი offline
+  // პერიოდის შემდეგ shift handover-ისას (მოლარე A-ს რიგგარეშე ჩეკი
+  // ჯერ არ სინქრონდა, სანამ B არ შესულა იმავე Register-ზე), stuck ჩეკის
+  // ხელით სინქრონიზაცია მენეჯერს/ადმინს უნდა შეეძლოს — წინააღმდეგ
+  // შემთხვევაში ეს ლეგიტიმური გაყიდვა სამუდამოდ დაიკარგებოდა.
+  if (requestingUserRole === 'cashier' && receipt.cashierId !== requestingUserId) {
+    throw new Error('ჩეკის cashierId არ ემთხვევა ავტორიზებულ მომხმარებელს');
   }
 
   if (!Array.isArray(receipt.items) || receipt.items.length === 0) {
@@ -1059,7 +1074,14 @@ router.post(
         const savepoint = `sp_${receipt.id.replace(/-/g, '')}`;
         try {
           await client.query(`SAVEPOINT ${savepoint}`);
-          const result = await syncSingleOfflineReceipt(client, receipt, req.registerId as string, req.user?.organizationId);
+          const result = await syncSingleOfflineReceipt(
+            client,
+            receipt,
+            req.registerId as string,
+            req.user?.organizationId,
+            req.user?.id,
+            req.user?.role
+          );
           await client.query(`RELEASE SAVEPOINT ${savepoint}`);
           results.push(result);
         } catch (itemErr: any) {
@@ -1244,7 +1266,14 @@ function buildPaymentsFilterQuery(baseSelect: string, query: any, organizationId
 // ==========================================
 // 📈 3. გაყიდვების ისტორია (GET) დაშბორდისთვის
 // ==========================================
+// 🔒 Role-restriction (Roadmap "23.08.2026", ადრე დისციპლინის დარღვევის
+// გაცნობიერებული უარით გადადებული პუნქტი) — `GET /shifts/history`-ის
+// ზუსტად იგივე პატერნი: მოლარეს არ უნდა შეეძლოს მთელი ორგანიზაციის
+// სრული გაყიდვების ისტორიის ნახვა (მისი "საკუთარი ცვლის" scope-ია
+// `GET /payments/my-history`, ქვემოთ) — მხოლოდ admin/manager.
 router.get('/payments', authenticateToken, async (req: CustomRequest, res: any) => {
+  if (req.user?.role === 'cashier') return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
+
   // 🧾 p.is_voided დამატებულია (Roadmap ეტაპი 4 fix) — Dashboard.tsx-ს სჭირდება
   // ვიცოდეთ, რომელი ჩეკია გაუქმებული, რომ (ა) ისტორიის ცხრილში ვიზუალურად მონიშნოს
   // და (ბ) "საერთო შემოსავლის" ჯამში აღარ ჩართოს. გაუქმებული ჩეკები განზრახ
@@ -1442,6 +1471,13 @@ router.get('/payments/export/excel', async (req: any, res: any) => {
     });
     const organizationId = typeof decoded.organizationId === 'string' ? decoded.organizationId : undefined;
 
+    // 🔒 Role-restriction (Roadmap "23.08.2026") — `GET /payments`-ის იგივე
+    // შეზღუდვა: `authenticateToken` აქ არ გამოიყენება (token query param-იდან
+    // მოდის), ამიტომ role-იც decoded payload-იდან ცალსახად ვკითხულობთ.
+    if (decoded.role === 'cashier') {
+      return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
+    }
+
     // 🧾 p.is_voided დამატებულია (Roadmap ეტაპი 4 fix) — ბუღალტერმა Excel-შიც
     // ცალსახად უნდა დაინახოს, რომელი ჩეკია გაუქმებული (იხ. 'სტატუსი' სვეტი ქვემოთ).
     const baseSelect = `
@@ -1511,6 +1547,12 @@ router.get('/payments/export/pdf', async (req: any, res: any) => {
       });
     });
     const organizationId = typeof decoded.organizationId === 'string' ? decoded.organizationId : undefined;
+
+    // 🔒 Role-restriction (Roadmap "23.08.2026") — export/excel-ის იგივე
+    // შეზღუდვა/მიზეზი.
+    if (decoded.role === 'cashier') {
+      return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
+    }
 
     // 🧾 p.is_voided დამატებულია (Roadmap ეტაპი 4 fix) — Grand Total-ს ქვემოთ
     // გაუქმებული ჩეკები აღარ უნდა ერთვებოდეს (იხ. grandTotal-ის გამოთვლა).

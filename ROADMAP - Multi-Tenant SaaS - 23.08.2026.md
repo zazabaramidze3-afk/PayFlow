@@ -140,9 +140,9 @@ STEP 1-ის შემდეგაც JWT token-ი (POST `/login`) მხო�
 
 STEP 2-ის scope მკაცრად "ორგანიზაციული სეგმენტაცია" იყო — ეს 3 ხარვეზი multi-tenant-სპეციფიკური არაა (ცალკე org-ის შიგნითაც არსებობს), ამიტომ documented, magram not fixed:
 
-- `syncSingleOfflineReceipt()` არ ამოწმებს `receipt.cashierId === req.user.id` — თეორიულად cashier-impersonation offline sync-ის დროს.
-- `GET /payments/export/excel`/`/pdf` — არცერთ როლს არ ზღუდავს (ნებისმიერი authenticated user-ს, cashier-საც კი, შეუძლია excel/pdf export).
-- `GET /payments` — იგივე, role-restriction არ აქვს.
+- ~~`syncSingleOfflineReceipt()` არ ამოწმებს `receipt.cashierId === req.user.id` — თეორიულად cashier-impersonation offline sync-ის დროს.~~ ✅ **გასწორებულია, 23.08.2026** — იხ. "🔒 დარჩენილი 2 security-ხარვეზი" სექცია ქვემოთ.
+- ~~`GET /payments/export/excel`/`/pdf` — არცერთ როლს არ ზღუდავს (ნებისმიერი authenticated user-ს, cashier-საც კი, შეუძლია excel/pdf export).~~ ✅ **გასწორებულია, 23.08.2026**
+- ~~`GET /payments` — იგივე, role-restriction არ აქვს.~~ ✅ **გასწორებულია, 23.08.2026**
 
 ### ახალი ტესტები (`tenant-isolation.test.ts`)
 
@@ -172,9 +172,56 @@ STEP 2-ის scope მკაცრად "ორგანიზაციულ�
 **ტიერი 1 commit:** `db73b3c` — ინგლისურად (STEP 1-ის, `35a1bf1`-ის თავზე).
 **ტიერი 2 commit:** `9a059ea` — ინგლისურად.
 **ტიერი 3 commit:** `23fcdc8` — **ქართულად** (მომხმარებლის მოთხოვნით, ამიერიდან ყველა ახალი commit ქართულადაა).
-**ტიერი 4/5 commit:** ⏳ `git add` წარმატებით შესრულებულია (8 ფაილი), მაგრამ `git commit` კვლავ იმავე stale `.git/index.lock`-ს გადააწყდა — მოსალოდნელი, იგივე გვერდითი აღმოჩენის მესამე გამეორება. საჭიროა იგივე ხელით წაშლა (`del ".git\index.lock"` VS Code ტერმინალში), მერე მხოლოდ `git commit` ხელახლა (add-ის გამეორება საჭირო არაა).
+**ტიერი 4/5 commit:** `ad4ed47` — **ქართულად**, 9 ფაილი (8 კოდი/ტესტი + roadmap დოკუმენტი). Stale `.git/index.lock`/`.git/HEAD.lock` მესამედ განმეორდა (`git add`-ის დროს index.lock, `git commit`-ის დროს HEAD.lock) — მომხმარებელმა ხელით წაშალა, commit წარმატებით გავიდა.
 
-⚠️ **დარჩენილი ნაბიჯი:** commit `23fcdc8` ჯერ მხოლოდ ლოკალურ (device) repo-შია — **GitHub-ზე jერ არ არის push-ილი**. Push-ის შემდეგ ავტომატურად აისახება ღია PR #3-ში (იგივე branch-იდან იხსნება). ტიერი 4/5-ის commit-ის დასრულების შემდეგ ორივე (23fcdc8 + ახალი) ერთად დაჭირდება push-ი.
+✅ **დასრულებულია:** commit-ები `23fcdc8` + `ad4ed47` push-ილია GitHub-ზე, PR #3 merge-ილია `main`-ში ("Create a merge commit" სტრატეგიით, merge commit `115c8ca`), ლოკალური `main` sync-ილია (`git checkout main && git pull`, fast-forward `1191a1c` → `115c8ca`).
+
+---
+
+## 🚨 Production ინციდენტი — DB migration 013 production-ზე დაგვიანებული, 23.08.2026
+
+**რა მოხდა:** PR #3-ის `main`-ში merge-ისთანავე Vercel-მა ავტომატურად deploy გააკეთა production-ზე ახალი backend-ის კოდი (STEP 1 + STEP 2, ტიერი 1-5) — ეს კოდი მოითხოვს `organization_id`-ს (NOT NULL) 8 ცხრილში, migration `013_add_organizations_and_tenant_scope.sql`-ის მიხედვით. მაგრამ production-ის Neon PostgreSQL-ს (branch: `production`, project: `payflow-db`) migration 013 არასდროს ჰქონდა გატარებული — მხოლოდ ლოკალურ/sandbox-ის ბაზაზე იყო დატესტილი. შედეგად production-ის backend-მა დაიწყო query-ების ჩავარდნა (`organization_id`-ის მოთხოვნისას column არ არსებობდა), მომხმარებელმა აღწერა როგორც "პროდაქშენზე გატყდა ბაზა".
+
+**Root cause:** repo-ში არ არსებობს ცალკე migration-ტრეკინგის მექანიზმი production-ისთვის (`backend/migrate.ts` მხოლოდ ლოკალურად/manual-ად ეშვება, `.sql` ფაილებს filename-ის მიხედვით try/catch-ით ერთმანეთისგან დამოუკიდებლად), ამიტომ `main`-ში merge + Vercel-ის ავტო-deploy schema migration-ის გარეშე დატოვა code-ს და production DB-ს schema-ს შორის უთანხმოება — **code deploy და DB migration ორი დამოუკიდებელი, სინქრონიზებული არ ნაბიჯი აღმოჩნდა**.
+
+**დიაგნოსტიკა:** Neon SQL Editor-ში (production branch) დიაგნოსტიკური query-ით დადასტურდა, რომ `organizations` ცხრილი production-ზე არ არსებობდა:
+```sql
+SELECT table_name FROM information_schema.tables WHERE table_name = 'organizations';
+```
+
+**Fix:** migration 013-ის სრული SQL (`BEGIN;`...`COMMIT;`, ატომური ტრანზაქცია, საკუთარი idempotency guard) ხელით გაეშვა Neon SQL Editor-ში production branch-ზე, `console.neon.tech` → პროექტი `payflow-db` → branch `production`. შესრულდა წარმატებით ("Statement executed successfully") — 20-ვე statement (BEGIN → DO guard → CREATE `organizations` → INSERT default org → 8×(ALTER + UPDATE backfill) → COMMIT) გაშვებულა ერთ ტრანზაქციაში.
+
+**დადასტურება production-ზე (post-fix):**
+- `POST /login` — წარმატებული (ADMIN browser-ზე, MANAGER desktop app-ზე)
+- `GET /api/dashboard/stats` და ანალიტიკის chart-ები — იტვირთება, შეცდომის გარეშე
+- `GET /products` — 5 პროდუქტი იტვირთება მართებულად (stock levels, low-stock warning ჩვეულებრივად მუშაობს)
+- Vercel deployments-ში production badge `115c8ca`-ზეა (33წთ+ Ready) — deploy-ი და DB schema ახლა სინქრონულია
+
+**დროის ხაზი:** merge `115c8ca` → production crash → დიაგნოსტიკა Neon SQL Editor-ში → migration 013 ხელით გაშვება production branch-ზე → login/dashboard/products დადასტურება. ყველა ნაბიჯი ერთ სესიაში, 23.08.2026.
+
+**⚠️ Lesson learned — მომავალი migration-ებისთვის (Neon branch-ის მომზადებამდე, item #9-მდე დროებითი წესი):**
+Vercel `main`-ზე push-ისთანავე ავტომატურად deploy-ავს — ეს ნიშნავს, რომ **schema migration ყოველთვის უნდა გაეშვას production DB-ზე მანამ, სანამ ის კოდი merge/push ხდება `main`-ში**, არა შემდეგ. ალტერნატივა (item #9, Neon branch-ის მომზადების შემდეგ ხელმისაწვდომი): preview/staging Neon branch-ზე migration-ის წინასწარი ტესტირება + production-ზე გატარება PR merge-მდე, ან Vercel deploy-ის დროებითი pause + manual coordination. სანამ ეს პროცესი არ ჩამოყალიბდება, ყოველი მომავალი migration-ის მქონე PR-ის merge-მდე საჭიროა ხელით შემოწმდეს/გატარდეს production migration.
+
+---
+
+## ✅ დასრულებულია — დარჩენილი 2 security-ხარვეზი (ადრე "დისციპლინის დარღვევის გაცნობიერებული უარი", item #12), 23.08.2026
+
+STEP 2-ის დასრულების (merge, production-ინციდენტის fix) შემდეგ ლოგიკური გაგრძელება — 3 დოკუმენტირებული, განზრახ გადადებული ხარვეზიდან 2 (როლის-შეზღუდვის ტიპის) მალევე გასწორდა, სესიის იმავე დისციპლინით (fix → ტესტი → tsc/vitest → commit).
+
+**1. Role-restriction — `GET /payments`, `GET /payments/export/excel`, `GET /payments/export/pdf` (`sales.ts`)**
+სამივე endpoint-ს არცერთი როლის შეზღუდვა არ ჰქონდა — ნებისმიერ authenticated user-ს, cashier-საც კი, შეეძლო მთელი ორგანიზაციის სრული გაყიდვების ისტორიის/Excel/PDF ექსპორტის ნახვა, თუმცა cashier-ის "საკუთარი" scope-ია `GET /payments/my-history`. გასწორდა ზუსტად `GET /shifts/history`-ის უკვე არსებული პატერნით: `if (req.user?.role === 'cashier') return res.status(403)...`. `export/excel`/`export/pdf` `authenticateToken`-ს არ იყენებს (token query param-იდან, პირდაპირ ბრაუზერში გახსნადი ბმულებისთვის) — იქ როლი JWT decoded payload-იდან იკითხება იმავე ლოგიკით.
+
+**2. Cashier-impersonation — `syncSingleOfflineReceipt()` (`sales.ts`, `POST /payments/sync-offline`)**
+ფუნქცია receipt.cashierId-ს მხოლოდ ბაზაში არსებულ shift.cashier_id-ს ადარებდა, მაგრამ არასდროს ამოწმებდა, რომ **ავტორიზებული სესია** (`req.user.id`) თავად cashierId-ს ემთხვეოდა — თეორიულად, cashier-ს შეეძლო თავისივე ვალიდური token-ით სხვისი (სხვა cashier-ის) cashierId-ით ჩეკის სინქრონიზაცია, თუ იცოდა/გამოიცნო შესაბამისი shiftId. გასწორდა: `role === 'cashier'`-ს დამატებით მოეთხოვება `receipt.cashierId === requestingUserId`, წინააღმდეგ შემთხვევაში ეს კონკრეტული ჩეკი (batch-ის დანარჩენების ხელშეუხებლად) `'failed'`-ად ბრუნდება. **განზრახ გამონაკლისი admin/manager-ისთვის** დარჩა — long-offline shift-handover-ის შემდეგ stuck ჩეკის ხელით სინქრონიზაცია მენეჯერს მაინც უნდა შეეძლოს, წინააღმდეგ შემთხვევაში ლეგიტიმური გაყიდვა სამუდამოდ დაიკარგებოდა.
+
+**ახალი ტესტები** (`tenant-isolation.test.ts`, ტიერი 4/5-ის describe-ბლოკში):
+- `GET /api/payments` — cashier-ს 403 უბრუნდება.
+- `GET /api/payments/export/excel` — იგივე (ახალი `tokenQueryGet` helper `api.ts`-ში, `?token=` query-authenticated route-ებისთვის).
+- `POST /api/payments/sync-offline` — საკუთარი, იზოლირებული seed-ით (2 ახალი cashier + 1 register იმავე org-ში, shift handover): ერთი batch-ის ორი ჩეკი — საკუთარი (late-sync, დახურულ ცვლაზე) `'synced'`-ია, სხვისი cashierId-ით `'failed'`-ია + DB-ში row არ იქმნება (ორმაგი დადასტურება, `pool.query`-ით პირდაპირ).
+
+**დადასტურება:** `tsc --noEmit` სუფთაა, ლოკალური Postgres 16 + backend-ის წინააღმდეგ **34/34 აქტიური ტესტი მწვანე** (წინა 31 + ახალი 3), 1 კვლავ `it.todo`. ორჯერ თანმიმდევრობით გაშვებული — ორივეჯერ მწვანე, ბაზაში ნარჩენი ტესტ-მონაცემი არ დარჩენილა.
+
+⚠️ **დარჩენილი:** commit-ი ჯერ არ არის შექმნილი/push-ილი (device-ზეა ხელით საჭირო, იგივე git-lock-ის რისკით — იხ. ზემოთ) — ფაილები (`sales.ts`, `tests/isolation/api.ts`, `tests/isolation/tenant-isolation.test.ts`) უკვე commit-ისთვის მზადაა.
 
 ---
 
@@ -184,12 +231,13 @@ STEP 2-ის scope მკაცრად "ორგანიზაციულ�
 2. ~~STEP 2, ტიერი 1 (read-only)~~ ✅ **დასრულებული, ტესტირებული, commit `db73b3c`** — dashboard.ts, products.ts GET-ები, auth.ts GET/DELETE `/audit-logs`, GET `/users`, audit-logs.ts export + bonus fix (`verify-manager-pin`)
 3. ~~STEP 2, ტიერი 2 (write-blocker)~~ ✅ **დასრულებული, ტესტირებული, commit `9a059ea`** — `POST /users`/`POST /products`-ს `organization_id` დაემატა INSERT-ში
 4. ~~STEP 2, ტიერი 3 (object-level write-scoping)~~ ✅ **დასრულებული, ტესტირებული, commit `23fcdc8` (ქართულად)** — `PUT/PATCH/DELETE /products/:id`, `PUT/DELETE /users/:id`, `registers.ts`-ის მთელი pairing-ნაკადი: IDOR + write-blocker ორივე გასწორდა
-5. ~~STEP 2, ტიერი 4/5 (დარჩენილი read-only + write-heavy/ფინანსური)~~ ✅ **დასრულებული, ტესტირებული (31/32), commit ⏳ pending** — `notifications.ts`, `sales.ts` მთლიანად + ბონუსად `writeAuditLog()` silent write-blocker და register-hijack ფიქსი. **STEP 2 ამით სრულად დასრულებულია.**
-6. **ტიერი 4/5-ის commit + push + PR #3-ის description-ის განახლება** — commit ბლოკილია stale lock-ზე (იხ. ზემოთ), საჭიროა მომხმარებლის ხელით ჩარევა
-7. **PR #3-ის merge-ის გადაწყვეტილება** — push-ის შემდეგ PR #3 შეიცავს ტიერი 1-5-ს მთლიანად (STEP 1-ის schema-ც). STEP 2-ის მთელი route-scoping scope ახლა დასრულებულია — ფინანსური cross-tenant რისკი, რაც ადრე ტიერი 5-მდე იყო ღია, აღარ არსებობს
-8. **STEP 2.2 (RLS)** — დამატებითი, defense-in-depth შრე route-level `WHERE organization_id`-ის თავზე (route-scoping უკვე ცალკე საკმარისია production-ისთვის, RLS extra-hardening-ია)
-9. **Neon branch-ის მომზადება** — კვლავ ბლოკილია მომხმარებელზე (Neon API key)
-10. **გადაწყვეტილების წერტილი** — SaaS vs Multi-Store (მოიცავს `users.name` per-org uniqueness-ის გადაწყვეტასაც)
-11. **დოკუმენტირებული, განზრახ გადადებული ხარვეზები** (multi-tenant-სპეციფიკური არაა, STEP 2-ის scope-ის გარეთ): `syncSingleOfflineReceipt()`-ის cashier-impersonation რისკი, `GET /payments/export/excel`/`/pdf`-ისა და `GET /payments`-ის role-restriction-ის არქონა
+5. ~~STEP 2, ტიერი 4/5 (დარჩენილი read-only + write-heavy/ფინანსური)~~ ✅ **დასრულებული, ტესტირებული (31/32), commit `ad4ed47` (ქართულად)** — `notifications.ts`, `sales.ts` მთლიანად + ბონუსად `writeAuditLog()` silent write-blocker და register-hijack ფიქსი. **STEP 2 ამით სრულად დასრულებულია.**
+6. ~~push (`23fcdc8` + `ad4ed47`) + PR #3-ის description-ის განახლება~~ ✅ **დასრულებული**
+7. ~~PR #3-ის merge-ის გადაწყვეტილება~~ ✅ **დასრულებული — merge commit `115c8ca`**, `main`-ში STEP 1 + STEP 2 (ტიერი 1-5) მთლიანად
+8. ~~Production incident: migration 013 production Neon-ზე~~ ✅ **დასრულებული, 23.08.2026** — იხ. "🚨 Production ინციდენტი" სექცია ზემოთ. Production დადასტურებულია აღდგენილად (login, dashboard, products)
+9. **STEP 2.2 (RLS)** — დამატებითი, defense-in-depth შრე route-level `WHERE organization_id`-ის თავზე (route-scoping უკვე ცალკე საკმარისია production-ისთვის, RLS extra-hardening-ია)
+10. **Neon branch-ის მომზადება** — კვლავ ბლოკილია მომხმარებელზე (Neon API key). ასევე გახდის შესაძლებელს future migration-ების staging-ზე წინასწარ ტესტირებას push-ამდე (იხ. lesson learned production-ინციდენტის სექციაში)
+11. **გადაწყვეტილების წერტილი** — SaaS vs Multi-Store (მოიცავს `users.name` per-org uniqueness-ის გადაწყვეტასაც)
+12. ~~დოკუმენტირებული, განზრახ გადადებული ხარვეზები (role-restriction: `GET /payments`, export/excel, export/pdf; cashier-impersonation: `syncSingleOfflineReceipt()`)~~ ✅ **დასრულებული, ტესტირებული (34/34), commit ⏳ pending** — იხ. "✅ დარჩენილი 2 security-ხარვეზი" სექცია ზემოთ. დარჩენილია მხოლოდ: `syncSingleOfflineReceipt()`-ის cashier-impersonation-ის მესამე, უფრო ღრმა ვარიანტი (თუ ოდესმე გამოვლინდება — cross-register/cross-shift ცალკე scenario-ები STEP 2.2-ის (RLS) ფარგლებში შეიძლება საბოლოოდ დაიხუროს) — non-blocking
 
 დანარჩენი უცვლელად ვალიდურია `ROADMAP - Multi-Tenant SaaS - 16.08.2026.md`-დან.

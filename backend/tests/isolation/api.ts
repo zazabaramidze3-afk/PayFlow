@@ -65,3 +65,12 @@ export function authorizedPatch(apiBaseUrl: string, path: string, token: string,
 export function authorizedDelete(apiBaseUrl: string, path: string, token: string) {
   return request(apiBaseUrl).delete(path).set('Authorization', `Bearer ${token}`);
 }
+
+// 🏢 STEP 2, ტიერი 4/5-ის შემდეგ, "დისციპლინის დარღვევის გაცნობიერებული
+// უარი" პუნქტების fix-ის ტესტებისთვის (Roadmap "23.08.2026") — `GET
+// /payments/export/excel`/`/pdf` არ იყენებს `authenticateToken`-ს
+// (Authorization header-ის ნაცვლად token-ს `?token=` query param-იდან
+// კითხულობს, ბრაუზერში პირდაპირ გახსნადი ბმულებისთვის).
+export function tokenQueryGet(apiBaseUrl: string, path: string, token: string) {
+  return request(apiBaseUrl).get(path).query({ token });
+}
