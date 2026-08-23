@@ -33,3 +33,17 @@ export function authorizedGet(apiBaseUrl: string, path: string, token: string) {
 export function authorizedPost(apiBaseUrl: string, path: string, token: string, body: Record<string, unknown>) {
   return request(apiBaseUrl).post(path).set('Authorization', `Bearer ${token}`).send(body);
 }
+
+// 🏢 STEP 2, ტიერი 3 (Roadmap "23.08.2026") — PUT/PATCH/DELETE by-id
+// route-ების (IDOR fix) ტესტებისთვის.
+export function authorizedPut(apiBaseUrl: string, path: string, token: string, body: Record<string, unknown>) {
+  return request(apiBaseUrl).put(path).set('Authorization', `Bearer ${token}`).send(body);
+}
+
+export function authorizedPatch(apiBaseUrl: string, path: string, token: string, body: Record<string, unknown>) {
+  return request(apiBaseUrl).patch(path).set('Authorization', `Bearer ${token}`).send(body);
+}
+
+export function authorizedDelete(apiBaseUrl: string, path: string, token: string) {
+  return request(apiBaseUrl).delete(path).set('Authorization', `Bearer ${token}`);
+}

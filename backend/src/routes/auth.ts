@@ -394,12 +394,15 @@ router.put('/users/:id', authenticateToken, async (req: CustomRequest, res) => {
   const { role, status, can_view_history } = req.body;
   
   try {
+    // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 3 (Roadmap "23.08.2026", IDOR fix)
+    // — `AND organization_id = $5` დაემატა. ამის გარეშე ერთი org-ის ადმინს
+    // შეეძლო სხვა org-ის user-ის id-ს გამოცნობით მისი role/status შეცვლა.
     const result = await db.query(
-      `UPDATE users 
-       SET role = $1, status = $2, can_view_history = COALESCE($3, can_view_history) 
-       WHERE id = $4 
+      `UPDATE users
+       SET role = $1, status = $2, can_view_history = COALESCE($3, can_view_history)
+       WHERE id = $4 AND organization_id = $5
        RETURNING id, name AS username, role, status, can_view_history`,
-      [role, status, can_view_history, req.params.id]
+      [role, status, can_view_history, req.params.id, req.user?.organizationId]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა' });
     res.json({ success: true, user: result.rows[0] });
@@ -436,9 +439,11 @@ router.put('/users/:id/history-access', authenticateToken, async (req: CustomReq
   }
 
   try {
+    // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 3 (Roadmap "23.08.2026", IDOR fix)
+    // — `AND organization_id = $3` დაემატა (იხ. PUT /users/:id-ის იგივე კომენტარი).
     const result = await db.query(
-      'UPDATE users SET can_view_history = $1 WHERE id = $2 RETURNING id, name AS username, can_view_history',
-      [can_view_history, req.params.id]
+      'UPDATE users SET can_view_history = $1 WHERE id = $2 AND organization_id = $3 RETURNING id, name AS username, can_view_history',
+      [can_view_history, req.params.id, req.user?.organizationId]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა' });
 
@@ -464,9 +469,11 @@ router.put('/users/:id/discount-access', authenticateToken, async (req: CustomRe
   }
 
   try {
+    // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 3 (Roadmap "23.08.2026", IDOR fix)
+    // — `AND organization_id = $3` დაემატა (იხ. PUT /users/:id-ის იგივე კომენტარი).
     const result = await db.query(
-      'UPDATE users SET can_use_discount = $1 WHERE id = $2 RETURNING id, name AS username, can_use_discount',
-      [can_use_discount, req.params.id]
+      'UPDATE users SET can_use_discount = $1 WHERE id = $2 AND organization_id = $3 RETURNING id, name AS username, can_use_discount',
+      [can_use_discount, req.params.id, req.user?.organizationId]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა' });
 
@@ -491,9 +498,11 @@ router.put('/users/:id/void-access', authenticateToken, async (req: CustomReques
   }
 
   try {
+    // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 3 (Roadmap "23.08.2026", IDOR fix)
+    // — `AND organization_id = $3` დაემატა (იხ. PUT /users/:id-ის იგივე კომენტარი).
     const result = await db.query(
-      'UPDATE users SET can_void_receipt = $1 WHERE id = $2 RETURNING id, name AS username, can_void_receipt',
-      [can_void_receipt, req.params.id]
+      'UPDATE users SET can_void_receipt = $1 WHERE id = $2 AND organization_id = $3 RETURNING id, name AS username, can_void_receipt',
+      [can_void_receipt, req.params.id, req.user?.organizationId]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა' });
 
@@ -518,9 +527,11 @@ router.put('/users/:id/clear-cart-access', authenticateToken, async (req: Custom
   }
 
   try {
+    // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 3 (Roadmap "23.08.2026", IDOR fix)
+    // — `AND organization_id = $3` დაემატა (იხ. PUT /users/:id-ის იგივე კომენტარი).
     const result = await db.query(
-      'UPDATE users SET can_clear_cart = $1 WHERE id = $2 RETURNING id, name AS username, can_clear_cart',
-      [can_clear_cart, req.params.id]
+      'UPDATE users SET can_clear_cart = $1 WHERE id = $2 AND organization_id = $3 RETURNING id, name AS username, can_clear_cart',
+      [can_clear_cart, req.params.id, req.user?.organizationId]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა' });
 
@@ -600,7 +611,17 @@ router.put('/users/:id/password', authenticateToken, async (req: CustomRequest, 
 
   try {
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
-    await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hashedNewPassword, req.params.id]);
+    // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 3 (Roadmap "23.08.2026", IDOR fix)
+    // — `AND organization_id = $3` დაემატა (იხ. PUT /users/:id-ის იგივე კომენტარი).
+    // ⚠️ ბონუს-ფიქსი: აქამდე rowCount საერთოდ არ მოწმდებოდა — არარსებული
+    // (ან, ახლა, სხვა org-ის) id "წარმატებას" აბრუნებდა, თუმცა არაფერი
+    // შეცვლილა. სხვა by-id endpoint-ების (history-access და სხვ.) იგივე
+    // 404-შემოწმებას ვამატებთ თანმიმდევრულობისთვის.
+    const result = await db.query(
+      'UPDATE users SET password_hash = $1 WHERE id = $2 AND organization_id = $3',
+      [hashedNewPassword, req.params.id, req.user?.organizationId]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა' });
     res.json({ success: true, message: 'პაროლი შეიცვალა!' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -621,9 +642,11 @@ router.put('/users/:id/pin', authenticateToken, async (req: CustomRequest, res: 
   }
 
   try {
+    // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 3 (Roadmap "23.08.2026", IDOR fix)
+    // — `AND organization_id = $2` დაემატა targetCheck-საც და UPDATE-საც.
     const targetCheck = await db.query<Pick<User, 'id' | 'role'>>(
-      'SELECT id, role FROM users WHERE id = $1',
-      [req.params.id]
+      'SELECT id, role FROM users WHERE id = $1 AND organization_id = $2',
+      [req.params.id, req.user?.organizationId]
     );
 
     if (targetCheck.rows.length === 0) {
@@ -639,9 +662,9 @@ router.put('/users/:id/pin', authenticateToken, async (req: CustomRequest, res: 
     const hashedPin = await bcrypt.hash(pin, 10);
 
     const result = await db.query(
-      `UPDATE users SET manager_pin = $1 WHERE id = $2
+      `UPDATE users SET manager_pin = $1 WHERE id = $2 AND organization_id = $3
        RETURNING id, name AS username, role, (manager_pin IS NOT NULL) AS has_manager_pin`,
-      [hashedPin, req.params.id]
+      [hashedPin, req.params.id, req.user?.organizationId]
     );
 
     // 🕵️ აუდიტის ლოგი: არასდროს ვწერთ PIN-ის მნიშვნელობას (ჰეშსაც კი) —
@@ -668,7 +691,15 @@ router.delete('/users/:id', authenticateToken, async (req: CustomRequest, res) =
   if (req.params.id === req.user?.id) return res.status(400).json({ error: 'საკუთარ თავს ვერ წაშლით!' });
 
   try {
-    await db.query("UPDATE users SET status = 'inactive' WHERE id = $1", [req.params.id]);
+    // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 3 (Roadmap "23.08.2026", IDOR fix)
+    // — `AND organization_id = $2` დაემატა (იხ. PUT /users/:id-ის იგივე კომენტარი).
+    // ⚠️ ბონუს-ფიქსი: rowCount შემოწმება დაემატა იმავე მიზეზით, რაც PUT
+    // /users/:id/password-ს (იხ. ზემოთა კომენტარი).
+    const result = await db.query(
+      "UPDATE users SET status = 'inactive' WHERE id = $1 AND organization_id = $2",
+      [req.params.id, req.user?.organizationId]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა' });
     res.json({ success: true, message: 'მომხმარებელი გახდა პასიური!' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

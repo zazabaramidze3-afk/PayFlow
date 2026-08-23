@@ -135,10 +135,16 @@ router.put('/products/:id', authenticateToken, async (req: CustomRequest, res: R
   }
 
   try {
+    // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 3 (Roadmap "23.08.2026", IDOR fix)
+    // — `AND organization_id = $3` დაემატა dupCheck-ს და `AND organization_id
+    // = $6` UPDATE-ს. ამის გარეშე ეს IDOR-ტიპის ხარვეზი იყო: ნებისმიერ
+    // ავტორიზებულ (non-cashier) მომხმარებელს, თუ სხვა org-ის პროდუქტის
+    // id-ს გამოიცნობდა/მოიპოვებდა, შეეძლო მისი რედაქტირება — org-ის
+    // საკუთრების შემოწმების გარეშე `WHERE id = $N` ნებისმიერ id-ს იღებდა.
     if (name) {
       const dupCheck = await db.query(
-        'SELECT id FROM products WHERE LOWER(name) = LOWER($1) AND id != $2',
-        [name.trim(), req.params.id]
+        'SELECT id FROM products WHERE LOWER(name) = LOWER($1) AND id != $2 AND organization_id = $3',
+        [name.trim(), req.params.id, req.user?.organizationId]
       );
       if (dupCheck.rows.length > 0) {
         return res.status(409).json({ error: 'ამ სახელით სხვა პროდუქტი უკვე არსებობს!' });
@@ -146,13 +152,13 @@ router.put('/products/:id', authenticateToken, async (req: CustomRequest, res: R
     }
 
     const result = await db.query(
-      `UPDATE products SET 
-        name = COALESCE($1, name), 
-        price = COALESCE($2, price), 
-        stock = COALESCE($3, stock), 
-        barcode = COALESCE($4, barcode) 
-       WHERE id = $5 RETURNING *`,
-      [name?.trim(), price, stock, barcode, req.params.id]
+      `UPDATE products SET
+        name = COALESCE($1, name),
+        price = COALESCE($2, price),
+        stock = COALESCE($3, stock),
+        barcode = COALESCE($4, barcode)
+       WHERE id = $5 AND organization_id = $6 RETURNING *`,
+      [name?.trim(), price, stock, barcode, req.params.id, req.user?.organizationId]
     );
 
     if (result.rows.length === 0) {
@@ -183,9 +189,12 @@ router.patch('/products/:id/restock', authenticateToken, async (req: CustomReque
   }
 
   try {
+    // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 3 (Roadmap "23.08.2026", IDOR fix)
+    // — `AND organization_id = $3` დაემატა. ორგანიზაციის საკუთრების
+    // შემოწმების გარეშე სხვა org-ის პროდუქტის მარაგის ცვლილება იყო შესაძლებელი.
     const result = await db.query(
-      'UPDATE products SET stock = stock + $1 WHERE id = $2 RETURNING *',
-      [qty, req.params.id]
+      'UPDATE products SET stock = stock + $1 WHERE id = $2 AND organization_id = $3 RETURNING *',
+      [qty, req.params.id, req.user?.organizationId]
     );
 
     if (result.rows.length === 0) {
@@ -205,7 +214,13 @@ router.delete('/products/:id', authenticateToken, async (req: CustomRequest, res
   }
 
   try {
-    const result = await db.query('DELETE FROM products WHERE id = $1 RETURNING id', [req.params.id]);
+    // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 3 (Roadmap "23.08.2026", IDOR fix)
+    // — `AND organization_id = $2` დაემატა. ორგანიზაციის შემოწმების გარეშე
+    // ადმინს სხვა org-ის პროდუქტის წაშლა შეეძლო, id-ს გამოცნობით/მოპოვებით.
+    const result = await db.query(
+      'DELETE FROM products WHERE id = $1 AND organization_id = $2 RETURNING id',
+      [req.params.id, req.user?.organizationId]
+    );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'პროდუქტი ვერ მოიძებნა' });

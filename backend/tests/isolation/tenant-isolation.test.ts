@@ -39,8 +39,9 @@ import {
   seedOrgWithAdmin,
   seedTestUser,
   type SeededOrg,
+  type SeededProduct,
 } from './seed';
-import { authorizedGet, authorizedPost, login } from './api';
+import { authorizedDelete, authorizedGet, authorizedPatch, authorizedPost, authorizedPut, login } from './api';
 
 const config = loadIsolationTestConfig();
 const pool = new Pool({ connectionString: config.databaseUrl, max: 5 });
@@ -88,6 +89,8 @@ describe('Cross-tenant data isolation (გაშვება მხოლოდ 
   let orgB: SeededOrg;
   let tokenA: string;
   let tokenB: string;
+  let productA: SeededProduct | undefined;
+  let productB: SeededProduct | undefined;
 
   beforeAll(async () => {
     if (!schema.multiTenantReady) return;
@@ -99,8 +102,8 @@ describe('Cross-tenant data isolation (გაშვება მხოლოდ 
     tokenB = (await login(config.apiBaseUrl, orgB.admin.username, orgB.admin.password)).token;
 
     if (productsOrgColumnExists) {
-      await seedOrgProduct(pool, { organizationId: orgA.id, nameSuffix: 'orgA' });
-      await seedOrgProduct(pool, { organizationId: orgB.id, nameSuffix: 'orgB' });
+      productA = await seedOrgProduct(pool, { organizationId: orgA.id, nameSuffix: 'orgA' });
+      productB = await seedOrgProduct(pool, { organizationId: orgB.id, nameSuffix: 'orgB' });
     }
   });
 
@@ -260,6 +263,189 @@ describe('Cross-tenant data isolation (გაშვება მხოლოდ 
     });
   });
 
+  // 🏢 STEP 2, ტიერი 3 (Roadmap "23.08.2026", IDOR fix) — PUT/PATCH/DELETE
+  // /products/:id ახლა `AND organization_id = $N`-ს ამოწმებს. თითოეული
+  // ტესტი Org A-ს ტოკენით Org B-ს პროდუქტს (productB) მიმართავს — id-ის
+  // ცოდნა/გამოცნობა საკმარისი აღარაა, 404 უნდა დაბრუნდეს (არა 200/403).
+  describe('PUT/PATCH/DELETE /api/products/:id — org-scoped IDOR fix (ტიერი 3)', () => {
+    it('PUT — Org A ვერ არედაქტირებს Org B-ს პროდუქტს', async (ctx) => {
+      if (!schema.multiTenantReady || !productsOrgColumnExists || !productB) return ctx.skip();
+
+      const response = await authorizedPut(config.apiBaseUrl, `/api/products/${productB.id}`, tokenA, {
+        name: `${ISOLATION_TEST_PREFIX}should_not_apply`,
+      });
+      expect(response.status).toBe(404);
+    });
+
+    it('PATCH /restock — Org A ვერ ამატებს მარაგს Org B-ს პროდუქტს', async (ctx) => {
+      if (!schema.multiTenantReady || !productsOrgColumnExists || !productB) return ctx.skip();
+
+      const response = await authorizedPatch(config.apiBaseUrl, `/api/products/${productB.id}/restock`, tokenA, {
+        quantityToAdd: 5,
+      });
+      expect(response.status).toBe(404);
+    });
+
+    it('DELETE — Org A ვერ შლის Org B-ს პროდუქტს', async (ctx) => {
+      if (!schema.multiTenantReady || !productsOrgColumnExists || !productB) return ctx.skip();
+
+      const response = await authorizedDelete(config.apiBaseUrl, `/api/products/${productB.id}`, tokenA);
+      expect(response.status).toBe(404);
+
+      // ✅ დაზუსტება, რომ ნამდვილად არაფერი წაშლილა — Org B-ს კვლავ სჭირდება
+      // საკუთარი productB, სხვა ტესტებში რომ არ "გაქრეს" 404-ის მიღმა.
+      const stillThereForB = await authorizedGet(config.apiBaseUrl, '/api/products', tokenB);
+      const namesB = (stillThereForB.body as Array<{ name: string }>).map((p) => p.name);
+      expect(namesB).toContain(productB.name);
+    });
+
+    // ✅ "Happy path" რეგრესია — organization_id-ის დამატებამ საკუთარი
+    // org-ის ჩვეულებრივი წაკითხვა/რედაქტირება/წაშლა არ უნდა გაუფუჭოს.
+    // productA აქამდე არცერთ ტესტში არ გამოყენებულა — უსაფრთხოდ შეიძლება
+    // ორივე (PUT მერე DELETE) ამ თანმიმდევრობით.
+    it('PUT — Org A კვლავ არედაქტირებს საკუთარ productA-ს (happy path)', async (ctx) => {
+      if (!schema.multiTenantReady || !productsOrgColumnExists || !productA) return ctx.skip();
+
+      const response = await authorizedPut(config.apiBaseUrl, `/api/products/${productA.id}`, tokenA, {
+        price: 12.5,
+      });
+      expect(response.status).toBe(200);
+      expect(Number(response.body.price)).toBe(12.5);
+    });
+
+    it('DELETE — Org A კვლავ შლის საკუთარ productA-ს (happy path)', async (ctx) => {
+      if (!schema.multiTenantReady || !productsOrgColumnExists || !productA) return ctx.skip();
+
+      const response = await authorizedDelete(config.apiBaseUrl, `/api/products/${productA.id}`, tokenA);
+      expect(response.status).toBe(200);
+    });
+  });
+
+  // 🏢 STEP 2, ტიერი 3 (Roadmap "23.08.2026", IDOR fix) — PUT/DELETE
+  // /users/:id (და შესაბამისი toggle/password/pin endpoint-ები, იმავე
+  // პატერნით) ახლა `AND organization_id = $N`-ს ამოწმებს.
+  describe('PUT/DELETE /api/users/:id — org-scoped IDOR fix (ტიერი 3)', () => {
+    it('PUT — Org A-ს ადმინი ვერ ცვლის Org B-ს ადმინის როლს/სტატუსს', async (ctx) => {
+      if (!schema.multiTenantReady) return ctx.skip();
+
+      const response = await authorizedPut(config.apiBaseUrl, `/api/users/${orgB.admin.id}`, tokenA, {
+        role: 'cashier',
+        status: 'active',
+      });
+      expect(response.status).toBe(404);
+
+      // ✅ Org B-ს admin-ი კვლავ admin-ია — role ნამდვილად არ შეცვლილა.
+      const usersAsB = await authorizedGet(config.apiBaseUrl, '/api/users', tokenB);
+      const orgBAdmin = (usersAsB.body as Array<{ username: string; role: string }>).find(
+        (u) => u.username === orgB.admin.username
+      );
+      expect(orgBAdmin?.role).toBe('admin');
+    });
+
+    it('DELETE — Org A-ს ადმინი ვერ აპასიურებს Org B-ს ადმინს', async (ctx) => {
+      if (!schema.multiTenantReady) return ctx.skip();
+
+      const response = await authorizedDelete(config.apiBaseUrl, `/api/users/${orgB.admin.id}`, tokenA);
+      expect(response.status).toBe(404);
+
+      // ✅ Org B-ს admin-ი კვლავ აქტიურია.
+      const usersAsB = await authorizedGet(config.apiBaseUrl, '/api/users', tokenB);
+      const orgBAdmin = (usersAsB.body as Array<{ username: string; status: string }>).find(
+        (u) => u.username === orgB.admin.username
+      );
+      expect(orgBAdmin?.status).toBe('active');
+    });
+
+    // ✅ "Happy path" რეგრესია — საკუთარ org-ში PUT/DELETE (role-ცვლილება,
+    // soft-delete) კვლავ უნდა მუშაობდეს. ერთჯერადი, საკუთარი (throwaway)
+    // cashier-ით, რომ orgA.admin-ს (სხვა ტესტებში საჭირო) არაფერი დაემართოს.
+    it('PUT/DELETE — Org A-ს ადმინი კვლავ მართავს საკუთარი org-ის user-ს (happy path)', async (ctx) => {
+      if (!schema.multiTenantReady) return ctx.skip();
+
+      const createResponse = await authorizedPost(config.apiBaseUrl, '/api/users', tokenA, {
+        username: `${ISOLATION_TEST_PREFIX}happy_path_cashier`,
+        password: 'IsolationTest123!',
+        role: 'cashier',
+      });
+      expect(createResponse.status).toBe(201);
+      const targetId = createResponse.body.user.id as string;
+
+      const putResponse = await authorizedPut(config.apiBaseUrl, `/api/users/${targetId}`, tokenA, {
+        role: 'cashier',
+        status: 'inactive',
+      });
+      expect(putResponse.status).toBe(200);
+      expect(putResponse.body.user.status).toBe('inactive');
+
+      const deleteResponse = await authorizedDelete(config.apiBaseUrl, `/api/users/${targetId}`, tokenA);
+      expect(deleteResponse.status).toBe(200);
+    });
+  });
+
+  // 🏢 STEP 2, ტიერი 3 (Roadmap "23.08.2026") — registers.ts-ს საერთოდ არ
+  // ჰქონდა org-ცნობიერება: POST /registers/pair-ის IDOR fix (არსებული
+  // register-ის id-ით დაწყვილება) + write-blocker fix (ახალი register-ის
+  // INSERT-ს organization_id სჭირდება) + GET /registers-ის org-scoping
+  // (ტექნიკურად tier 4-ის item იყო, მაგრამ იმავე ფაილშია და პირდაპირ
+  // უკავშირდება pair-ის IDOR ფიქსს — იხ. registers.ts-ის კომენტარი).
+  describe('POST /api/registers/pair & GET /api/registers — org-scoped (ტიერი 3)', () => {
+    let registerIdA: string | undefined;
+    let registerIdB: string | undefined;
+
+    beforeAll(async () => {
+      if (!schema.multiTenantReady) return;
+
+      // Pairing ნაკადი თავად ვამოწმებთ — თითო org-ისთვის ცალკე
+      // pairing-კოდი ვაგენერირებთ (ავტორიზაციის გარეშე, `generate-code`
+      // ისედაც ასეთია) და შესაბამისი org-ის admin-ის ტოკენით ვადასტურებთ
+      // ახალი register-ის შექმნით (`newRegisterName`).
+      const codeA = (await authorizedPost(config.apiBaseUrl, '/api/registers/generate-code', '', {})).body.code;
+      const pairA = await authorizedPost(config.apiBaseUrl, '/api/registers/pair', tokenA, {
+        code: codeA,
+        newRegisterName: `${ISOLATION_TEST_PREFIX}register_orgA`,
+      });
+      registerIdA = pairA.body.registerId;
+
+      const codeB = (await authorizedPost(config.apiBaseUrl, '/api/registers/generate-code', '', {})).body.code;
+      const pairB = await authorizedPost(config.apiBaseUrl, '/api/registers/pair', tokenB, {
+        code: codeB,
+        newRegisterName: `${ISOLATION_TEST_PREFIX}register_orgB`,
+      });
+      registerIdB = pairB.body.registerId;
+    });
+
+    it('POST /registers/pair — ახალი register write-blocker-ის გარეშე იქმნება Org-ის ტოკენის org-ში', async (ctx) => {
+      if (!schema.multiTenantReady) return ctx.skip();
+      // beforeAll-ში registerIdA/B-ის განსაზღვრა თავად ადასტურებს, რომ
+      // POST-მა 201-ისმაგვარი წარმატებული პასუხი დააბრუნა (registerId
+      // მოვიდა) — migration 013-ის NOT NULL constraint-ის მიუხედავად.
+      expect(typeof registerIdA).toBe('string');
+      expect(typeof registerIdB).toBe('string');
+    });
+
+    it('GET /api/registers — Org A ვერ ხედავს Org B-ს სალაროებს', async (ctx) => {
+      if (!schema.multiTenantReady || !registerIdA) return ctx.skip();
+
+      const response = await authorizedGet(config.apiBaseUrl, '/api/registers', tokenA);
+      expect(response.status).toBe(200);
+
+      const names = (response.body as Array<{ name: string }>).map((r) => r.name);
+      expect(names).toContain(`${ISOLATION_TEST_PREFIX}register_orgA`);
+      expect(names).not.toContain(`${ISOLATION_TEST_PREFIX}register_orgB`);
+    });
+
+    it('POST /registers/pair — Org A ვერ დაწყვილდება Org B-ს არსებულ register-თან (IDOR fix)', async (ctx) => {
+      if (!schema.multiTenantReady || !registerIdB) return ctx.skip();
+
+      const code = (await authorizedPost(config.apiBaseUrl, '/api/registers/generate-code', '', {})).body.code;
+      const response = await authorizedPost(config.apiBaseUrl, '/api/registers/pair', tokenA, {
+        code,
+        registerId: registerIdB,
+      });
+      expect(response.status).toBe(404);
+    });
+  });
+
   // ==========================================
   // 🚧 TODO — დარჩენილი endpoint-ები (Roadmap "16.08.2026" ცვლილება #4-ის
   // რისკის-ზრდადობის თანმიმდევრობით). თითოეული აქტიური გახდება, როცა
@@ -279,7 +465,6 @@ describe('Cross-tenant data isolation (გაშვება მხოლოდ 
   // read-only, დაბალი რისკი
   it.todo('GET /api/dashboard/stats — Org A-ს რიცხვებში Org B-ს გაყიდვები არ ერევა');
   it.todo('GET /api/notifications/stock-deficits — Org A ვერ ხედავს Org B-ს ნოტიფიკაციას');
-  it.todo('GET /api/registers — Org A ვერ ხედავს Org B-ს სალაროებს');
 
   // write-heavy, ფინანსური — ბოლოს (ცვლილება #4-ის თანახმად)
   it.todo('GET /api/shifts/history — Org A ვერ ხედავს Org B-ს ცვლას');

@@ -227,6 +227,22 @@ export async function cleanupIsolationTestData(pool: Pool): Promise<void> {
   // (STEP 2-მდე ეს პრობლემა არ იყო, რადგან ტესტები audit_logs-ს არ ქმნიდნენ).
   await pool.query(`DELETE FROM audit_logs WHERE new_value = $1`, [`${ISOLATION_TEST_PREFIX}marker`]);
 
+  // 🏢 STEP 2, ტიერი 3 (Roadmap "23.08.2026") — activation_codes ჯერ იშლება,
+  // registers/users-მდე: `activation_codes.confirmed_by` FK users(id)-ზეა
+  // და `activation_codes.register_id` FK registers(id)-ზეა (ON DELETE
+  // CASCADE არცერთ მათგანზე), ამიტომ registers-ის/users-ის ტესტ-ჩანაწერების
+  // წაშლა ჯერ activation_codes-ს მოითხოვს (POST /registers/pair-ის tier 3
+  // ტესტები ქმნის ორივეს). registers-ს code არ აქვს პრეფიქსი (6-ციფრიანი
+  // random კოდია), ამიტომ register_id/confirmed_by-ით ვცდილობთ, არა code-ით.
+  await pool.query(
+    `DELETE FROM activation_codes
+     WHERE register_id IN (SELECT id FROM registers WHERE name LIKE $1)
+        OR confirmed_by IN (SELECT id FROM users WHERE name LIKE $1)`,
+    [likePattern]
+  );
+
+  await pool.query(`DELETE FROM registers WHERE name LIKE $1`, [likePattern]);
+
   await pool.query(`DELETE FROM products WHERE barcode LIKE $1`, [likePattern]);
 
   await pool.query(`DELETE FROM users WHERE name LIKE $1`, [likePattern]);
