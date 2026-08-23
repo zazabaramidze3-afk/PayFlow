@@ -270,10 +270,16 @@ STEP 2-ის დასრულების (merge, production-ინციდ�
 
 Frontend-ის ცალკე ვერიფიკაცია (frontend-ს `tsconfig.json`/ცალკე type-check სკრიპტი არ აქვს — `npm run build` მხოლოდ `vite build`-ია, esbuild-ის type-stripping-ით, ცალკე `tsc` საფეხურის გარეშე): `Register.tsx`/`Login.tsx`/`App.tsx` გატესტილია `esbuild`-ით (JSX/TS syntax სუფთაა), `Register.module.scss`/`Login.module.scss` გატესტილია `sass`-ის კომპილაციით (`@use`/მიქსინების იმპორტები სწორია).
 
+✅ **Migration 014 გატარებულია ორივე გარემოში:**
+- ლოკალურად (pgAdmin, `payflow_db`) — 23.08.2026.
+- **Production Neon-ზეც (Neon SQL Editor, branch `production`, project `payflow-db`)** — 24.08.2026, 00:03, ("add email column to users table with unique constraint") — ყველა 5 statement ("BEGIN → DO guard → ALTER → CREATE UNIQUE INDEX → COMMIT") წარმატებით შესრულდა ("Statement executed successfully"). ამჯერად migration production-ზე **push-ის შემდეგ**, მაგრამ ცოტა ხანში გაეშვა — წინა incident-ისგან განსხვავებით, ცოცხალი user-ზე ზემოქმედების გარეშე (ახალი endpoint, ძველი route-ები `users.email`-ზე დამოკიდებული არ იყო).
+- ✅ ხელით დადასტურებული production-ზეც: `testmarketadmin`-ის რეგისტრაცია, auto-login, Device Pairing, POS გაყიდვა, ცვლის დახურვა, Dashboard — ყველა ნაბიჯი tenant-isolation-ის სრული დადასტურებით.
+
+✅ **Commit:** `9d13855` — ქართულად, push-ილია (`030465c..9d13855`, `main`-ზე პირდაპირ), 13 ფაილი.
+
 ⚠️ **დარჩენილი:**
-- **Migration 014 არ არის გატარებული არც production-ზე, არც სხვა environment-ზე** (მხოლოდ ლოკალურ ვერიფიკაციის ბაზაზე) — production-ზე გატარება საჭიროა **ამ ცვლილებების deploy-მდე** (იხ. ზემოთა "🚨 Production ინციდენტი" სექციის lesson-learned — migration ყოველთვის deploy-მდე).
-- Commit ჯერ არ არის შექმნილი — ფაილები მზადაა.
 - Subdomain-ი (`slug`) ამ ეტაპზე მხოლოდ ველია, ჯერ არ არსებობს რეალური subdomain-routing (STEP 7-ის scope).
+- **Lesson learned:** migration production-ზე ამჯერად push-ის *შემდეგ* გაეშვა (ლუკით/დაგვიანებით) — ამჯერად უვნებლად ჩაიარა, რადგან ახალი endpoint-ი იზოლირებული იყო, მაგრამ STEP 4+-ისთვის სჯობს "🚨 Production ინციდენტი" სექციის წესს მკაცრად დავიცვათ: **migration ყოველთვის push/deploy-მდე**, არა შემდეგ.
 
 ---
 
@@ -291,7 +297,7 @@ Frontend-ის ცალკე ვერიფიკაცია (frontend-ს 
 10. **Neon branch-ის მომზადება** — კვლავ ბლოკილია მომხმარებელზე (Neon API key). ასევე გახდის შესაძლებელს future migration-ების staging-ზე წინასწარ ტესტირებას push-ამდე (იხ. lesson learned production-ინციდენტის სექციაში)
 11. ~~გადაწყვეტილების წერტილი — SaaS vs Multi-Store~~ ✅ **გადაწყვეტილია, 23.08.2026 — SaaS მიმართულება, email platform-wide უნიკალურობით.** `users.name` per-org uniqueness საკითხი კვლავ ღიაა (STEP 2.2/RLS-ის ან ცალკე migration-ის scope) — ახალი registration-ის ნაკადს ამ ეტაპზე არ ბლოკავს, რადგან username-კონფლიქტი 409-ით ინფორმატიულად ბრუნდება.
 12. ~~დოკუმენტირებული, განზრახ გადადებული ხარვეზები (role-restriction: `GET /payments`, export/excel, export/pdf; cashier-impersonation: `syncSingleOfflineReceipt()`)~~ ✅ **დასრულებული, ტესტირებული (34/34), commit `030465c`** — იხ. "✅ დარჩენილი 2 security-ხარვეზი" სექცია ზემოთ. დარჩენილია მხოლოდ: `syncSingleOfflineReceipt()`-ის cashier-impersonation-ის მესამე, უფრო ღრმა ვარიანტი (თუ ოდესმე გამოვლინდება — cross-register/cross-shift ცალკე scenario-ები STEP 2.2-ის (RLS) ფარგლებში შეიძლება საბოლოოდ დაიხუროს) — non-blocking
-13. ~~STEP 3 — კომპანიის Self-Service რეგისტრაცია~~ ✅ **დასრულებული, ტესტირებული (39/39), commit ⏳ pending** — იხ. "✅ STEP 3" სექცია ზემოთ. **დარჩენილია: migration 014 production-ზე გატარება** (deploy-მდე, item-ის commit/push/merge-მდე) — იხ. lesson learned production-ინციდენტის სექციაში.
+13. ~~STEP 3 — კომპანიის Self-Service რეგისტრაცია~~ ✅ **სრულად დასრულებული, ტესტირებული (39/39), commit `9d13855`, push-ილი, migration 014 გატარებული ორივე გარემოში (ლოკალურად + production Neon), ხელით დადასტურებული production-ზეც** — იხ. "✅ STEP 3" სექცია ზემოთ.
 14. **STEP 7 (subdomain routing)** — STEP 3-ის `slug` ველი ჯერ მხოლოდ მონაცემია, რეალური subdomain-ზე routing/tenant-resolution ჯერ არ არსებობს.
 
 დანარჩენი უცვლელად ვალიდურია `ROADMAP - Multi-Tenant SaaS - 16.08.2026.md`-დან.
