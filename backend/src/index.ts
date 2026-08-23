@@ -28,6 +28,9 @@ import notificationsRoutes from './routes/notifications';
 // 🏢 Multi-Tenant SaaS STEP 3 (Roadmap "23.08.2026") — კომპანიის
 // self-service რეგისტრაცია (POST /organizations/register).
 import organizationsRoutes from './routes/organizations';
+// 🛡️ Multi-Tenant SaaS STEP 8 (Roadmap "24.08.2026") — Superadmin Panel
+// (ორგანიზაციების platform-wide მართვა, ცალკე auth-მექანიზმით).
+import platformAdminRoutes from './routes/platformAdmin';
 
 dotenv.config();
 
@@ -121,6 +124,7 @@ app.use('/api', dashboardRoutes);
 app.use('/api', registersRoutes);
 app.use('/api', notificationsRoutes);
 app.use('/api', organizationsRoutes);
+app.use('/api', platformAdminRoutes);
 
 // ==========================================
 //  🛰️ Sentry Error Handler (Roadmap STEP 0 / ცვლილება #7)

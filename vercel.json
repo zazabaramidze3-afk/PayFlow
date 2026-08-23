@@ -17,6 +17,14 @@
       "destination": "backend/src/index.ts"
     },
     {
+      "source": "/admin",
+      "destination": "frontend/index.html"
+    },
+    {
+      "source": "/admin/(.*)",
+      "destination": "frontend/index.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "frontend/$1"
     }

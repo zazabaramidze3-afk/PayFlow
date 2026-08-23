@@ -1,6 +1,5 @@
 import * as React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
 // 🖥️ Roadmap STEP 2.3 (FIX) — RegisterGuard აღარ ხვევს მთელ App-ს root-იდან.
 // Login-ისა და Admin/Manager პანელის დაბლოკვამ (roadmap-ის თავდაპირველი
 // მოთხოვნის სიტყვასიტყვითმა წაკითხვამ) რეალურად ჩაკეტა თავად მენეჯერიც —
@@ -28,11 +27,28 @@ initServiceWorker();
 // "site engagement"-ზე დაყრდნობით), ცალკე მომხმარებლის confirm-ის გარეშე.
 void requestPersistentStorage();
 
+// 🛡️ Multi-Tenant SaaS STEP 8 (Superadmin Panel) — root-ის არჩევა
+// pathname-ის მიხედვით. App.tsx-ს module-level-ზე რეგისტრირებული აქვს
+// გლობალური axios interceptor (ტენანტის 'token'-ს ყველა request-ს
+// აბამს — იხ. App.tsx). /admin-ზე ეს interceptor საერთოდ არ უნდა
+// ჩაირთოს (Superadmin-ს სულ სხვა ტოკენი/auth აქვს, იხ.
+// lib/platformAdminApi.ts) — static `import App from './App'` მაინც
+// გაუშვებდა იმ module-level კოდს, თუნდაც <App /> არ დარენდერდეს.
+// ამიტომ ორივე root კომპონენტი React.lazy()-ით, დინამიურად იტვირთება:
+// მხოლოდ ის module, რომელიც მიმდინარე pathname-ს რეალურად სჭირდება.
+const isPlatformAdminRoute = window.location.pathname.startsWith('/admin');
+
+const RootApp = isPlatformAdminRoute
+  ? React.lazy(() => import('./admin/PlatformAdminApp'))
+  : React.lazy(() => import('./App'));
+
 const container = document.getElementById('root');
 if (!container) throw new Error('Failed to find the root element');
 const root = ReactDOM.createRoot(container);
 root.render(
   <React.StrictMode>
-    <App />
+    <React.Suspense fallback={null}>
+      <RootApp />
+    </React.Suspense>
   </React.StrictMode>
 );

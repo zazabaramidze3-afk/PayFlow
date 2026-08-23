@@ -52,8 +52,16 @@ router.post('/login', async (req: Request, res: Response) => {
     // 🏢 organization_id დაემატა (Roadmap "23.08.2026", STEP 2) — JWT
     // token-ს სჭირდება მომხმარებლის org, რომ STEP 2-ით გადასინჯულმა
     // route-ებმა შეძლონ `WHERE organization_id = $1` scoping.
+    // 🛡️ STEP 8 (Roadmap "24.08.2026") — org.status/org.name ემატება
+    // JOIN-ით, რომ Superadmin-ის Suspend-მა (იხ. platformAdmin.ts PATCH
+    // /organizations/:id/status) რეალურად დაბლოკოს login, არა მხოლოდ
+    // ბაზაში "დანიშნული" იყოს — ადრე ეს ველი საერთოდ არ მოწმდებოდა login-ზე.
     const result = await db.query(
-      `SELECT id, name AS username, password_hash, role, status, can_view_history, requires_password_reset, organization_id FROM users WHERE LOWER(name) = LOWER($1) LIMIT 1`,
+      `SELECT u.id, u.name AS username, u.password_hash, u.role, u.status, u.can_view_history,
+              u.requires_password_reset, u.organization_id, o.status AS organization_status, o.name AS organization_name
+       FROM users u
+       JOIN organizations o ON o.id = u.organization_id
+       WHERE LOWER(u.name) = LOWER($1) LIMIT 1`,
       [username?.trim()]
     );
 
@@ -62,6 +70,16 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
     const user = result.rows[0];
+
+    // 🛡️ STEP 8 — ორგანიზაციის დონის ბლოკი (Superadmin Suspend/Cancel)
+    // ცალკეა user.status-ის (ინდივიდუალური თანამშრომლის) შემოწმებისგან და
+    // მას წინ უსწრებს — თუ მთელი კომპანია დაბლოკილია, კონკრეტული user-ის
+    // საკუთარი აქტიური სტატუსი აღარაფერს ცვლის.
+    if (user.organization_status === 'suspended' || user.organization_status === 'cancelled') {
+      return res.status(403).json({
+        error: `თქვენი ორგანიზაცია ("${user.organization_name}") დაბლოკილია — მიმართეთ მხარდაჭერას!`,
+      });
+    }
 
     if (user.status === 'inactive' || user.status === 'დაბლოკილი') {
       return res.status(403).json({ error: 'მომხმარებელი აქტიური არ არის!' });

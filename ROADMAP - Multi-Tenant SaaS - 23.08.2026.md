@@ -300,6 +300,7 @@ Frontend-ის ცალკე ვერიფიკაცია (frontend-ს 
 13. ~~STEP 3 — კომპანიის Self-Service რეგისტრაცია~~ ✅ **სრულად დასრულებული, ტესტირებული (39/39), commit `9d13855`, push-ილი, migration 014 გატარებული ორივე გარემოში (ლოკალურად + production Neon), ხელით დადასტურებული production-ზეც** — იხ. "✅ STEP 3" სექცია ზემოთ.
 14. **STEP 7 (subdomain routing)** — STEP 3-ის `slug` ველი ჯერ მხოლოდ მონაცემია, რეალური subdomain-ზე routing/tenant-resolution ჯერ არ არსებობს.
 15. ~~Dashboard "დღეს" სტატისტიკის timezone ბაგი~~ ✅ **დასრულებული, 24.08.2026** — იხ. "🐛 Dashboard timezone ბაგი" სექცია ქვემოთ.
+16. ~~STEP 8 — Superadmin Panel~~ ✅ **კოდი დასრულებული, ვერიფიცირებული და მიწოდებული, 24.08.2026** (backend `tsc`/vitest 39/39/manual curl, frontend `vite build`/`tsc --strict`) — **deploy (migration 015 + `create-platform-admin` + git push) მომხმარებელზეა**. იხ. "✅ STEP 8" სექცია ზემოთ.
 
 დანარჩენი უცვლელად ვალიდურია `ROADMAP - Multi-Tenant SaaS - 16.08.2026.md`-დან.
 
@@ -320,3 +321,70 @@ Frontend-ის ცალკე ვერიფიკაცია (frontend-ს 
 **Commit:** push-ილია, DB migration არ სჭირდებოდა (მხოლოდ query-ლოგიკა), Vercel-მა ავტომატურად deploy გააკეთა.
 
 **Lesson learned:** როცა TEXT-ტიპის timestamp სვეტი ცალსახა timezone-კონვენციით იწერება (აქ Asia/Tbilisi), ყველა query, რომელიც მასზე თარიღის boundary-ს აგებს, იგივე კონვენცია უნდა გამოიყენოს — `CURRENT_DATE`/`CURRENT_TIMESTAMP`-ის "შიშველი" გამოყენება მიიღებს DB სესიის default timezone-ს (Neon-ზე UTC), რაც ჩუმად გაუსწორდება მონაცემების რეალურ timezone-ს.
+
+---
+
+## ✅ დასრულებულია (ეს სესია, კოდი მიწოდებულია — DEPLOY მომხმარებელზეა) — STEP 8: Superadmin Panel (პლატფორმის მართვა), 24.08.2026
+
+### გადაწყვეტილების წერტილი — მომხმარებლის კითხვიდან
+
+მომხმარებელმა დასვა საკვანძო კითხვა: STEP 1-3-ის შემდეგ კომპანიები თავად რეგისტრირდებიან და ერთმანეთისგან იზოლირებულები არიან (STEP 2-ის org-scoping), მაგრამ **პლატფორმის მხარეს არცერთი მექანიზმი არ არსებობდა** ყველა კომპანიის ერთად სანახავად/სამართავად — მხოლოდ pgAdmin-ში ხელით SQL. ეს STEP ხურავს ამ ხარვეზს Superadmin-ის (platform-wide, ყველა org-ზე წვდომადი) როლის დამატებით.
+
+`AskUserQuestion`-ით დაზუსტებული 2 არქიტექტურული გადაწყვეტილება:
+
+1. **Auth მექანიზმი: სრულად ცალკე `platform_admins` ცხრილი** (არა ახალი როლი `users` ცხრილში). მიზეზი — STEP 2-ის ტენანტ-იზოლაციის ინვარიანტი (`users.organization_id` ყოველთვის NOT NULL, ყველგან `WHERE organization_id = $1`) არ უნდა შესუსტდეს ახალი, ორგანიზაციის-გარეშე როლის დამატებით. Superadmin-ს სულ სხვა JWT claim-ი (`type: 'platform-admin-auth'`), სულ სხვა middleware, სულ სხვა login endpoint აქვს — cross-tenant პრივილეგიის შემთხვევითი გაჟონვის რისკი არქიტექტურულად გამორიცხულია.
+2. **v1 scope (4/4 არჩეული):** კომპანიების სია + სტატუსი, Suspend/Activate + trial გაგრძელება, Cross-org აუდიტი/სტატისტიკა, Superadmin action-ების log.
+
+### Backend
+
+**ახალი migration `015_add_platform_admins.sql`** — `platform_admins` (id, name, email, password_hash, is_active, created_at — `LOWER(email)`-ზე unique index) + `superadmin_audit_logs` (platform_admin_id FK, action, target_organization_id FK `ON DELETE SET NULL`, details, created_at, 3 index). `organizations.status`-ის CHECK constraint (`trial/active/suspended/cancelled`) და `trial_ends_at` სვეტი migration 013-იდან უკვე არსებობდა — მხოლოდ **enforcement** (login-ის დაბლოკვა) აკლდა, ახლა დამატებულია.
+
+**ახალი `middleware/platformAdminAuth.ts`** — `authenticatePlatformAdmin` + `signPlatformAdminToken`, სრულად დამოუკიდებელი `auth.ts`-ის `authenticateToken`/`CustomRequest`-გან. Token TTL: 12სთ.
+
+**ახალი `middleware/platformAdminLoginRateLimit.ts`** — `managerPinRateLimit.ts`-ის იგივე in-memory პატერნი (5 მცდელობა/15წთ, IP+email key).
+
+**ახალი `routes/platformAdmin.ts`** — ყველა route `/api/platform-admin/...`:
+
+| Endpoint | დანიშნულება |
+|---|---|
+| `POST /platform-admin/login` | rate-limited, `bcrypt.compare`, `is_active` შემოწმება |
+| `GET /platform-admin/organizations` | ყველა org + სტატისტიკა (user_count, admin_email, total_revenue, receipt_count — **3 ცალკე correlated subquery, არა LEFT JOIN**, users×payments Cartesian fan-out-ის თავიდან ასაცილებლად, რაც SUM/COUNT-ს გააბერავდა) |
+| `GET /platform-admin/organizations/:id` | ერთი org-ის დეტალები + users სია + stats |
+| `PATCH /platform-admin/organizations/:id/status` | Suspend/Activate (`trial/active/suspended/cancelled`) + audit log |
+| `PATCH /platform-admin/organizations/:id/trial` | Trial-ის გაგრძელება (`GREATEST(COALESCE(trial_ends_at, NOW()), NOW()) + N days` — უკვე ამოწურული trial-იც სწორად NOW()-დან აითვლის) + audit log |
+| `GET /platform-admin/audit-logs` | ყველა superadmin action-ის ისტორია (paginated) |
+
+**`auth.ts` — Suspend-ის რეალური enforcement** — `POST /login`-ის SELECT query-ს დაემატა `JOIN organizations`, ახალი შემოწმება (`user.status === 'inactive'`-ის წინ): თუ `organization_status IN ('suspended', 'cancelled')` → 403, "თქვენი ორგანიზაცია დაბლოკილია". ხელით curl-ით დადასტურებული: normal login 200-ია suspend-მდე/reactivate-ის შემდეგ, suspend-ის დროს ზუსტად 403.
+
+**ახალი `create-platform-admin.ts`** (CLI bootstrap script, `npm run create-platform-admin -- "სახელი" "email" "პაროლი"`) — `migrate.ts`-ის იგივე კონვენცია (`./db`-ს პირდაპირ იყენებს, `./index`-ს არა, რომ Express/Sentry არ ჩაირთოს). Superadmin ანგარიშის შექმნის **ერთადერთი** გზაა — განზრახ არ არსებობს საჯარო self-service registration endpoint (განსხვავებით `organizations.ts`-ის ჩვეულებრივი კომპანიის რეგისტრაციისგან), რადგან ეს ანგარიში ყველა კომპანიაზე წვდომას აძლევს.
+
+**`types.ts`** — `PlatformAdmin`, `SuperadminAuditLog` ინტერფეისები დაემატა.
+
+### Frontend
+
+**ახალი, App.tsx-გან სრულად იზოლირებული root** (`/admin` pathname-ზე):
+
+- **`lib/platformAdminApi.ts`** — ცალკე axios instance, საკუთარი request/response interceptor-ებით (`payflow_platform_admin_token` localStorage key, App.tsx-ის `'token'`-ისგან განსხვავებული). **მიზეზი:** App.tsx-ს module-level-ზე უკვე რეგისტრირებული აქვს გლობალური axios interceptor, რომელიც ტენანტის `'token'`-ს ყველა request-ს აბამს — Superadmin-ის calls-ისთვის ეს არასწორი იქნებოდა.
+- **`index.tsx`** — root კომპონენტი აღარ არის სტატიკურად `import App from './App'`, არამედ **`React.lazy()`**-ით, pathname-ის მიხედვით: `/admin` → `admin/PlatformAdminApp`, სხვა ყველაფერი → `App`. **მიზეზი:** სტატიკური import მაინც გაუშვებდა App.tsx-ის module-level axios-interceptor კოდს, თუნდაც `<App />` არ დარენდერებულიყო — ეს დააბინძურებდა Superadmin-ის API calls-საც ტენანტის ტოკენით. `vite build`-ით დადასტურებულია (იხ. ვერიფიკაცია ქვემოთ), რომ `PlatformAdminApp` მართლაც ცალკე JS/CSS chunk-შია, App.tsx-ისგან სრულად განცალკევებული.
+- **`admin/PlatformAdminApp.tsx`** — root: login/dashboard state, `platform-admin:session-expired` event listener (401/403-ზე ავტომატური re-login).
+- **`admin/PlatformAdminLogin.tsx` + `.module.scss`** — `Login.tsx`-ის მსგავსი სტრუქტურა (card/form/field/label/input), განზრახ ვიზუალურად განსხვავებული (მუქი ფონი, GSAP-ის/"კომეტისებრი" ring-ის გარეშე) — ერთი შეხედვით ცხადია, რომ ეს პლატფორმის-დონის login-ია.
+- **`admin/PlatformAdminDashboard.tsx` + `.module.scss`** — ტაბები "კომპანიები"/"Action Log". კომპანიების ცხრილი (`table-base` მიქსინი) — სტატუსის `badge()`, Suspend (დადასტურების მოდალით — ერთადერთი დესტრუქციული action, რეალურ მომხმარებლებს ბლოკავს)/Activate ღილაკები, Trial-გაგრძელების მოდალი, კომპანიის დეტალების მოდალი (users სია + stats). ყველა არსებული SCSS მიქსინის ხელახლა გამოყენებით (`card`, `input-base`, `btn-*`, `badge`, `table-base`, `modal-overlay`/`modal-body`) — ახალი სტილები არ დაწერილა თავიდან.
+
+**`vercel.json` — SPA fallback-ის კრიტიკული ფიქსი.** ეს იყო ამ სესიაში ცალკე აღმოჩენილი, deploy-blocking ხარვეზი: არსებული `routes`-კონფიგურაცია (`"/(.*)" → "frontend/$1"`) ყოველთვის საკმარისი იყო აქამდე, რადგან აპლიკაციას router არ ჰქონდა და ერთადერთი URL `/`-ი იყო. STEP 8 კი პირველად ამატებს **რეალურ, პირდაპირ-navigatable URL-ს** (`/admin`) — ამ catch-all წესის ქვეშ Vercel-ის `routes` (განსხვავებით `rewrites`-გან) filesystem-ს ავტომატურად არ ამოწმებს, ანუ პირდაპირი გადასვლა `https://.../admin`-ზე production-ში **404-ს დააბრუნებდა**, მიუხედავად იმისა, რომ ლოკალურ Vite dev server-ზე (რომელსაც historyApiFallback ჩართული აქვს) ყველაფერი გამართულად იმუშავებდა — იგივე ხასიათის რისკი, რაც Dashboard-ის timezone ბაგს ჰქონდა ("ლოკალურად მუშაობს, production-ზე არა"). გასწორდა ორი ახალი, ცხადი `routes`-ჩანაწერით (`/admin`, `/admin/(.*)` → `frontend/index.html`), არსებული routes უცვლელად დარჩა.
+
+### ვერიფიკაცია
+
+1. **Backend `tsc --noEmit`** — სუფთა.
+2. **`vitest run tests/isolation`** — 39/39 მწვანე, რეგრესია არ არის.
+3. **ხელით curl end-to-end** (ცალკე sandbox backend + Postgres-ის წინააღმდეგ): login, org-სია, org-დეტალები, suspend → login 403, activate → login აღდგება, trial-გაგრძელება, audit-log ჩანაწერი, invalid status → 400, ავტორიზაციის გარეშე → 401, ტენანტის ტოკენით Superadmin route → 403 (და პირიქით — Superadmin ტოკენით ტენანტ route → 403), invalid UUID → 400.
+4. **Frontend `vite build`** — სუფთად აშენდა (ცალკე sandbox-ში, სრული dependency-ნაკრებით), `PlatformAdminApp` დადასტურებულია ცალკე chunk-ად (`App`-ისგან განცალკევებული, lazy-loading-ის სისწორის დამადასტურებელი).
+5. **Frontend `tsc --strict --noEmit`** ახალ ფაილებზე (`index.tsx`, `admin/*`, `lib/platformAdminApi.ts`) — სუფთა, `any` არსად გამოყენებული (ხელით grep-ითაც დამატებით დადასტურებული).
+
+### 📋 საჭირო ნაბიჯები deploy-მდე (მომხმარებელზეა)
+
+1. **Migration 015** — ჯერ ლოკალურად (pgAdmin), მერე production Neon-ზე (SQL Editor) — "🚨 Production ინციდენტი" სექციის lesson learned-ის მიხედვით, **migration ყოველთვის deploy/push-მდე**.
+2. **`npm run create-platform-admin -- "სახელი" "email" "პაროლი"`** — პირველი Superadmin ანგარიშის შესაქმნელად (ლოკალურად სატესტოდ, მერე production DB-ის წინააღმდეგაც ცალკე, დროებით `DATABASE_URL`-ის override-ით — იხ. ინსტრუქციები chat-ში).
+3. `git add` (ცხადი ფაილების სახელებით) → commit (ქართულად) → push `main`-ზე.
+4. Production-ზე ხელით დადასტურება: `/admin`-ზე login, org-სია, suspend/activate ციკლი რეალურ სატესტო org-ზე.
+
+⚠️ **დარჩენილი, მომავალი STEP-ების scope:** ცალკე UI Superadmin ანგარიშების შესაქმნელად (ამ ეტაპზე მხოლოდ CLI), billing/გეგმის მართვა, org-ის სრული წაშლა, უფრო დეტალური audit-ლოგის ფილტრაცია.

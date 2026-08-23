@@ -85,6 +85,38 @@ export interface Organization {
 export type ManagerPinCandidate = Pick<User, 'id' | 'name' | 'manager_pin'>;
 
 // ==========================================
+// public.platform_admins ცხრილი — Multi-Tenant SaaS STEP 8 (Superadmin
+// Panel, migration 015)
+// ==========================================
+// ორგანიზაციებისგან (tenant-ებისგან) სრულად დამოუკიდებელი ცხრილი/auth-
+// მექანიზმი — არ არის users-ის ნაწილი, არ გააჩნია organization_id
+// (განზრახ გადაწყვეტილება — იხ. migration 015-ის თავსართი). platform
+// admin-ს ყველა org-ზე წვდომა სჭირდება, ამიტომ ცალკე auth (იხ.
+// middleware/platformAdminAuth.ts) იცავს STEP 2-ის route-level
+// tenant-scoping ინვარიანტებს — ჩვეულებრივ, org-ცნობიერ route-ებს
+// საერთოდ არ ეხება ეს ცხრილი.
+export interface PlatformAdmin {
+  id: string;
+  name: string;
+  email: string;
+  password_hash: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+// ==========================================
+// public.superadmin_audit_logs ცხრილი — STEP 8 (migration 015)
+// ==========================================
+export interface SuperadminAuditLog {
+  id: string;
+  platform_admin_id: string;
+  action: string;
+  target_organization_id: string | null;
+  details: string | null;
+  created_at: string;
+}
+
+// ==========================================
 // public.registers ცხრილი — Roadmap STEP 1.2 (Multi-POS)
 // ==========================================
 // თითოეული ფიზიკური სალარო აპარატი/ტერმინალი ერთ registers-ჩანაწერს

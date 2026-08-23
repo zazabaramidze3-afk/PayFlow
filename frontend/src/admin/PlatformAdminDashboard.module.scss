@@ -1,0 +1,252 @@
+@use '../styles/variables' as v;
+@use '../styles/mixins' as m;
+
+.page {
+  min-height: 100vh;
+  background: v.$color-bg-page;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 32px;
+  background: v.$color-text-primary;
+
+  @include m.mobile {
+    padding: 18px 20px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+}
+
+.title {
+  color: v.$color-text-inverse;
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 2px 0;
+}
+
+.subtitle {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+  margin: 0;
+}
+
+.logoutBtn {
+  @include m.btn-secondary;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 32px;
+  border-bottom: 1px solid v.$color-border;
+  background: v.$color-bg-card;
+
+  @include m.mobile {
+    padding: 0 20px;
+    overflow-x: auto;
+  }
+}
+
+.tabBtn {
+  padding: 14px 18px;
+  border: none;
+  background: transparent;
+  color: v.$color-text-secondary;
+  font-weight: 600;
+  font-size: 14px;
+  font-family: v.$font-family-base;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: v.$transition-fast;
+  white-space: nowrap;
+
+  &:hover {
+    color: v.$color-text-primary;
+  }
+}
+
+.tabBtnActive {
+  color: v.$color-primary;
+  border-bottom-color: v.$color-primary;
+}
+
+.content {
+  padding: 24px 32px 48px;
+
+  @include m.mobile {
+    padding: 18px 20px 36px;
+  }
+}
+
+.stateText {
+  color: v.$color-text-secondary;
+  font-size: 14px;
+}
+
+.errorText {
+  color: v.$color-danger;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.tableWrapper {
+  @include m.card;
+  overflow-x: auto;
+}
+
+.table {
+  @include m.table-base;
+  min-width: 900px;
+}
+
+.orgNameBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: v.$font-family-base;
+  font-size: 14px;
+  font-weight: 600;
+  color: v.$color-primary;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.orgSlug {
+  font-size: 12px;
+  color: v.$color-text-muted;
+  margin-top: 2px;
+}
+
+.badge {
+  @include m.badge(v.$color-bg-subtle, v.$color-text-secondary);
+}
+
+.badge_trial {
+  @include m.badge(v.$color-info-soft, v.$color-info);
+}
+
+.badge_active {
+  @include m.badge(v.$color-success-soft, v.$color-success);
+}
+
+.badge_suspended {
+  @include m.badge(v.$color-danger-soft, v.$color-danger);
+}
+
+.badge_cancelled {
+  @include m.badge(v.$color-bg-subtle, v.$color-text-muted);
+}
+
+.actionsCell {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.actionBtnSuccess {
+  @include m.btn-success;
+  padding: 6px 12px;
+  min-height: 32px;
+  font-size: 13px;
+}
+
+.actionBtnDanger {
+  @include m.btn-danger;
+  padding: 6px 12px;
+  min-height: 32px;
+  font-size: 13px;
+}
+
+.actionBtnGhost {
+  @include m.btn-ghost;
+  padding: 6px 12px;
+  min-height: 32px;
+  font-size: 13px;
+  border: 1px solid v.$color-border;
+}
+
+// ---- მოდალები ----
+.modalOverlay {
+  @include m.modal-overlay;
+}
+
+.modalBody {
+  @include m.modal-body;
+  max-width: 640px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.modalTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: v.$color-text-primary;
+  margin: 0 0 6px 0;
+}
+
+.modalSubtitle {
+  font-size: 14px;
+  color: v.$color-text-secondary;
+  margin: 0 0 20px 0;
+}
+
+.modalForm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.modalCloseBtn {
+  @include m.btn-secondary;
+  margin-top: 20px;
+}
+
+.label {
+  font-size: 13px;
+  color: v.$color-text-secondary;
+  font-weight: 600;
+}
+
+.input {
+  @include m.input-base;
+}
+
+.detailStatsRow {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.detailStat {
+  @include m.card;
+  padding: 14px 18px;
+  flex: 1;
+  min-width: 120px;
+}
+
+.detailStatValue {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: v.$color-text-primary;
+}
+
+.detailStatLabel {
+  font-size: 12px;
+  color: v.$color-text-secondary;
+  margin-top: 2px;
+}
