@@ -299,5 +299,24 @@ Frontend-ის ცალკე ვერიფიკაცია (frontend-ს 
 12. ~~დოკუმენტირებული, განზრახ გადადებული ხარვეზები (role-restriction: `GET /payments`, export/excel, export/pdf; cashier-impersonation: `syncSingleOfflineReceipt()`)~~ ✅ **დასრულებული, ტესტირებული (34/34), commit `030465c`** — იხ. "✅ დარჩენილი 2 security-ხარვეზი" სექცია ზემოთ. დარჩენილია მხოლოდ: `syncSingleOfflineReceipt()`-ის cashier-impersonation-ის მესამე, უფრო ღრმა ვარიანტი (თუ ოდესმე გამოვლინდება — cross-register/cross-shift ცალკე scenario-ები STEP 2.2-ის (RLS) ფარგლებში შეიძლება საბოლოოდ დაიხუროს) — non-blocking
 13. ~~STEP 3 — კომპანიის Self-Service რეგისტრაცია~~ ✅ **სრულად დასრულებული, ტესტირებული (39/39), commit `9d13855`, push-ილი, migration 014 გატარებული ორივე გარემოში (ლოკალურად + production Neon), ხელით დადასტურებული production-ზეც** — იხ. "✅ STEP 3" სექცია ზემოთ.
 14. **STEP 7 (subdomain routing)** — STEP 3-ის `slug` ველი ჯერ მხოლოდ მონაცემია, რეალური subdomain-ზე routing/tenant-resolution ჯერ არ არსებობს.
+15. ~~Dashboard "დღეს" სტატისტიკის timezone ბაგი~~ ✅ **დასრულებული, 24.08.2026** — იხ. "🐛 Dashboard timezone ბაგი" სექცია ქვემოთ.
 
 დანარჩენი უცვლელად ვალიდურია `ROADMAP - Multi-Tenant SaaS - 16.08.2026.md`-დან.
+
+---
+
+## 🐛 Dashboard timezone ბაგი — "დღეს" სტატისტიკა ნულოვანი, 24.08.2026
+
+**რა მოხდა:** STEP 3-ის ხელით ტესტირების დროს (`testmarketmanager`) Dashboard-ის "ანალიტიკა" ტაბზე ყველა "დღევანდელი" ბარათი (შემოსავალი, ჩეკები, საშუალო ჩეკი) 0-ს აჩვენებდა, მიუხედავად იმისა, რომ "გაყიდვების ისტორია" ტაბში იმავე დღეს ჩაწერილი ჩეკი ჩანდა (`8/24/2026, 00:25:34`). თვის დინამიკის გრაფიკიც 23 რიცხვზე ჩერდებოდა, 24-ის მონაცემის გარეშე.
+
+**Root cause:** `dashboard.ts`-ის ოთხივე "დღეს"/"მიმდინარე თვე" query (`today`, `paymentBreakdown`, `voided`, `topProducts`, `dailyTrend`) Postgres-ის `CURRENT_DATE`-ს იყენებდა — ეს სესიის (Neon default: **UTC**) დროის ზონას ეყრდნობა. მაგრამ `payments.created_at` (TEXT სვეტი) `sales.ts`/`checkShift.ts`-ის მიერ ცალსახად **Asia/Tbilisi** (UTC+4) ადგილობრივი დროით იწერება (ადრინდელი, განზრახ FIX — იხ. `sales.ts`-ის კომენტარები). ორი განსხვავებული timezone-კონვენცია ერთდროულად → ყოველი დღის **00:00–04:00 თბილისის დროის ფანჯარაში** ჩაწერილი ჩეკი backend-ის "დღეს"-ის boundary-ს გარეთ ვარდებოდა (UTC-ის მიხედვით ეს ჯერ კიდევ "გუშინდელი" დღეა).
+
+**დადასტურება (SQL-ით, არა ვარაუდი):** ლოკალურ ტესტ-ბაზაზე სიმულირებული `created_at = '2026-08-24 00:25:34'` ჩანაწერზე — ძველი (UTC `CURRENT_DATE`) ლოგიკა: `false`. ახალი (Asia/Tbilisi-ცნობიერი) ლოგიკა: `true`.
+
+**Fix:** ხუთივე query-ში `CURRENT_DATE` → `(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date`, `created_at`-ის ჩაწერის იგივე კონვენციით.
+
+**ვერიფიკაცია:** `tsc --noEmit` სუფთა. `vitest run tests/isolation` — 39/39 მწვანე (რეგრესია არ არის). ხელით დადასტურებული production-ზეც (`pay-flow-zet3.vercel.app`) — Dashboard-ისა და Sales History-ის მონაცემები ახლა ემთხვევა.
+
+**Commit:** push-ილია, DB migration არ სჭირდებოდა (მხოლოდ query-ლოგიკა), Vercel-მა ავტომატურად deploy გააკეთა.
+
+**Lesson learned:** როცა TEXT-ტიპის timestamp სვეტი ცალსახა timezone-კონვენციით იწერება (აქ Asia/Tbilisi), ყველა query, რომელიც მასზე თარიღის boundary-ს აგებს, იგივე კონვენცია უნდა გამოიყენოს — `CURRENT_DATE`/`CURRENT_TIMESTAMP`-ის "შიშველი" გამოყენება მიიღებს DB სესიის default timezone-ს (Neon-ზე UTC), რაც ჩუმად გაუსწორდება მონაცემების რეალურ timezone-ს.
