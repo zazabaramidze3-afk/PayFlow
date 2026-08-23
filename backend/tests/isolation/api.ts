@@ -74,3 +74,11 @@ export function authorizedDelete(apiBaseUrl: string, path: string, token: string
 export function tokenQueryGet(apiBaseUrl: string, path: string, token: string) {
   return request(apiBaseUrl).get(path).query({ token });
 }
+
+// 🏢 Multi-Tenant SaaS STEP 3 (Roadmap "23.08.2026") — POST
+// /organizations/register ავტორიზაციის გარეშეა ხელმისაწვდომი (თავად
+// ორგანიზაცია/ადმინი ჯერ არ არსებობს, ვინ დაარეგისტრირებდა ტოკენით) —
+// ამიტომ authorizedPost-ისგან განსხვავებით token/header არ სჭირდება.
+export function registerOrganization(apiBaseUrl: string, body: Record<string, unknown>) {
+  return request(apiBaseUrl).post('/api/organizations/register').send(body);
+}

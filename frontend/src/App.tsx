@@ -1,5 +1,9 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import Login from './pages/Login';
+// 🏢 Multi-Tenant SaaS STEP 3 (Roadmap "23.08.2026") — კომპანიის
+// self-service რეგისტრაცია. Login-ივით *არ* არის lazy (მსუბუქი გვერდია,
+// ავტორიზაციამდე გამოსაჩენად, დაყოვნების გარეშე).
+import Register from './pages/Register';
 // 🖥️ Roadmap STEP 2.3 (FIX) — Device Pairing მხოლოდ POS (Sales) გვერდს
 // იცავს, არა Login-ს ან Admin/Manager პანელს (იხ. კომენტარი ქვემოთ,
 // currentPage === 'sales' branch-თან).
@@ -106,6 +110,9 @@ function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [currentUser, setCurrentUser] = useState<UserPermission | null>(() => getUserFromStoredToken());
   const isLoggedIn = !!currentUser;
+  // 🏢 Multi-Tenant SaaS STEP 3 — router არ გვაქვს, ამიტომ Login ⇄ Register
+  // გადართვა უბრალო state-ტოგლითაა (მხოლოდ isLoggedIn === false-ისას აქტუალური).
+  const [showRegister, setShowRegister] = useState(false);
   // 📱 მობილურზე Sidebar ნაგულისხმევად დამალულია — ჰამბურგერ ღილაკით იხსნება.
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -172,6 +179,16 @@ function App() {
     setCurrentPage(user.role === 'cashier' ? 'sales' : 'dashboard');
   };
 
+  // 🏢 Multi-Tenant SaaS STEP 3 — რეგისტრაცია auto-login-ით მთავრდება
+  // (POST /organizations/register იგივე login-ტოკენს აბრუნებს) — ზუსტად
+  // იგივე სესიის დამყარების პატერნი, რაც handlePasswordResetComplete-შია.
+  const handleRegisterSuccess = (token: string, user: any) => {
+    localStorage.setItem('token', token);
+    setCurrentUser(user);
+    setShowRegister(false);
+    setCurrentPage(user.role === 'cashier' ? 'sales' : 'dashboard');
+  };
+
   // სისტემიდან გამოსვლის ფუნქცია
   const handleLogout = () => {
     localStorage.removeItem('token'); 
@@ -179,7 +196,21 @@ function App() {
   };
 
   if (!isLoggedIn) {
-    return <Login onLoginAttempt={handleLoginAttempt} onPasswordResetComplete={handlePasswordResetComplete} />;
+    if (showRegister) {
+      return (
+        <Register
+          onRegisterSuccess={handleRegisterSuccess}
+          onNavigateToLogin={() => setShowRegister(false)}
+        />
+      );
+    }
+    return (
+      <Login
+        onLoginAttempt={handleLoginAttempt}
+        onPasswordResetComplete={handlePasswordResetComplete}
+        onNavigateToRegister={() => setShowRegister(true)}
+      />
+    );
   }
 
   const userRole = currentUser?.role;

@@ -221,7 +221,59 @@ STEP 2-ის დასრულების (merge, production-ინციდ�
 
 **დადასტურება:** `tsc --noEmit` სუფთაა, ლოკალური Postgres 16 + backend-ის წინააღმდეგ **34/34 აქტიური ტესტი მწვანე** (წინა 31 + ახალი 3), 1 კვლავ `it.todo`. ორჯერ თანმიმდევრობით გაშვებული — ორივეჯერ მწვანე, ბაზაში ნარჩენი ტესტ-მონაცემი არ დარჩენილა.
 
-⚠️ **დარჩენილი:** commit-ი ჯერ არ არის შექმნილი/push-ილი (device-ზეა ხელით საჭირო, იგივე git-lock-ის რისკით — იხ. ზემოთ) — ფაილები (`sales.ts`, `tests/isolation/api.ts`, `tests/isolation/tenant-isolation.test.ts`) უკვე commit-ისთვის მზადაა.
+✅ **Commit:** `030465c` — ქართულად, push-ილია (`115c8ca..030465c`), production-ზეც deploy-ილი და ხელით დადასტურებული (cashier token-ით `GET /payments/export/excel` → `403 {"error":"წვდომა შეზღუდულია!"}`).
+
+---
+
+## ✅ დასრულებულია — STEP 3: კომპანიის Self-Service რეგისტრაცია (SaaS მიმართულება), 23.08.2026
+
+### გადაწყვეტილების წერტილი — გადაწყვეტილია
+
+წინა სექციებში (item #11, "გადაწყვეტილების წერტილი — SaaS vs Multi-Store") ღიად დარჩენილი კითხვა ამ სესიაში დაისვა კონკრეტულად: მიუხედავად STEP 1-ის (migration 013, `organizations` ცხრილი) და STEP 2-ის (route-level org-scoping) დასრულებისა, **პროდუქტში ფაქტობრივად არ არსებობდა ახალი კომპანიის შექმნის მექანიზმი** — არც backend endpoint, არც frontend გვერდი. ერთადერთი გზა ახალი org-ის დასამატებლად pgAdmin-ში ხელით INSERT იყო.
+
+მომხმარებელმა აირჩია:
+1. **ბიზნეს-მოდელი: SaaS — თვითრეგისტრაცია** (არა Multi-Store, სადაც ერთი კომპანია ხელით მართავდა ყველა ფილიალს).
+2. **ადმინის email-ის უნიკალურობის scope: მთელი პლატფორმის მასშტაბით** (არა per-org) — ერთი email მხოლოდ ერთხელ შეიძლება იყოს რეგისტრირებული, მიუხედავად იმისა, რომელ org-შია.
+
+### Backend
+
+**ახალი migration `014_add_users_email.sql`** — `users.email` (TEXT, NULLABLE — ისტორიულ user-ებს email არასდროს ჰქონიათ) + `CREATE UNIQUE INDEX ... ON users (LOWER(email)) WHERE email IS NOT NULL` (platform-wide, partial — NULL-ები ერთმანეთს არ ეჯახება). იდემპოტენტურობის guard migration 009/013-ის იგივე კონვენციით.
+
+**ახალი endpoint `POST /api/organizations/register`** (`backend/src/routes/organizations.ts`) — საჯარო (ავტორიზაციის გარეშე — თავად org/admin ჯერ არ არსებობს), მაგრამ rate-limited:
+- ვალიდაცია: კომპანიის სახელი (≥2 სიმბოლო), slug (`slugify()` + `SLUG_REGEX` — მხოლოდ პატარა ლათინური/ციფრები/დეფისი, 3-40 სიმბოლო, subdomain-მზადყოფნით STEP 7-ისთვის), ადმინის სახელი (≥2), email (`EMAIL_REGEX`), პაროლი (**≥8 სიმბოლო** — უფრო მკაცრი, ვიდრე internal `POST /users`-ის 4-სიმბოლოიანი მინიმუმი, რადგან ეს endpoint ინტერნეტიდან ნებისმიერისთვისაა ხელმისაწვდომი).
+- უნიკალურობის წინასწარი შემოწმება (slug/email/username) + `23505` fallback (`uq_organizations_slug`/`uq_users_email`/`users_name_key` constraint-დისპეჩი) race-condition-ის დასაცავად.
+- ერთ ტრანზაქციაში: INSERT `organizations` (`status: 'trial'`, `trial_ends_at: NOW() + 14 დღე`) + INSERT `users` (`role: 'admin'`).
+- წარმატებაზე — **auto-login**: იგივე JWT payload-ფორმა, რაც `POST /login`-ს, რომ frontend-ის არსებულმა session-restore ლოგიკამ უცვლელად მიიღოს.
+
+**ახალი `middleware/registrationRateLimit.ts`** — in-memory (`managerPinRateLimit.ts`-ის იგივე პატერნი, ცალკე npm დამოკიდებულების გარეშე), მაგრამ განსხვავებული სემანტიკით: **ყველა** მცდელობას ითვლის (არა მხოლოდ წარუმატებელს) — 5 მცდელობა/საათში, IP-ის მიხედვით.
+
+**`types.ts`** — `User` interface-ს დაემატა `email: string | null`.
+
+### Frontend
+
+**ახალი `pages/Register.tsx` + `Register.module.scss`** — `Login.tsx`-ის იგივე structural/visual კონვენცია (card/form/field/label/input/error/submitBtn, GSAP staggered entrance). ველები: კომპანიის სახელი, subdomain/slug (live auto-suggest `companyName`-იდან, ხელით რედაქტირებადი — `slugTouched` flag-ით), ადმინის სახელი (**იგივე ველი, რაც login username** — ცალკე username ველი არ არსებობს, `POST /organizations/register`-ის backend-ლოგიკასთან შესაბამისობაში), email, პაროლი + დადასტურება. Submit → `POST /api/organizations/register` → წარმატებაზე `onRegisterSuccess(token, user)` callback (იგივე auto-login პატერნი, რაც `handlePasswordResetComplete`-ს აქვს).
+
+**`App.tsx`** — პროექტს **router ბიბლიოთეკა არ აქვს** (plain React state), ამიტომ Login ⇄ Register გადართვა ახალი `showRegister` state-ტოგლითაა: `isLoggedIn === false` branch-ში ან `<Login>` ან `<Register>` რენდერდება. ახალი `handleRegisterSuccess` handler (`handlePasswordResetComplete`-ის იდენტური სტრუქტურა).
+
+**`Login.tsx`** — დაემატა `onNavigateToRegister` prop + ღილაკი ("კომპანია არ გაქვთ დარეგისტრირებული? დაარეგისტრირეთ აქ") ფორმის ბოლოში, `m.btn-ghost` მიქსინით.
+
+### ტესტები (`tenant-isolation.test.ts`, ახალი ცალკე describe-ბლოკი)
+
+ახალი `registerOrganization()` helper `api.ts`-ში (ავტორიზაციის გარეშე POST). 5 ტესტი, **საერთო `beforeAll`-ში ერთი საბაზისო რეგისტრაციით** (409/400 ტესტები მას იმეორებენ slug/email-ის დაკავებულობის დასამტკიცებლად) — განზრახ დიზაინის გადაწყვეტილება, რომ rate-limit-ის 5/საათში ბიუჯეტი ერთმა test-run-მა არ გადაწუროს, სანამ rate-limit-ის ტესტამდე მიაღწევს:
+- **happy path** — org + admin იქმნება, auto-login token მუშაობს, ახალი org-ის ტოკენით შექმნილი პროდუქტი ზუსტად ახალი org-ის `organization_id`-ზეა (იზოლაციის დადასტურება), `status: 'trial'`.
+- **409 — დაკავებული slug**-ით მეორე რეგისტრაცია.
+- **409 — დაკავებული email**-ით მეორე რეგისტრაცია, თუნდაც სრულიად სხვა კომპანიისთვის (platform-wide უნიკალურობის დადასტურება).
+- **400 — სუსტი პაროლი** (<8 სიმბოლო), org საერთოდ არ იქმნება.
+- **429 — rate limiting** — მცდელობები მანამ მეორდება, სანამ 429 არ დაბრუნდება (10-ცდიანი უსაფრთხოების ჭერით), ყველა წინა მცდელობა 201-ია.
+
+**დადასტურება:** `tsc --noEmit` სუფთაა. Migration 014 ხელით გაშვებული ლოკალურ ტესტ-ბაზაზე. Backend server-ი **განზრახ გადატვირთული** ორ vitest-გაშვებას შორის (rate-limiter-ის in-memory Map server-პროცესის მასშტაბითაა — გადატვირთვის გარეშე მეორე გაშვება ადრეულადვე 429-ს მიიღებდა, რაც production-ში ცოცხალ deploy-ზეც ბუნებრივად ხდება cold-start-ზე). **39/39 აქტიური ტესტი მწვანე ორივე გაშვებაზე** (წინა 34 + ახალი 5), 1 კვლავ `it.todo`, ბაზაში ნარჩენი ტესტ-მონაცემი არ დარჩენილა.
+
+Frontend-ის ცალკე ვერიფიკაცია (frontend-ს `tsconfig.json`/ცალკე type-check სკრიპტი არ აქვს — `npm run build` მხოლოდ `vite build`-ია, esbuild-ის type-stripping-ით, ცალკე `tsc` საფეხურის გარეშე): `Register.tsx`/`Login.tsx`/`App.tsx` გატესტილია `esbuild`-ით (JSX/TS syntax სუფთაა), `Register.module.scss`/`Login.module.scss` გატესტილია `sass`-ის კომპილაციით (`@use`/მიქსინების იმპორტები სწორია).
+
+⚠️ **დარჩენილი:**
+- **Migration 014 არ არის გატარებული არც production-ზე, არც სხვა environment-ზე** (მხოლოდ ლოკალურ ვერიფიკაციის ბაზაზე) — production-ზე გატარება საჭიროა **ამ ცვლილებების deploy-მდე** (იხ. ზემოთა "🚨 Production ინციდენტი" სექციის lesson-learned — migration ყოველთვის deploy-მდე).
+- Commit ჯერ არ არის შექმნილი — ფაილები მზადაა.
+- Subdomain-ი (`slug`) ამ ეტაპზე მხოლოდ ველია, ჯერ არ არსებობს რეალური subdomain-routing (STEP 7-ის scope).
 
 ---
 
@@ -237,7 +289,9 @@ STEP 2-ის დასრულების (merge, production-ინციდ�
 8. ~~Production incident: migration 013 production Neon-ზე~~ ✅ **დასრულებული, 23.08.2026** — იხ. "🚨 Production ინციდენტი" სექცია ზემოთ. Production დადასტურებულია აღდგენილად (login, dashboard, products)
 9. **STEP 2.2 (RLS)** — დამატებითი, defense-in-depth შრე route-level `WHERE organization_id`-ის თავზე (route-scoping უკვე ცალკე საკმარისია production-ისთვის, RLS extra-hardening-ია)
 10. **Neon branch-ის მომზადება** — კვლავ ბლოკილია მომხმარებელზე (Neon API key). ასევე გახდის შესაძლებელს future migration-ების staging-ზე წინასწარ ტესტირებას push-ამდე (იხ. lesson learned production-ინციდენტის სექციაში)
-11. **გადაწყვეტილების წერტილი** — SaaS vs Multi-Store (მოიცავს `users.name` per-org uniqueness-ის გადაწყვეტასაც)
-12. ~~დოკუმენტირებული, განზრახ გადადებული ხარვეზები (role-restriction: `GET /payments`, export/excel, export/pdf; cashier-impersonation: `syncSingleOfflineReceipt()`)~~ ✅ **დასრულებული, ტესტირებული (34/34), commit ⏳ pending** — იხ. "✅ დარჩენილი 2 security-ხარვეზი" სექცია ზემოთ. დარჩენილია მხოლოდ: `syncSingleOfflineReceipt()`-ის cashier-impersonation-ის მესამე, უფრო ღრმა ვარიანტი (თუ ოდესმე გამოვლინდება — cross-register/cross-shift ცალკე scenario-ები STEP 2.2-ის (RLS) ფარგლებში შეიძლება საბოლოოდ დაიხუროს) — non-blocking
+11. ~~გადაწყვეტილების წერტილი — SaaS vs Multi-Store~~ ✅ **გადაწყვეტილია, 23.08.2026 — SaaS მიმართულება, email platform-wide უნიკალურობით.** `users.name` per-org uniqueness საკითხი კვლავ ღიაა (STEP 2.2/RLS-ის ან ცალკე migration-ის scope) — ახალი registration-ის ნაკადს ამ ეტაპზე არ ბლოკავს, რადგან username-კონფლიქტი 409-ით ინფორმატიულად ბრუნდება.
+12. ~~დოკუმენტირებული, განზრახ გადადებული ხარვეზები (role-restriction: `GET /payments`, export/excel, export/pdf; cashier-impersonation: `syncSingleOfflineReceipt()`)~~ ✅ **დასრულებული, ტესტირებული (34/34), commit `030465c`** — იხ. "✅ დარჩენილი 2 security-ხარვეზი" სექცია ზემოთ. დარჩენილია მხოლოდ: `syncSingleOfflineReceipt()`-ის cashier-impersonation-ის მესამე, უფრო ღრმა ვარიანტი (თუ ოდესმე გამოვლინდება — cross-register/cross-shift ცალკე scenario-ები STEP 2.2-ის (RLS) ფარგლებში შეიძლება საბოლოოდ დაიხუროს) — non-blocking
+13. ~~STEP 3 — კომპანიის Self-Service რეგისტრაცია~~ ✅ **დასრულებული, ტესტირებული (39/39), commit ⏳ pending** — იხ. "✅ STEP 3" სექცია ზემოთ. **დარჩენილია: migration 014 production-ზე გატარება** (deploy-მდე, item-ის commit/push/merge-მდე) — იხ. lesson learned production-ინციდენტის სექციაში.
+14. **STEP 7 (subdomain routing)** — STEP 3-ის `slug` ველი ჯერ მხოლოდ მონაცემია, რეალური subdomain-ზე routing/tenant-resolution ჯერ არ არსებობს.
 
 დანარჩენი უცვლელად ვალიდურია `ROADMAP - Multi-Tenant SaaS - 16.08.2026.md`-დან.

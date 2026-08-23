@@ -50,6 +50,12 @@ export interface User {
   // 🏢 Multi-Tenant SaaS STEP 1 (migration 013) — NOT NULL, ბექფილილი
   // ერთი "default" org-ით ყველა არსებული production მომხმარებლისთვის.
   organization_id: string;
+  // 🏢 Multi-Tenant SaaS STEP 3 (migration 014) — NULLABLE: ისტორიულ
+  // user-ებს (STEP 3-მდე შექმნილებს) email არასდროს ჰქონიათ. მხოლოდ
+  // ახალი, self-service რეგისტრაციით შექმნილ ორგანიზაციის ადმინებს
+  // ავალდებულებს (routes/organizations.ts). უნიკალურია მთელი
+  // პლატფორმის მასშტაბით (`uq_users_email`), არა per-org.
+  email: string | null;
 }
 
 // ==========================================

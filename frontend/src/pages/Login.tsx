@@ -16,9 +16,12 @@ interface LoginProps {
   // ჩვეულებრივ login-ტოკენს — ამ callback-ით ვაცნობებთ App.tsx-ს, რომ
   // სესია დაამყაროს (ისე, თითქოს ჩვეულებრივად შემოვიდა).
   onPasswordResetComplete: (token: string, user: any) => void;
+  // 🏢 Multi-Tenant SaaS STEP 3 (Roadmap "23.08.2026") — router-ის
+  // არარსებობის გამო App.tsx state-ტოგლით გადადის Register.tsx-ზე.
+  onNavigateToRegister: () => void;
 }
 
-export default function Login({ onLoginAttempt, onPasswordResetComplete }: LoginProps) {
+export default function Login({ onLoginAttempt, onPasswordResetComplete, onNavigateToRegister }: LoginProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -149,6 +152,15 @@ export default function Login({ onLoginAttempt, onPasswordResetComplete }: Login
               {error && <p className={styles.error}>⚠️ {error}</p>}
 
               <button type="submit" className={styles.submitBtn} data-gsap-field>შესვლა</button>
+
+              <button
+                type="button"
+                onClick={onNavigateToRegister}
+                className={styles.registerLink}
+                data-gsap-field
+              >
+                კომპანია არ გაქვთ დარეგისტრირებული? დაარეგისტრირეთ აქ
+              </button>
             </form>
           </>
         ) : (

@@ -46,7 +46,16 @@ import {
   type SeededRegister,
   type SeededUser,
 } from './seed';
-import { authorizedDelete, authorizedGet, authorizedPatch, authorizedPost, authorizedPut, login, tokenQueryGet } from './api';
+import {
+  authorizedDelete,
+  authorizedGet,
+  authorizedPatch,
+  authorizedPost,
+  authorizedPut,
+  login,
+  registerOrganization,
+  tokenQueryGet,
+} from './api';
 // 🔒 დისციპლინის დარღვევის გაცნობიერებული უარის fix-ის ტესტებისთვის
 // (Roadmap "23.08.2026") — POST /payments/sync-offline-ის cashier-
 // impersonation რეგრესიის ტესტს სჭირდება ცალსახად ვალიდური v4 UUID
@@ -791,4 +800,176 @@ describe('Cross-tenant data isolation (გაშვება მხოლოდ 
   // ==========================================
 
   it.todo('GET /api/dashboard/stats — Org A-ს რიცხვებში Org B-ს გაყიდვები არ ერევა');
+});
+
+// ==========================================
+// 🏢 POST /api/organizations/register — Multi-Tenant SaaS STEP 3
+// (Roadmap "23.08.2026") — კომპანიის self-service რეგისტრაცია.
+// ==========================================
+// ⚠️ ეს describe განზრახ ცალკეა ზემოთა "Cross-tenant data isolation"-ისგან
+// (არ იზიარებს orgA/orgB-ს).
+//
+// ⚠️ Rate limiting (registrationRateLimit.ts, MAX_ATTEMPTS=5/საათში,
+// IP-ის მიხედვით, in-memory — server-პროცესის მასშტაბით, არა DB-ში)
+// **ყველა** მოთხოვნას ითვლის, თუნდაც 400/409-ით ჩავარდნილს (განზრახ —
+// წაკითხულია registrationRateLimit.ts-ის თავშივე კომენტარში). ამიტომ
+// ეს describe ერთ საერთო `beforeAll`-ში ქმნის ერთადერთ საბაზისო
+// registration-ს (1 მოთხოვნა) და ყველა 409/400 ტესტი მას იმეორებს
+// slug/email-ის დაკავებულობის დასამტკიცებლად (თითო ტესტს კიდევ 1
+// მოთხოვნა) — სულ მხოლოდ 4 მოთხოვნა 4 ტესტში, რომ ბოლო
+// (rate-limiting-ის) ტესტს მაინც დარჩეს სივრცე 5-კაციან ლიმიტამდე
+// მისაღწევად. `vitest run tests/isolation`-ის განმეორებით (idempotency-
+// დამადასტურებელ) გაშვებაზე backend server პროცესი შუალედში
+// გადატვირთულია სპეციალურად ამის გამო — წინააღმდეგ შემთხვევაში
+// მეორე გაშვება ადრეულადვე 429-ს მიიღებდა.
+describe('POST /api/organizations/register — Multi-Tenant SaaS STEP 3 (Roadmap "23.08.2026")', () => {
+  const baseSuffix = 'tier6_reg_base';
+  const baseEmail = `${ISOLATION_TEST_PREFIX}${baseSuffix}@example.com`;
+  let baseRegistration: { token: string; organizationId: string; organizationSlug: string; userRole: string } | undefined;
+
+  beforeAll(async () => {
+    if (!schema.multiTenantReady) return;
+
+    const response = await registerOrganization(config.apiBaseUrl, {
+      companyName: `${ISOLATION_TEST_PREFIX}Company ${baseSuffix}`,
+      slug: `${ISOLATION_TEST_PREFIX}${baseSuffix}`,
+      adminName: `${ISOLATION_TEST_PREFIX}${baseSuffix}_admin`,
+      email: baseEmail,
+      password: 'ValidPass123!',
+    });
+
+    if (response.status === 201) {
+      baseRegistration = {
+        token: response.body.token,
+        organizationId: response.body.organization.id,
+        organizationSlug: response.body.organization.slug,
+        userRole: response.body.user.role,
+      };
+    }
+  });
+
+  it('happy path — ახალი კომპანია + admin იქმნება, auto-login token მუშაობს, ახალი org იზოლირებულია', async (ctx) => {
+    if (!schema.multiTenantReady || !baseRegistration) return ctx.skip();
+
+    expect(typeof baseRegistration.token).toBe('string');
+    expect(baseRegistration.token.length).toBeGreaterThan(0);
+    expect(baseRegistration.userRole).toBe('admin');
+    // ⚠️ ბექენდის slugify() ხაზგასმულ ტირედ გარდაქმნის ყველა
+    // არა-[a-z0-9] სიმბოლოს (ISOLATION_TEST_PREFIX-ის `_`-ებიც შედის) —
+    // ამიტომ ზუსტი ტოლობის მოლოდინი (`isolation_test_...`) არასწორი
+    // იქნებოდა; საკმარისია ვადასტუროთ, რომ დაბრუნებული slug ცხადად ამ
+    // ტესტ-პრეფიქსიდან მოდის (cleanup-ის LIKE-პატერნიც ამაზეა
+    // დაფუძნებული — SQL LIKE-ში `_` ნებისმიერ სიმბოლოს ემთხვევა).
+    expect(baseRegistration.organizationSlug.startsWith('isolation')).toBe(true);
+    expect(baseRegistration.organizationSlug).toContain(baseSuffix.replace(/_/g, '-'));
+
+    // 🔒 იზოლაცია: ახალი org-ის auto-login ტოკენით შექმნილი პროდუქტი
+    // ზუსტად ახალი (რეგისტრაციით შექმნილი) org-ის organization_id-ზეა
+    // მიბმული — ("POST /api/products" happy-path ტესტის იგივე
+    // DB-დონეზე დადასტურების პატერნი ზემოთ, ხაზი ~189).
+    const productBarcode = `${ISOLATION_TEST_PREFIX}${baseSuffix}`;
+    const productResponse = await authorizedPost(config.apiBaseUrl, '/api/products', baseRegistration.token, {
+      name: `${ISOLATION_TEST_PREFIX}product_${baseSuffix}`,
+      barcode: productBarcode,
+      price: 5,
+      stock: 1,
+    });
+    expect(productResponse.status).toBe(201);
+
+    const productDbCheck = await pool.query<{ organization_id: string }>(
+      'SELECT organization_id FROM products WHERE barcode = $1',
+      [productBarcode]
+    );
+    expect(productDbCheck.rows[0]?.organization_id).toBe(baseRegistration.organizationId);
+
+    const orgDbCheck = await pool.query<{ status: string }>(
+      'SELECT status FROM organizations WHERE id = $1',
+      [baseRegistration.organizationId]
+    );
+    expect(orgDbCheck.rows[0]?.status).toBe('trial');
+  });
+
+  it('409 — დაკავებული subdomain (slug) მეორედ ვერ დარეგისტრირდება', async (ctx) => {
+    if (!schema.multiTenantReady || !baseRegistration) return ctx.skip();
+
+    const response = await registerOrganization(config.apiBaseUrl, {
+      companyName: `${ISOLATION_TEST_PREFIX}Company ${baseSuffix}_dupslug`,
+      slug: `${ISOLATION_TEST_PREFIX}${baseSuffix}`, // baseRegistration-ის იგივე slug
+      adminName: `${ISOLATION_TEST_PREFIX}${baseSuffix}_dupslug_admin`,
+      email: `${ISOLATION_TEST_PREFIX}${baseSuffix}_dupslug@example.com`,
+      password: 'ValidPass123!',
+    });
+    expect(response.status).toBe(409);
+  });
+
+  it('409 — დაკავებული email მეორედ ვერ დარეგისტრირდება, თუნდაც სულ სხვა კომპანიისთვის (platform-wide უნიკალურობა)', async (ctx) => {
+    if (!schema.multiTenantReady || !baseRegistration) return ctx.skip();
+
+    const response = await registerOrganization(config.apiBaseUrl, {
+      companyName: `${ISOLATION_TEST_PREFIX}Company ${baseSuffix}_dupemail`,
+      slug: `${ISOLATION_TEST_PREFIX}${baseSuffix}_dupemail`,
+      adminName: `${ISOLATION_TEST_PREFIX}${baseSuffix}_dupemail_admin`,
+      email: baseEmail, // baseRegistration-ის იგივე email, სულ სხვა org/slug
+      password: 'ValidPass123!',
+    });
+    expect(response.status).toBe(409);
+  });
+
+  it('400 — სუსტი პაროლი (< 8 სიმბოლო) უარყოფილია და არც org, არც user არ იქმნება', async (ctx) => {
+    if (!schema.multiTenantReady || !baseRegistration) return ctx.skip();
+
+    const suffix = `${baseSuffix}_weakpass`;
+    const slug = `${ISOLATION_TEST_PREFIX}${suffix}`;
+    const response = await registerOrganization(config.apiBaseUrl, {
+      companyName: `${ISOLATION_TEST_PREFIX}Company ${suffix}`,
+      slug,
+      adminName: `${ISOLATION_TEST_PREFIX}${suffix}_admin`,
+      email: `${ISOLATION_TEST_PREFIX}${suffix}@example.com`,
+      password: 'short1',
+    });
+    expect(response.status).toBe(400);
+
+    // 400-ზე org საერთოდ არ იქმნება — ვამოწმებთ ორივე ვარიანტს
+    // (დაუმუშავებელი slug input და ბექენდის slugify()-ის შემდეგ), რომ
+    // ტესტი slugify()-ის ზუსტ transformაციაზე დამოკიდებული არ იყოს.
+    const rawSlugCheck = await pool.query('SELECT id FROM organizations WHERE slug = $1', [slug]);
+    expect(rawSlugCheck.rows.length).toBe(0);
+    const normalizedSlugCheck = await pool.query('SELECT id FROM organizations WHERE slug = $1', [slug.replace(/_/g, '-')]);
+    expect(normalizedSlugCheck.rows.length).toBe(0);
+  });
+
+  it('429 — rate limiting: ერთი IP-დან საკმარისი მცდელობის შემდეგ რეგისტრაცია დროებით იბლოკება', async (ctx) => {
+    if (!schema.multiTenantReady || !baseRegistration) return ctx.skip();
+
+    // 🔁 ამ დროისთვის (ზემოთა 4 ტესტის შემდეგ) ეს IP უკვე 4-ჯერ
+    // მოითხოვა (base + dupslug + dupemail + weakpass) — 1 მცდელობა
+    // კიდევ რჩება 5-კაციან ლიმიტამდე. ზუსტი დათვლის ნაცვლად მაინც
+    // ვცდით მანამ, სანამ 429 არ მივიღებთ (10 ცდის უსაფრთხოების
+    // ჭერით) — მყიფე არაა, თუნდაც ზემოთა ტესტების მოთხოვნების რაოდენობა
+    // მომავალში შეიცვალოს.
+    const responses: { status: number; error?: string }[] = [];
+    for (let i = 0; i < 10; i++) {
+      const suffix = `tier6_reg_ratelimit_${i}`;
+      const response = await registerOrganization(config.apiBaseUrl, {
+        companyName: `${ISOLATION_TEST_PREFIX}Company ${suffix}`,
+        slug: `${ISOLATION_TEST_PREFIX}${suffix}`,
+        adminName: `${ISOLATION_TEST_PREFIX}${suffix}_admin`,
+        email: `${ISOLATION_TEST_PREFIX}${suffix}@example.com`,
+        password: 'ValidPass123!',
+      });
+      responses.push({ status: response.status, error: response.body?.error });
+      if (response.status === 429) break;
+    }
+
+    const last = responses[responses.length - 1];
+    expect(last?.status).toBe(429);
+    expect(last?.error).toContain('მცდელობა');
+
+    // ყველა წინა (429-მდე) მცდელობა წარმატებული (201) უნდა ყოფილიყო —
+    // რომ დავრწმუნდეთ, ბლოკვა სწორედ rate-limit-ის გამო მოხდა და არა
+    // რაიმე სხვა ვალიდაციის შეცდომის გამო.
+    for (const r of responses.slice(0, -1)) {
+      expect(r.status).toBe(201);
+    }
+  });
 });

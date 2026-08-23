@@ -25,6 +25,9 @@ import registersRoutes from './routes/registers';
 // 🔔 Stock Deficit Notifications (Roadmap STEP 5) — Background Sync Engine-ის
 // Manager Dashboard ბეჯი/პანელი.
 import notificationsRoutes from './routes/notifications';
+// 🏢 Multi-Tenant SaaS STEP 3 (Roadmap "23.08.2026") — კომპანიის
+// self-service რეგისტრაცია (POST /organizations/register).
+import organizationsRoutes from './routes/organizations';
 
 dotenv.config();
 
@@ -117,6 +120,7 @@ app.use('/api', auditLogsRoutes);
 app.use('/api', dashboardRoutes);
 app.use('/api', registersRoutes);
 app.use('/api', notificationsRoutes);
+app.use('/api', organizationsRoutes);
 
 // ==========================================
 //  🛰️ Sentry Error Handler (Roadmap STEP 0 / ცვლილება #7)

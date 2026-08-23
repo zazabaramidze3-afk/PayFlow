@@ -124,3 +124,17 @@
   font-size: 15px;
   margin-top: 6px;
 }
+
+// 🏢 Multi-Tenant SaaS STEP 3 — Register.tsx-ზე გადასვლის ლინკი.
+// ⚠️ FIX: m.btn-base ნაგულისხმევად `white-space: nowrap`-ს აყენებს
+// (ცხრილის action-ღილაკებისთვის განკუთვნილი წესი — იხ. _mixins.scss-ის
+// კომენტარი). ეს გრძელი, სრულ-სიგანიანი წინადადება nowrap-ით card-ის
+// (320px content width) ფარგლებს გარეთ გადადიოდა, ორივე მხრიდან. აქ
+// წერტილოვნად ვშლით nowrap-ს (Sales.tsx checkout ღილაკის იგივე პატერნი).
+.registerLink {
+  @include m.btn-ghost;
+  width: 100%;
+  font-size: 13px;
+  white-space: normal;
+  line-height: 1.4;
+}
