@@ -18,6 +18,11 @@ import {
   checkRegistrationRateLimit,
   registerRegistrationAttempt,
 } from '../middleware/registrationRateLimit';
+import {
+  getOrgResolveRateLimitKey,
+  checkOrgResolveRateLimit,
+  registerOrgResolveAttempt,
+} from '../middleware/orgResolveRateLimit';
 
 const router = Router();
 
@@ -109,10 +114,13 @@ router.post('/organizations/register', async (req: Request, res: Response) => {
       return res.status(409).json({ error: 'ამ email-ით ანგარიში უკვე არსებობს!' });
     }
 
-    const usernameCheck = await client.query('SELECT id FROM users WHERE LOWER(name) = LOWER($1)', [trimmedAdminName]);
-    if (usernameCheck.rows.length > 0) {
-      return res.status(409).json({ error: 'ეს მომხმარებლის სახელი უკვე დაკავებულია!' });
-    }
+    // 🏢 Roadmap "24.08.2026" — username-ის წინასწარი უნიკალურობის
+    // შემოწმება აქედან მოშორებულია: migration 016-ის შემდეგ `users.name`
+    // per-org unique-ია (`uq_users_org_name`), ახალი org კი ამ
+    // ტრანზაქციაშივე იქმნება ცარიელი — ანუ ამ org-ის შიგნით
+    // username-კონფლიქტი სტრუქტურულადვე შეუძლებელია (ორი კომპანიის
+    // ადმინს ახლა თავისუფლად შეუძლია ერთი და იმავე username-ის ("admin")
+    // არჩევა, თითოეული საკუთარ org-ში).
 
     const hashedPassword = await bcrypt.hash(String(password), 10);
 
@@ -169,15 +177,56 @@ router.post('/organizations/register', async (req: Request, res: Response) => {
       if (pgErr.constraint === 'uq_users_email') {
         return res.status(409).json({ error: 'ამ email-ით ანგარიში უკვე არსებობს!' });
       }
-      if (pgErr.constraint === 'users_name_key') {
-        return res.status(409).json({ error: 'ეს მომხმარებლის სახელი უკვე დაკავებულია!' });
-      }
+      // ⚠️ `uq_users_org_name` (migration 016) ამ flow-ში სტრუქტურულად
+      // ვერასდროს დაეჯახება — ახალი org ამ ტრანზაქციაშივე იქმნება
+      // ცარიელი, ანუ username-კონფლიქტი მასში მათემატიკურად შეუძლებელია.
+      // fallback branch (ქვემოთ) მაინც საკმარისია, თუ რამე მოულოდნელი მოხდა.
       return res.status(409).json({ error: 'ეს მონაცემი უკვე დაკავებულია!' });
     }
 
     res.status(500).json({ error: 'სერვერის შეცდომა: ' + getErrorMessage(err) });
   } finally {
     client.release();
+  }
+});
+
+// 🔎 GET /organizations/resolve/:slug — საჯარო, login-ის 1-ლი ნაბიჯისთვის
+// (Roadmap "24.08.2026", STEP 7-ის წინაპირობა). Login-ს (Login.tsx)
+// მოსდის slug, ჯერ ამ endpoint-ით ადასტურებს, რომ ასეთი კომპანია
+// არსებობს (და აჩვენებს მის სახელს) — მხოლოდ ამის შემდეგ ჩნდება
+// username/password ველები. `users.name`-ის per-org uniqueness-ის
+// (migration 016) გამო `POST /login`-საც ესაჭიროება ეს slug, რომ
+// ცალსახად იცოდეს, რომელ org-ში ეძებოს user.
+//
+// ⚠️ არ ამოწმებს org.status-ს (suspended/cancelled) — ეს განზრახ
+// POST /login-ისვე პასუხისმგებლობაა (იქ უკვე realizебულია), რომ
+// resolve-ის პასუხი მინიმალური/predictable დარჩეს.
+router.get('/organizations/resolve/:slug', async (req: Request, res: Response) => {
+  const rateLimitKey = getOrgResolveRateLimitKey(req);
+  const rateLimit = checkOrgResolveRateLimit(rateLimitKey);
+  if (rateLimit.limited) {
+    return res.status(429).json({
+      error: `ძალიან ბევრი მცდელობა — გთხოვთ სცადოთ ${rateLimit.retryAfterSeconds} წამში.`,
+    });
+  }
+  registerOrgResolveAttempt(rateLimitKey);
+
+  const slug = slugify(String(req.params.slug ?? ''));
+  if (!SLUG_REGEX.test(slug)) {
+    return res.status(400).json({ error: 'subdomain არავალიდურია!' });
+  }
+
+  try {
+    const result = await db.query<{ id: string; name: string; slug: string; status: string }>(
+      'SELECT id, name, slug, status FROM organizations WHERE slug = $1',
+      [slug]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'კომპანია ვერ მოიძებნა!' });
+    }
+    res.json(result.rows[0]);
+  } catch (err: unknown) {
+    res.status(500).json({ error: 'სერვერის შეცდომა: ' + getErrorMessage(err) });
   }
 });
 

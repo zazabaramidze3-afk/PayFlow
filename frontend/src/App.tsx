@@ -135,14 +135,19 @@ function App() {
   useBackgroundSyncEngine();
 
   // ავტორიზაცია ბეკენდის SQL ბაზის მეშვეობით
+  // 🏢 Multi-Tenant SaaS — `users.name` per-org unique გახდა (migration 016,
+  // Roadmap "24.08.2026") — Login.tsx-ის ორსაფეხურიანი ფლოუდან (slug-ის
+  // წინასწარი resolve-ის შემდეგ) ახლა `slug`-იც მოსდის, POST /login-საც
+  // სჭირდება, რომ ცალსახად იცოდეს, რომელ org-ში ეძებოს user.
   const handleLoginAttempt = async (
+    slug: string,
     username: string,
     password: string,
     // 🆔 UUID მიგრაცია (Roadmap STEP 1) — users.id ახლა UUID string-ია.
     callback: (result: { error?: string; requiresPasswordReset?: boolean; userId?: string }) => void
   ) => {
     try {
-      const response = await axios.post('/api/login', { username, password });
+      const response = await axios.post('/api/login', { slug, username, password });
       const { token, user, requiresPasswordReset } = response.data;
 
       // 🔐 თუ საწყისი პაროლის შეცვლაა საჭირო, სესიას ჯერ არ ვამყარებთ —

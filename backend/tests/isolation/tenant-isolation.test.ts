@@ -53,7 +53,9 @@ import {
   authorizedPost,
   authorizedPut,
   login,
+  loginAttempt,
   registerOrganization,
+  resolveOrganization,
   tokenQueryGet,
 } from './api';
 // 🔒 დისციპლინის დარღვევის გაცნობიერებული უარის fix-ის ტესტებისთვის
@@ -98,7 +100,7 @@ describe('Trivial smoke checks (ყოველთვის მწვანე �
 
   it('ჩვეულებრივი login + GET /api/products მუშაობს ტოკენით', async () => {
     const user = await seedTestUser(pool, { usernameSuffix: 'smoke_admin', role: 'admin' });
-    const { token } = await login(config.apiBaseUrl, user.username, user.password);
+    const { token } = await login(config.apiBaseUrl, user.orgSlug, user.username, user.password);
 
     const response = await authorizedGet(config.apiBaseUrl, '/api/products', token);
     expect(response.status).toBe(200);
@@ -125,8 +127,8 @@ describe('Cross-tenant data isolation (გაშვება მხოლოდ 
     orgA = await seedOrgWithAdmin(pool, { orgSuffix: 'orgA' });
     orgB = await seedOrgWithAdmin(pool, { orgSuffix: 'orgB' });
 
-    tokenA = (await login(config.apiBaseUrl, orgA.admin.username, orgA.admin.password)).token;
-    tokenB = (await login(config.apiBaseUrl, orgB.admin.username, orgB.admin.password)).token;
+    tokenA = (await login(config.apiBaseUrl, orgA.slug, orgA.admin.username, orgA.admin.password)).token;
+    tokenB = (await login(config.apiBaseUrl, orgB.slug, orgB.admin.username, orgB.admin.password)).token;
 
     if (productsOrgColumnExists) {
       productA = await seedOrgProduct(pool, { organizationId: orgA.id, nameSuffix: 'orgA' });
@@ -502,10 +504,10 @@ describe('Cross-tenant data isolation (გაშვება მხოლოდ 
     beforeAll(async () => {
       if (!schema.multiTenantReady) return;
 
-      cashierA = await seedOrgUser(pool, { organizationId: orgA.id, usernameSuffix: 'tier5_cashierA', role: 'cashier' });
-      cashierB = await seedOrgUser(pool, { organizationId: orgB.id, usernameSuffix: 'tier5_cashierB', role: 'cashier' });
-      tokenCashierA = (await login(config.apiBaseUrl, cashierA.username, cashierA.password)).token;
-      tokenCashierB = (await login(config.apiBaseUrl, cashierB.username, cashierB.password)).token;
+      cashierA = await seedOrgUser(pool, { organizationId: orgA.id, orgSlug: orgA.slug, usernameSuffix: 'tier5_cashierA', role: 'cashier' });
+      cashierB = await seedOrgUser(pool, { organizationId: orgB.id, orgSlug: orgB.slug, usernameSuffix: 'tier5_cashierB', role: 'cashier' });
+      tokenCashierA = (await login(config.apiBaseUrl, cashierA.orgSlug, cashierA.username, cashierA.password)).token;
+      tokenCashierB = (await login(config.apiBaseUrl, cashierB.orgSlug, cashierB.username, cashierB.password)).token;
 
       registerA = await seedOrgRegister(pool, { organizationId: orgA.id, nameSuffix: 'tier5_regA' });
       registerB = await seedOrgRegister(pool, { organizationId: orgB.id, nameSuffix: 'tier5_regB' });
@@ -713,13 +715,13 @@ describe('Cross-tenant data isolation (გაშვება მხოლოდ 
     it('POST /api/payments/sync-offline — cashier ვერ ასინქრონებს სხვისი (cashierId) ჩეკს', async (ctx) => {
       if (!schema.multiTenantReady) return ctx.skip();
 
-      const cashierX = await seedOrgUser(pool, { organizationId: orgA.id, usernameSuffix: 'tier5_sync_cashierX', role: 'cashier' });
-      const cashierY = await seedOrgUser(pool, { organizationId: orgA.id, usernameSuffix: 'tier5_sync_cashierY', role: 'cashier' });
+      const cashierX = await seedOrgUser(pool, { organizationId: orgA.id, orgSlug: orgA.slug, usernameSuffix: 'tier5_sync_cashierX', role: 'cashier' });
+      const cashierY = await seedOrgUser(pool, { organizationId: orgA.id, orgSlug: orgA.slug, usernameSuffix: 'tier5_sync_cashierY', role: 'cashier' });
       const registerX = await seedOrgRegister(pool, { organizationId: orgA.id, nameSuffix: 'tier5_sync_regX' });
       const registerTokenX = signRegisterToken(registerX.id);
 
-      const tokenX = (await login(config.apiBaseUrl, cashierX.username, cashierX.password)).token;
-      const tokenY = (await login(config.apiBaseUrl, cashierY.username, cashierY.password)).token;
+      const tokenX = (await login(config.apiBaseUrl, cashierX.orgSlug, cashierX.username, cashierX.password)).token;
+      const tokenY = (await login(config.apiBaseUrl, cashierY.orgSlug, cashierY.username, cashierY.password)).token;
 
       const openX = await authorizedPost(
         config.apiBaseUrl,
@@ -970,6 +972,120 @@ describe('POST /api/organizations/register — Multi-Tenant SaaS STEP 3 (Roadmap
     // რაიმე სხვა ვალიდაციის შეცდომის გამო.
     for (const r of responses.slice(0, -1)) {
       expect(r.status).toBe(201);
+    }
+  });
+});
+
+// ==========================================
+// 🏢 STEP 7-lite — კომპანიის slug login (Roadmap "24.08.2026")
+// ==========================================
+// migration 016-ის (`users.name` per-org uniqueness) და ახალი `GET
+// /organizations/resolve/:slug` + `POST /login`-ის slug-მოთხოვნის
+// ტესტები. ⚠️ ცალკე, დამოუკიდებელი org-ები (არა ზემოთა "Cross-tenant
+// data isolation"-ის orgA/orgB) — რომ ამ describe-ს საკუთარი
+// "იგივე username ორ org-ში" სცენარიც დამოუკიდებლად შეეძლოს, სხვა
+// ბლოკებზე გავლენის გარეშე.
+describe('POST /api/login + GET /api/organizations/resolve/:slug — STEP 7-lite (Roadmap "24.08.2026")', () => {
+  let orgX: SeededOrg;
+  let orgY: SeededOrg;
+  const sharedUsernameSuffix = 'tier7_shared_admin';
+  const sharedUsername = `${ISOLATION_TEST_PREFIX}${sharedUsernameSuffix}`;
+  const testPassword = 'IsolationTest123!';
+
+  beforeAll(async () => {
+    if (!schema.multiTenantReady) return;
+
+    orgX = await seedOrgWithAdmin(pool, { orgSuffix: 'tier7_orgX' });
+    orgY = await seedOrgWithAdmin(pool, { orgSuffix: 'tier7_orgY' });
+
+    // 🔒 migration 016-ის (`uq_users_org_name`) მთავარი დადასტურება: ორივე
+    // org-ში ერთი და იგივე username-ის cashier-ი — თუ constraint მხოლოდ
+    // ერთ org-ს დაუშვებდა, მეორე INSERT 23505-ით ჩავარდებოდა.
+    await seedOrgUser(pool, { organizationId: orgX.id, orgSlug: orgX.slug, usernameSuffix: sharedUsernameSuffix, role: 'cashier' });
+    await seedOrgUser(pool, { organizationId: orgY.id, orgSlug: orgY.slug, usernameSuffix: sharedUsernameSuffix, role: 'cashier' });
+  });
+
+  it('ორ სხვადასხვა org-ს ერთი და იგივე username-ით cashier-ი შეუძლია — თითოეული საკუთარი slug-ით ცალსახად შედის', async (ctx) => {
+    if (!schema.multiTenantReady) return ctx.skip();
+
+    const [resultX, resultY] = await Promise.all([
+      login(config.apiBaseUrl, orgX.slug, sharedUsername, testPassword),
+      login(config.apiBaseUrl, orgY.slug, sharedUsername, testPassword),
+    ]);
+
+    expect(resultX.token).toBeTruthy();
+    expect(resultY.token).toBeTruthy();
+    expect(resultX.userId).not.toBe(resultY.userId);
+  });
+
+  it('POST /api/login — slug-ის გარეშე 400-ს აბრუნებს', async (ctx) => {
+    if (!schema.multiTenantReady) return ctx.skip();
+
+    const response = await loginAttempt(config.apiBaseUrl, { username: sharedUsername, password: testPassword });
+    expect(response.status).toBe(400);
+  });
+
+  it('POST /api/login — არარსებული slug-ით 404-ს აბრუნებს (org-JOIN ვერ ემთხვევა)', async (ctx) => {
+    if (!schema.multiTenantReady) return ctx.skip();
+
+    const response = await loginAttempt(config.apiBaseUrl, {
+      slug: `${ISOLATION_TEST_PREFIX}tier7_nonexistent_slug`,
+      username: sharedUsername,
+      password: testPassword,
+    });
+    expect(response.status).toBe(404);
+  });
+
+  it('POST /api/login — სწორი slug/username, არასწორი პაროლით 401-ს აბრუნებს', async (ctx) => {
+    if (!schema.multiTenantReady) return ctx.skip();
+
+    const response = await loginAttempt(config.apiBaseUrl, {
+      slug: orgX.slug,
+      username: sharedUsername,
+      password: 'DefinitelyWrongPassword123!',
+    });
+    expect(response.status).toBe(401);
+  });
+
+  it('GET /api/organizations/resolve/:slug — არსებული org-ისთვის name/slug/status აბრუნებს', async (ctx) => {
+    if (!schema.multiTenantReady) return ctx.skip();
+
+    const response = await resolveOrganization(config.apiBaseUrl, orgX.slug);
+    expect(response.status).toBe(200);
+    expect(response.body.slug).toBe(orgX.slug);
+    expect(typeof response.body.name).toBe('string');
+    expect(response.body.status).toBeDefined();
+  });
+
+  it('GET /api/organizations/resolve/:slug — არარსებული slug-ისთვის 404-ს აბრუნებს', async (ctx) => {
+    if (!schema.multiTenantReady) return ctx.skip();
+
+    const response = await resolveOrganization(config.apiBaseUrl, `${ISOLATION_TEST_PREFIX}tier7_nonexistent_slug`);
+    expect(response.status).toBe(404);
+  });
+
+  // ⚠️ orgResolveRateLimit.ts-ის MAX_ATTEMPTS=20/სთ, IP-ის მიხედვით,
+  // in-memory (server-პროცესის მასშტაბით) — ისევე, როგორც
+  // registrationRateLimit.ts-ის ანალოგიური ტესტი ზემოთ, `vitest run
+  // tests/isolation`-ის განმეორებით გაშვებაზე backend server პროცესი
+  // შუალედში გადატვირთული უნდა იყოს, თორემ ეს ტესტი ადრეულადვე 429-ს
+  // მიიღებს (ამ describe-ის სხვა ტესტების 2 resolve-მოთხოვნის ჩათვლითაც).
+  it('GET /api/organizations/resolve/:slug — rate limit (20/სთ) აჩერებს ზედმეტ მცდელობებს', async (ctx) => {
+    if (!schema.multiTenantReady) return ctx.skip();
+
+    const responses: Array<{ status: number; error?: string }> = [];
+    for (let i = 0; i < 25; i++) {
+      const response = await resolveOrganization(config.apiBaseUrl, orgX.slug);
+      responses.push({ status: response.status, error: response.body?.error });
+      if (response.status === 429) break;
+    }
+
+    const last = responses[responses.length - 1];
+    expect(last?.status).toBe(429);
+    expect(last?.error).toContain('მცდელობა');
+
+    for (const r of responses.slice(0, -1)) {
+      expect(r.status).toBe(200);
     }
   });
 });

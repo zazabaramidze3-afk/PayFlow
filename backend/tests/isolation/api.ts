@@ -11,12 +11,18 @@ export interface LoginResult {
   readonly userId: string;
 }
 
-export async function login(apiBaseUrl: string, username: string, password: string): Promise<LoginResult> {
-  const response = await request(apiBaseUrl).post('/api/login').send({ username, password });
+// 🏢 Roadmap "24.08.2026" — STEP 7-lite (company slug login) — POST
+// /login ახლა `slug`-საც მოითხოვს (migration 016-ის `users.name`
+// per-org uniqueness-ის გამო, org-ის ცალსახად დასადგენად). `slug`
+// პარამეტრი `username`-ის წინ დაემატა, რომ call-site-ებზეც იგივე
+// თანმიმდევრობა (org → ვინ → რითი) აისახოს, რასაც Login.tsx-ის
+// ორსაფეხურიანი UI მიჰყვება.
+export async function login(apiBaseUrl: string, slug: string, username: string, password: string): Promise<LoginResult> {
+  const response = await request(apiBaseUrl).post('/api/login').send({ slug, username, password });
 
   if (response.status !== 200) {
     throw new Error(
-      `Login ჩავარდა (${username}): HTTP ${response.status} — ${JSON.stringify(response.body)}. ` +
+      `Login ჩავარდა (slug=${slug}, ${username}): HTTP ${response.status} — ${JSON.stringify(response.body)}. ` +
         `დარწმუნდი, რომ backend გაშვებულია TEST_API_URL-ზე (${apiBaseUrl}) და ტესტ-DB seed-ი წარმატებით შესრულდა.`
     );
   }
@@ -81,4 +87,18 @@ export function tokenQueryGet(apiBaseUrl: string, path: string, token: string) {
 // ამიტომ authorizedPost-ისგან განსხვავებით token/header არ სჭირდება.
 export function registerOrganization(apiBaseUrl: string, body: Record<string, unknown>) {
   return request(apiBaseUrl).post('/api/organizations/register').send(body);
+}
+
+// 🏢 Roadmap "24.08.2026" — STEP 7-lite — ნეგატიური სცენარების
+// (არარსებული/გამოტოვებული slug, არასწორი პაროლი) ტესტებისთვის საჭიროა
+// raw HTTP პასუხი (სტატუს-კოდი + error-ტექსტი) — login()-ის
+// throw-on-non-200 ქცევის გვერდის ავლით.
+export function loginAttempt(apiBaseUrl: string, body: Record<string, unknown>) {
+  return request(apiBaseUrl).post('/api/login').send(body);
+}
+
+// 🔎 GET /organizations/resolve/:slug — საჯარო endpoint (Login.tsx-ის
+// 1-ლი საფეხური), ავტორიზაციის გარეშე.
+export function resolveOrganization(apiBaseUrl: string, slug: string) {
+  return request(apiBaseUrl).get(`/api/organizations/resolve/${encodeURIComponent(slug)}`);
 }

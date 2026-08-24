@@ -298,11 +298,12 @@ Frontend-ის ცალკე ვერიფიკაცია (frontend-ს 
 11. ~~გადაწყვეტილების წერტილი — SaaS vs Multi-Store~~ ✅ **გადაწყვეტილია, 23.08.2026 — SaaS მიმართულება, email platform-wide უნიკალურობით.** `users.name` per-org uniqueness საკითხი ✅ **დახურულია, 24.08.2026 — განზრახ, დოკუმენტირებული უარი, `users.name` რჩება გლობალურად unique.** იხ. "🔒 გადაწყვეტილება — `users.name` uniqueness" სექცია ქვემოთ.
 12. ~~დოკუმენტირებული, განზრახ გადადებული ხარვეზები (role-restriction: `GET /payments`, export/excel, export/pdf; cashier-impersonation: `syncSingleOfflineReceipt()`)~~ ✅ **დასრულებული, ტესტირებული (34/34), commit `030465c`** — იხ. "✅ დარჩენილი 2 security-ხარვეზი" სექცია ზემოთ. დარჩენილია მხოლოდ: `syncSingleOfflineReceipt()`-ის cashier-impersonation-ის მესამე, უფრო ღრმა ვარიანტი (თუ ოდესმე გამოვლინდება — cross-register/cross-shift ცალკე scenario-ები STEP 2.2-ის (RLS) ფარგლებში შეიძლება საბოლოოდ დაიხუროს) — non-blocking
 13. ~~STEP 3 — კომპანიის Self-Service რეგისტრაცია~~ ✅ **სრულად დასრულებული, ტესტირებული (39/39), commit `9d13855`, push-ილი, migration 014 გატარებული ორივე გარემოში (ლოკალურად + production Neon), ხელით დადასტურებული production-ზეც** — იხ. "✅ STEP 3" სექცია ზემოთ.
-14. **STEP 7 (subdomain routing)** — STEP 3-ის `slug` ველი ჯერ მხოლოდ მონაცემია, რეალური subdomain-ზე routing/tenant-resolution ჯერ არ არსებობს.
+14. ~~STEP 7 (subdomain routing) — რეალური subdomain routing~~ ⚠️ **შეუძლებელია ამჟამინდელ ინფრასტრუქტურაზე** (`*.vercel.app` საზიარო დომეინი wildcard subdomain-ს არ უჭერს მხარს) — ჩანაცვლდა STEP 7-lite-ით (item #19), ფასიან custom domain-ამდე. იხ. "🏢 STEP 7-lite — კომპანიის slug login" სექცია ქვემოთ.
 15. ~~Dashboard "დღეს" სტატისტიკის timezone ბაგი~~ ✅ **დასრულებული, 24.08.2026** — იხ. "🐛 Dashboard timezone ბაგი" სექცია ქვემოთ.
 16. ~~STEP 8 — Superadmin Panel~~ ✅ **სრულად დასრულებული, ტესტირებული, deploy-ილი და production-ზე დადასტურებული, 24.08.2026, commit `1a5e911`** — იხ. "✅ STEP 8" სექცია ზემოთ.
 17. ~~`users.name` uniqueness — per-org გახდომის საკითხი~~ ✅ **დახურულია, 24.08.2026, კოდის ცვლილების გარეშე** — იხ. "🔒 გადაწყვეტილება — `users.name` uniqueness" სექცია ქვემოთ.
 18. ~~Neon branch-ზე migration-ის ავტომატური ტესტირება~~ ✅ **დასრულებული, end-to-end დადასტურებული production-ზე ზემოქმედების გარეშე, 24.08.2026** — იხ. "🌿 Neon branch-ზე migration-ის ავტომატური ტესტირება" სექცია ქვემოთ.
+19. **STEP 7-lite — კომპანიის slug login** 🚧 **კოდი დაწერილი, `tsc --strict` სუფთა, ტესტ-ფაილიც განახლებული, მომხმარებლის მანქანაზე commit-მდე** — migration 016 (`users.name` per-org unique) ჯერ არც ლოკალურად, არც production-ზე არ გაშვებულა. დარჩენილი ნაბიჯები: (ა) `npm run test-migration -- 016_users_name_per_org.sql` Neon branch-ზე, (ბ) migration ლოკალურად + production-ზე, (გ) `vitest run tests/isolation`, (დ) commit/push/deploy. იხ. "🏢 STEP 7-lite — კომპანიის slug login" სექცია ქვემოთ.
 
 დანარჩენი უცვლელად ვალიდურია `ROADMAP - Multi-Tenant SaaS - 16.08.2026.md`-დან.
 
@@ -474,3 +475,52 @@ Frontend-ის ცალკე ვერიფიკაცია (frontend-ს 
 ### შედეგი
 
 STEP 2.2-ის (RLS) გარდა, roadmap-ის ყველა დანარჩენი ღია პუნქტი ამ სესიით დაიხურა. მომავალი ნებისმიერი migration (STEP 7-ის subdomain-routing-ის, ან სხვა) ახლა შეიძლება უსაფრთხოდ გატესტდეს production-ის ასლზე, push/production-migration-ამდე — ზუსტად ის პროცესის ხარვეზი, რომელმაც 23.08-ის ინციდენტი გამოიწვია, ახლა დახურულია.
+
+---
+
+## 🏢 STEP 7-lite — კომპანიის slug login, 24.08.2026
+
+### კონტექსტი
+
+STEP 7-ის (item #14, subdomain routing) კვლევისას გაირკვა, რომ **რეალური subdomain-ზე routing ამჟამინდელ ინფრასტრუქტურაზე შეუძლებელია**: Vercel-ის საზიარო `*.vercel.app` დომეინი (`pay-flow-zet3.vercel.app`) wildcard subdomain-ს (`acme.pay-flow-zet3.vercel.app`) არ უჭერს მხარს პროექტის დონეზე — თითო პროექტს ერთი, ფიქსირებული მისამართი აქვს. ნამდვილი subdomain-per-tenant routing მოითხოვს საკუთარ (ფასიან) domain-ს + Vercel wildcard domain + DNS wildcard ჩანაწერს — ეს მომავლის, ფასიანი ეტაპია.
+
+ამ შეზღუდვის ფარგლებში, **STEP 7-ის ფუნქციური არსი** (login-ს გააჩნია org-context, `users.name`-ის per-org uniqueness შესაძლებელია) მაინც მიღწევადია **ორსაფეხურიანი login UI-ით** (Slack/Notion-ის msგავსი პატერნი) — ეს არის STEP 7-lite. ამავდროულად ეს ხსნის "🔒 გადაწყვეტილება — `users.name` uniqueness"-ის ღია კითხვას: login-ს ახლა გააჩნია org-context slug-ის საშუალებით, ანუ `users.name` საბოლოოდ შეიძლება per-org unique გახდეს.
+
+### რა შეიცვალა
+
+**ახალი migration — `backend/migrations/016_users_name_per_org.sql`:**
+`users_name_key` (გლობალური `UNIQUE(name)`) იშლება, ცვლის `uq_users_org_name` — `UNIQUE INDEX (organization_id, LOWER(name))` (migration 013/014-ის იგივე per-org, case-insensitive კონვენცია). ⚠️ **ჯერ არ გაშვებულა არც ლოკალურად, არც production-ზე.**
+
+**`backend/src/routes/auth.ts` — `POST /login`:**
+ახლა მოითხოვს `slug`-საც request body-ში (400, თუ არ არის). Query-ს დაემატა `JOIN organizations o ... WHERE o.slug = LOWER($1) AND LOWER(u.name) = LOWER($2)` — ჯერ ცალსახად ვპოულობთ org-ს, მერე user-ს მის შიგნით. ძველი `LIMIT 1`-ის ambiguity-რისკი (ორ org-ს ერთი და იმავე username რომ ჰყავდეს) ამით საბოლოოდ მოშორებულია.
+
+**`backend/src/routes/organizations.ts` — ახალი public endpoint:**
+`GET /organizations/resolve/:slug` — login-ის 1-ლი ნაბიჯისთვის: ადასტურებს, რომ slug-ით კომპანია არსებობს და აბრუნებს მის სახელს (org-ის სახელის საჩვენებლად, სანამ credentials-ის ველები გამოჩნდება). განზრახ **არ** ამოწმებს `org.status`-ს (suspended/cancelled) — ეს დარჩა მხოლოდ `POST /login`-ის პასუხისმგებლობად. ასევე მოშორდა STEP 3 registration-ის მოძველებული, გლობალური username-uniqueness წინასწარი შემოწმება (migration 016-ის შემდეგ ახალი org ცარიელია შექმნისას, ანუ per-org კონფლიქტი მასში სტრუქტურულადვე შეუძლებელია).
+
+**`backend/src/middleware/orgResolveRateLimit.ts` (ახალი):**
+`registrationRateLimit.ts`-ის იგივე in-memory, IP-keyed პატერნი, ცალკე Map-ით (20/სთ) — რომ slug-enumeration-ის მცდელობებმა STEP 3-ის რეგისტრაციის (5/სთ) ბიუჯეტი არ ამოწუროს.
+
+**`frontend/src/pages/Login.tsx` — ორსაფეხურიანი UI:**
+1) Subdomain/slug ველი → `GET /organizations/resolve/:slug` → კომპანიის სახელი ჩნდება. 2) ჩვეულებრივი username/password, ახლა org-სახელის ქვეშ (`"← სხვა კომპანია?"` ბმულით უკან დასაბრუნებლად). ბოლოს გამოყენებული slug `localStorage`-ში ინახება (UX convenience, non-critical — `try/catch`-ით დაცული). `frontend/src/App.tsx`-ის `handleLoginAttempt` შესაბამისად განახლდა (`slug` პარამეტრი დაემატა, `POST /api/login`-საც გადაეცემა).
+
+**ტესტები (`backend/tests/isolation/`):**
+- `api.ts` — `login()`-ს დაემატა `slug` პარამეტრი (`username`-ის წინ); ახალი `loginAttempt()`/`resolveOrganization()` helper-ები ნეგატიური სცენარებისთვის (status-კოდის პირდაპირი შემოწმება, `login()`-ის throw-on-non-200-ის გვერდის ავლით).
+- `seed.ts` — `SeededUser`-ს დაემატა `orgSlug`; `seedTestUser`/`seedOrgWithAdmin`/`seedOrgUser` ყველა აბრუნებს მას (ან default org-ის, ან გადაცემული org-ის slug-ს).
+- `tenant-isolation.test.ts` — ყველა არსებული `login(...)` call-site (8) და `seedOrgUser(...)` call-site (2) განახლდა ახალი სიგნატურით; დაემატა ახალი describe-ბლოკი ("STEP 7-lite") 7 ახალი ტესტით: (ა) ორ სხვადასხვა org-ს ერთი და იმავე username-ის cashier-ი შეუძლია, თითოეული საკუთარი slug-ით ცალსახად შედის (migration 016-ის მთავარი დადასტურება), (ბ) `POST /login` slug-ის გარეშე → 400, (გ) არარსებული slug → 404, (დ) სწორი slug, არასწორი პაროლი → 401, (ე) `GET /organizations/resolve/:slug` — ნაპოვნი/(ვ) ვერნაპოვნი, (ზ) rate-limit (20/სთ) ამოწურვა.
+
+### ვერიფიკაცია (ეს სესია)
+
+**`tsc --strict --noEmit`** (scoped, ცალკეულ ფაილებზე, backend/frontend-ის ორივე toolchain-ით) — ყველა ახალი/შეცვლილი ფაილი (`orgResolveRateLimit.ts`, `organizations.ts`, `auth.ts`, `tests/isolation/api.ts`, `tests/isolation/seed.ts`, `tests/isolation/tenant-isolation.test.ts`, `Login.tsx`, `App.tsx`) — **სუფთა, `any` არსად**.
+
+⚠️ **აღმოჩენა ვერიფიკაციისას:** `frontend`-ს **საერთოდ არ აქვს** `typescript` დამოკიდებულება დაყენებული (`package.json`-ში არც devDependency, არც `tsconfig.json`) — `npm run build` (`vite build`) ტიპების შემოწმებას საერთოდ არ აკეთებს, მხოლოდ esbuild-ის transpile-ს. ანუ ტიპის შეცდომები frontend-ში ამჟამად **მხოლოდ** ამ სესიის ხელით, დროებით დაყენებული `typescript`-ით შემოწმდა — ეს არაა repo-ს მუდმივი ნაწილი. **რეკომენდაცია (არ განხორციელებულა, მომხმარებლის გადასაწყვეტია):** `typescript` დაემატოს `frontend`-ის devDependency-ებში + `tsconfig.json` შეიქმნას, რომ ტიპის უსაფრთხოება მუდმივად, ავტომატურად მოწმდებოდეს (და არა მხოლოდ session-დამოკიდებულად).
+
+**`vitest run tests/isolation`** — **ჯერ არ გაშვებულა** (საჭიროებს რეალურ backend-ს + test DB-ს, migration 016-ის გატარების შემდეგ).
+
+### დარჩენილი ნაბიჯები (მომხმარებლის მხრიდან)
+
+1. **Migration 016 Neon branch-ზე ტესტი:** `npm run test-migration -- 016_users_name_per_org.sql` (`backend/`-იდან) — production-ის ასლზე უსაფრთხო გატესტვა, production-ზე ზემოქმედების გარეშე.
+2. **Migration 016 ლოკალურად** (pgAdmin ან `psql`) — sanity-შემოწმება.
+3. **`vitest run tests/isolation`** ლოკალურად, backend + ლოკალური test DB-ის წინააღმდეგ — ახალი "STEP 7-lite" ბლოკის ჩათვლით.
+4. **Migration 016 production Neon-ზე** (SQL Editor, branch `production`) — commit/push-ზე **ადრე**, roadmap-ის სტანდარტული lesson-ის მიხედვით (იხ. "🚨 Production ინციდენტი" სექცია).
+5. `git add`/`commit`/`push` (`.git/index.lock`-ის ცნობილი VS Code-ის race-ის გათვალისწინებით — იხ. "🔧 გვერდითი აღმოჩენა" სექცია).
+6. Production deploy-ის (Vercel) ხელით დადასტურება: login ახალი ორსაფეხურიანი ფლოუთი, `pay-flow-zet3.vercel.app`-ზე.

@@ -16,6 +16,12 @@ export interface SeededUser {
   readonly username: string;
   readonly password: string;
   readonly role: 'admin' | 'manager' | 'cashier';
+  // 🏢 Roadmap "24.08.2026" — STEP 7-lite (company slug login) —
+  // migration 016-ის (`users.name` per-org uniqueness) შემდეგ
+  // `POST /login`-ს ცალსახად სჭირდება org-ის slug, ამიტომ ყოველი
+  // seed-ილი user-ი საკუთარ org-slug-საც ატარებს — `login(...)`
+  // helper-ს (api.ts) ცალკე org-ის მოძებნა/გახსენება აღარ სჭირდება.
+  readonly orgSlug: string;
 }
 
 export interface SeededOrg {
@@ -35,26 +41,26 @@ const DEFAULT_TEST_PASSWORD = 'IsolationTest123!';
  * მონაცემზე), ერთს ვქმნით ადგილზე — migration 013-ის იგივე bootstrap
  * ჩანაწერის ანალოგიით.
  */
-async function getOrCreateDefaultOrganizationId(pool: Pool): Promise<string> {
-  const existing = await pool.query<{ id: string }>(
-    `SELECT id FROM organizations ORDER BY created_at ASC LIMIT 1`
+async function getOrCreateDefaultOrganization(pool: Pool): Promise<{ id: string; slug: string }> {
+  const existing = await pool.query<{ id: string; slug: string }>(
+    `SELECT id, slug FROM organizations ORDER BY created_at ASC LIMIT 1`
   );
-  const existingId = existing.rows[0]?.id;
-  if (existingId) {
-    return existingId;
+  const existingRow = existing.rows[0];
+  if (existingRow) {
+    return existingRow;
   }
 
-  const created = await pool.query<{ id: string }>(
+  const created = await pool.query<{ id: string; slug: string }>(
     `INSERT INTO organizations (name, slug, status)
      VALUES ('PayFlow — Default Organization', 'default', 'active')
      ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name
-     RETURNING id`
+     RETURNING id, slug`
   );
-  const createdId = created.rows[0]?.id;
-  if (!createdId) {
+  const createdRow = created.rows[0];
+  if (!createdRow) {
     throw new Error('ვერ შეიქმნა/მოიძებნა default organization ტესტ-user-ისთვის');
   }
-  return createdId;
+  return createdRow;
 }
 
 /**
@@ -63,9 +69,16 @@ async function getOrCreateDefaultOrganizationId(pool: Pool): Promise<string> {
  * დამოუკიდებელი "smoke" ტესტებისთვის — ამიტომ არ იღებს `organizationId`-ს
  * პარამეტრად. STEP 1-მდე (`users.organization_id` სვეტი არ არსებობს)
  * ორგანიზაციის გარეშე წერს; STEP 1-ის შემდეგ (NOT NULL) ავტომატურად
- * იყენებს `getOrCreateDefaultOrganizationId`-ს — ორივე რეჟიმში იგივე
+ * იყენებს `getOrCreateDefaultOrganization`-ს — ორივე რეჟიმში იგივე
  * ფუნქცია იძახება უცვლელად (STEP 1-2-ის schema-detection-ის იგივე
  * პატერნი, რასაც `schema.ts`/`tenant-isolation.test.ts` მიჰყვება).
+ *
+ * 🏢 Roadmap "24.08.2026" — STEP 7-lite-ის შემდეგ დაბრუნებულ
+ * `SeededUser`-საც `orgSlug` სჭირდება (`login(...)`-ისთვის); STEP
+ * 1-მდე რეჟიმში (`hasOrgColumn === false`) რეალური org საერთოდ არ
+ * არსებობს, ამიტომ იქ `orgSlug` მუდმივი `'default'`-ია — ეს რეჟიმი
+ * ისედაც მხოლოდ ისტორიული fallback-ია, production schema დიდი ხანია
+ * STEP 1-ის მიღმაა.
  */
 export async function seedTestUser(
   pool: Pool,
@@ -74,14 +87,21 @@ export async function seedTestUser(
   const username = `${ISOLATION_TEST_PREFIX}${opts.usernameSuffix}`;
   const passwordHash = await bcrypt.hash(DEFAULT_TEST_PASSWORD, 10);
   const hasOrgColumn = await columnExists(pool, 'users', 'organization_id');
+  const defaultOrg = hasOrgColumn ? await getOrCreateDefaultOrganization(pool) : undefined;
 
+  // ⚠️ Roadmap "24.08.2026" — migration 016-ის შემდეგ `users_name_key`
+  // (გლობალური UNIQUE(name)) აღარ არსებობს — `ON CONFLICT (name)`-ს
+  // აღარაფერი ემთხვევა (Postgres error: "no unique or exclusion
+  // constraint matching the ON CONFLICT specification"). ახალი target
+  // — `uq_users_org_name`-ის იგივე expression, `(organization_id,
+  // LOWER(name))`.
   const result = hasOrgColumn
     ? await pool.query<{ id: string }>(
         `INSERT INTO users (name, password_hash, role, status, requires_password_reset, organization_id)
          VALUES ($1, $2, $3, 'active', false, $4)
-         ON CONFLICT (name) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = EXCLUDED.role, organization_id = EXCLUDED.organization_id
+         ON CONFLICT (organization_id, LOWER(name)) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = EXCLUDED.role
          RETURNING id`,
-        [username, passwordHash, opts.role, await getOrCreateDefaultOrganizationId(pool)]
+        [username, passwordHash, opts.role, defaultOrg!.id]
       )
     : await pool.query<{ id: string }>(
         `INSERT INTO users (name, password_hash, role, status, requires_password_reset)
@@ -96,7 +116,7 @@ export async function seedTestUser(
     throw new Error(`ვერ შეიქმნა ტესტ-user: ${username}`);
   }
 
-  return { id, username, password: DEFAULT_TEST_PASSWORD, role: opts.role };
+  return { id, username, password: DEFAULT_TEST_PASSWORD, role: opts.role, orgSlug: defaultOrg?.slug ?? 'default' };
 }
 
 /**
@@ -111,7 +131,23 @@ export async function seedOrgWithAdmin(
   pool: Pool,
   opts: { readonly orgSuffix: string }
 ): Promise<SeededOrg> {
-  const slug = `${ISOLATION_TEST_PREFIX}${opts.orgSuffix}`;
+  // ⚠️ Roadmap "24.08.2026" — STEP 7-lite: `slug` აქ ადრე პირდაპირ
+  // `${ISOLATION_TEST_PREFIX}${opts.orgSuffix}`-ს უდრიდა — RAW, დაუმუშავებელი
+  // (მაგ. "isolation_test_orgA", ხაზგასმულით და დიდი ასოთი). Production-ის
+  // ერთადერთი org-შემქმნელი ნაკადი (`POST /organizations/register`) კი
+  // ყოველთვის `slugify()`-ს ატარებს (lowercase + `[^a-z0-9]` → `-`), ანუ
+  // production-ის slug ყოველთვის უკვე "სუფთაა". ეს raw ტესტ-slug კი ვერც
+  // `POST /login`-ის `o.slug = LOWER($1)`-ს ემთხვეოდა (LOWER მხოლოდ
+  // ინფუთს ალაგებდა, არა column-ს — column თავად შეიცავდა დიდ ასოს) და
+  // ვერც `GET /organizations/resolve/:slug`-ის `slugify()`-ს (რომელიც
+  // ხაზგასმულს ტირედაც აქცევს) — ორივე შემთხვევაში 404. გასწორდა:
+  // slug აქვე ერთხელ და სამუდამოდ "სუფთავდება" იმავე წესით, რასაც
+  // production-ის slugify() იყენებს — idempotent, ანუ resolve-ის
+  // slugify()-ის ხელახალი გატარებაც იგივე მნიშვნელობას აბრუნებს.
+  const slug = `${ISOLATION_TEST_PREFIX}${opts.orgSuffix}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
   const orgName = `Isolation Test Org ${opts.orgSuffix}`;
 
   const orgResult = await pool.query<{ id: string }>(
@@ -129,10 +165,13 @@ export async function seedOrgWithAdmin(
   const username = `${ISOLATION_TEST_PREFIX}${opts.orgSuffix}_admin`;
   const passwordHash = await bcrypt.hash(DEFAULT_TEST_PASSWORD, 10);
 
+  // ⚠️ Roadmap "24.08.2026" — migration 016-ის შემდეგ per-org target
+  // (`uq_users_org_name`-ის იგივე expression) — იხ. იგივე შენიშვნა
+  // `seedTestUser`-ში.
   const userResult = await pool.query<{ id: string }>(
     `INSERT INTO users (name, password_hash, role, status, requires_password_reset, organization_id)
      VALUES ($1, $2, 'admin', 'active', false, $3)
-     ON CONFLICT (name) DO UPDATE SET password_hash = EXCLUDED.password_hash, organization_id = EXCLUDED.organization_id
+     ON CONFLICT (organization_id, LOWER(name)) DO UPDATE SET password_hash = EXCLUDED.password_hash
      RETURNING id`,
     [username, passwordHash, orgId]
   );
@@ -144,7 +183,7 @@ export async function seedOrgWithAdmin(
   return {
     id: orgId,
     slug,
-    admin: { id: userId, username, password: DEFAULT_TEST_PASSWORD, role: 'admin' },
+    admin: { id: userId, username, password: DEFAULT_TEST_PASSWORD, role: 'admin', orgSlug: slug },
   };
 }
 
@@ -198,18 +237,35 @@ export async function seedOrgProduct(
  * route-ების (POST /shifts/open, POST /payments) ტესტებს კონკრეტული org-ის
  * cashier-role user სჭირდება, `seedOrgWithAdmin`-ის admin საკმარისი არაა
  * (POST /shifts/open მკაცრად `role === 'cashier'`-ს მოითხოვს).
+ *
+ * 🏢 Roadmap "24.08.2026" — STEP 7-lite — `orgSlug` opts-ში აქედან
+ * დაემატა (და არა DB query-ით ამოღებული): გამომძახებელს (ტესტ-ფაილს)
+ * ისედაც აქვს `SeededOrg` (`orgA`/`orgB`) სკოუპში, ამიტომ მისი `.slug`-ის
+ * პირდაპირი გადაცემა ერთ ზედმეტ DB round-trip-ს ზოგავს ყოველ user-ზე.
  */
 export async function seedOrgUser(
   pool: Pool,
-  opts: { readonly organizationId: string; readonly usernameSuffix: string; readonly role: SeededUser['role'] }
+  opts: {
+    readonly organizationId: string;
+    readonly orgSlug: string;
+    readonly usernameSuffix: string;
+    readonly role: SeededUser['role'];
+  }
 ): Promise<SeededUser> {
   const username = `${ISOLATION_TEST_PREFIX}${opts.usernameSuffix}`;
   const passwordHash = await bcrypt.hash(DEFAULT_TEST_PASSWORD, 10);
 
+  // ⚠️ Roadmap "24.08.2026" — migration 016-ის შემდეგ per-org target
+  // (იგივე შენიშვნა `seedTestUser`-ში). ეს ცვლილება ასევე შინაარსობრივად
+  // აუცილებელია: `ON CONFLICT (name)` ძველად შესაძლოა ორ org-ს შორის
+  // "მოეპარა" row (`organization_id = EXCLUDED.organization_id`-ით
+  // გადაეწერა სხვა org-ის მფლობელობა) — STEP 7-lite-ის მთელი მიზანი კი
+  // ზუსტად საწინააღმდეგოა: ორ org-ს დამოუკიდებელი, ერთსახელა user-ები
+  // ჰყავდეთ. ახალი target ამას სტრუქტურულადვე უზრუნველყოფს.
   const result = await pool.query<{ id: string }>(
     `INSERT INTO users (name, password_hash, role, status, requires_password_reset, organization_id)
      VALUES ($1, $2, $3, 'active', false, $4)
-     ON CONFLICT (name) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = EXCLUDED.role, organization_id = EXCLUDED.organization_id
+     ON CONFLICT (organization_id, LOWER(name)) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = EXCLUDED.role
      RETURNING id`,
     [username, passwordHash, opts.role, opts.organizationId]
   );
@@ -218,7 +274,7 @@ export async function seedOrgUser(
     throw new Error(`ვერ შეიქმნა ტესტ-org user: ${username}`);
   }
 
-  return { id, username, password: DEFAULT_TEST_PASSWORD, role: opts.role };
+  return { id, username, password: DEFAULT_TEST_PASSWORD, role: opts.role, orgSlug: opts.orgSlug };
 }
 
 export interface SeededRegister {

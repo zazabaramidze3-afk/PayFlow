@@ -44,8 +44,21 @@ export const authenticateToken = (req: CustomRequest, res: Response, next: NextF
 };
 
 // 🔓 LOGIN ენდპოინტი (ავტორიზაცია)
+// 🏢 Multi-Tenant SaaS — `users.name` per-org unique გახდა (migration 016,
+// Roadmap "24.08.2026", "🔒 გადაწყვეტილება — users.name uniqueness"-ის
+// გაგრძელება) — ანუ ეს query აღარ შეიძლება მხოლოდ username-ით პოულობდეს
+// user-ს (ორ org-ს შეიძლება ჰყავდეს ერთი და იმავე username-ის user).
+// ამიტომ login ახლა მოითხოვს `slug`-საც (frontend-ის ორსაფეხურიანი
+// login-ფლოუს 1-ლი ნაბიჯი, `GET /organizations/resolve/:slug`-ით
+// წინასწარ დადასტურებული) — ჯერ ცალსახად ვპოულობთ org-ს, მერე user-ს
+// ამ org-ის შიგნით. `LIMIT 1`-ის ძველი ambiguity-რისკი ამით საბოლოოდ
+// მოშორებულია.
 router.post('/login', async (req: Request, res: Response) => {
-  const { username, password } = req.body;
+  const { slug, username, password } = req.body;
+
+  if (!slug || typeof slug !== 'string') {
+    return res.status(400).json({ error: 'კომპანიის slug სავალდებულოა!' });
+  }
 
   try {
     // PostgreSQL-ში ვიყენებთ db.query-ს და $1 პარამეტრს
@@ -56,13 +69,15 @@ router.post('/login', async (req: Request, res: Response) => {
     // JOIN-ით, რომ Superadmin-ის Suspend-მა (იხ. platformAdmin.ts PATCH
     // /organizations/:id/status) რეალურად დაბლოკოს login, არა მხოლოდ
     // ბაზაში "დანიშნული" იყოს — ადრე ეს ველი საერთოდ არ მოწმდებოდა login-ზე.
+    // 🔒 `o.slug = LOWER($1)` — ჯერ ცალსახად ვპოულობთ org-ს, მერე user-ს
+    // ამ org-ის შიგნით (Roadmap "24.08.2026", STEP 7-ის წინაპირობა).
     const result = await db.query(
       `SELECT u.id, u.name AS username, u.password_hash, u.role, u.status, u.can_view_history,
               u.requires_password_reset, u.organization_id, o.status AS organization_status, o.name AS organization_name
        FROM users u
        JOIN organizations o ON o.id = u.organization_id
-       WHERE LOWER(u.name) = LOWER($1) LIMIT 1`,
-      [username?.trim()]
+       WHERE o.slug = LOWER($1) AND LOWER(u.name) = LOWER($2) LIMIT 1`,
+      [slug.trim(), username?.trim()]
     );
 
     if (result.rows.length === 0) {

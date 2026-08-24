@@ -10,8 +10,18 @@ interface LoginResult {
   userId?: string;
 }
 
+interface ResolvedOrganization {
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+}
+
 interface LoginProps {
-  onLoginAttempt: (username: string, password: string, callback: (result: LoginResult) => void) => void;
+  // 🏢 Multi-Tenant SaaS — `users.name` per-org unique გახდა (migration 016,
+  // Roadmap "24.08.2026") — login-ს ახლა `slug`-იც სჭირდება (App.tsx-ის
+  // handleLoginAttempt POST /login-ს ამ ველითაც აგზავნის).
+  onLoginAttempt: (slug: string, username: string, password: string, callback: (result: LoginResult) => void) => void;
   // 🔐 საწყისი პაროლის განახლების დასრულების შემდეგ ბექენდი აბრუნებს
   // ჩვეულებრივ login-ტოკენს — ამ callback-ით ვაცნობებთ App.tsx-ს, რომ
   // სესია დაამყაროს (ისე, თითქოს ჩვეულებრივად შემოვიდა).
@@ -21,7 +31,33 @@ interface LoginProps {
   onNavigateToRegister: () => void;
 }
 
+// 🏢 Multi-Tenant SaaS — subdomain routing (STEP 7) ჯერ ვერ ხერხდება
+// (`*.vercel.app`-ზე wildcard subdomain არ მუშაობს, საკუთარი domain-ის
+// მოლოდინშია) — ამ ეტაპზე login ორსაფეხურიანია: 1) კომპანიის slug-ის
+// დადასტურება (`GET /organizations/resolve/:slug`), 2) username/password.
+// Roadmap "24.08.2026", "🔒 გადაწყვეტილება — users.name uniqueness"-ის
+// პირდაპირი გაგრძელება.
+const LAST_SLUG_STORAGE_KEY = 'payflow_last_org_slug';
+
 export default function Login({ onLoginAttempt, onPasswordResetComplete, onNavigateToRegister }: LoginProps) {
+  // 🏢 Step 1 — კომპანიის slug-ის დადასტურება.
+  const [step, setStep] = useState<'slug' | 'credentials'>('slug');
+  const [slugInput, setSlugInput] = useState('');
+  const [slugError, setSlugError] = useState('');
+  const [slugLoading, setSlugLoading] = useState(false);
+  const [resolvedOrg, setResolvedOrg] = useState<ResolvedOrganization | null>(null);
+
+  useEffect(() => {
+    try {
+      const savedSlug = localStorage.getItem(LAST_SLUG_STORAGE_KEY);
+      if (savedSlug) setSlugInput(savedSlug);
+    } catch {
+      // 🛟 localStorage მიუწვდომელია (private-mode და ა.შ.) — უბრალოდ
+      // ცარიელი ველით ვაგრძელებთ, კრიტიკული არაფერია.
+    }
+  }, []);
+
+  // Step 2 — username/password (ჩვეულებრივი credentials).
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -40,8 +76,8 @@ export default function Login({ onLoginAttempt, onPasswordResetComplete, onNavig
   // ღილაკი) თანმიმდევრულად, mount-ზე ჩნდება. `gsap.context` ფარგლავს
   // selector-ს cardRef-ის ქვეშ და cleanup-ზე (`ctx.revert()`) აბრუნებს
   // inline style-ებს — StrictMode-ის double-effect/re-mount-ზეც უსაფრთხოა.
-  // needsReset დამოკიდებულებით ხელახლა ეშვება, რომ პაროლის განახლების
-  // ფორმაზე გადართვისასაც იგივე stagger-რეველი გამეორდეს.
+  // `step`/`needsReset` დამოკიდებულებით ხელახლა ეშვება, რომ ეკრანებს
+  // შორის გადართვისასაც იგივე stagger-ეფექტი გამეორდეს.
   const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -77,15 +113,56 @@ export default function Login({ onLoginAttempt, onPasswordResetComplete, onNavig
       ctx.revert();
       clearTimeout(safetyTimer);
     };
-  }, [needsReset]);
+  }, [step, needsReset]);
+
+  const handleSlugSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSlugError('');
+
+    const trimmedSlug = slugInput.trim().toLowerCase();
+    if (!trimmedSlug) {
+      setSlugError('გთხოვთ ჩაწეროთ კომპანიის subdomain!');
+      return;
+    }
+
+    setSlugLoading(true);
+    try {
+      const response = await axios.get<ResolvedOrganization>(
+        `/api/organizations/resolve/${encodeURIComponent(trimmedSlug)}`
+      );
+      setResolvedOrg(response.data);
+      try {
+        localStorage.setItem(LAST_SLUG_STORAGE_KEY, trimmedSlug);
+      } catch {
+        // 🛟 localStorage მიუწვდომელია — non-critical, ვაგრძელებთ მის გარეშე.
+      }
+      setStep('credentials');
+    } catch (err: any) {
+      setSlugError(err.response?.data?.error || 'კომპანია ვერ მოიძებნა!');
+    } finally {
+      setSlugLoading(false);
+    }
+  };
+
+  const handleChangeCompany = () => {
+    setResolvedOrg(null);
+    setError('');
+    setStep('slug');
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (!resolvedOrg) {
+      // 🛟 თეორიულად ვერ მოხდება (step 'credentials' მხოლოდ resolvedOrg-ის
+      // დადგენის შემდეგ ჩნდება) — უსაფრთხოების ბადედ მაინც ვამოწმებთ.
+      setStep('slug');
+      return;
+    }
     if (!username.trim() || !password) return setError('გთხოვთ შეავსოთ ყველა ველი!');
 
     // ვუგზავნით მონაცემებს App.tsx-ს შესამოწმებლად
-    onLoginAttempt(username, password, (result) => {
+    onLoginAttempt(resolvedOrg.slug, username, password, (result) => {
       if (result.requiresPasswordReset && result.userId) {
         setResetUserId(result.userId);
         setNeedsReset(true);
@@ -133,37 +210,7 @@ export default function Login({ onLoginAttempt, onPasswordResetComplete, onNavig
   return (
     <div className={styles.wrapper}>
       <div className={styles.card} ref={cardRef}>
-        {!needsReset ? (
-          <>
-            <h2 className={styles.title} data-gsap-field>PayFlow</h2>
-            <p className={styles.subtitle} data-gsap-field>სისტემაში შესვლა</p>
-
-            <form onSubmit={handleSubmit} className={styles.form}>
-              <div className={styles.field} data-gsap-field>
-                <label className={styles.label}>მომხმარებელი</label>
-                <input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder="admin, manager ან cashier" className={styles.input} />
-              </div>
-
-              <div className={styles.field} data-gsap-field>
-                <label className={styles.label}>პაროლი</label>
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="ჩაწერეთ 1234" className={styles.input} />
-              </div>
-
-              {error && <p className={styles.error}>⚠️ {error}</p>}
-
-              <button type="submit" className={styles.submitBtn} data-gsap-field>შესვლა</button>
-
-              <button
-                type="button"
-                onClick={onNavigateToRegister}
-                className={styles.registerLink}
-                data-gsap-field
-              >
-                კომპანია არ გაქვთ დარეგისტრირებული? დაარეგისტრირეთ აქ
-              </button>
-            </form>
-          </>
-        ) : (
+        {needsReset ? (
           <>
             <h2 className={styles.title} style={{ fontSize: '18px', lineHeight: 1.4 }} data-gsap-field>
               🔒 უსაფრთხოების წესები: გთხოვთ შეცვალოთ საწყისი პაროლი
@@ -192,6 +239,70 @@ export default function Login({ onLoginAttempt, onPasswordResetComplete, onNavig
                 data-gsap-field
               >
                 {resetLoading ? 'მიმდინარეობს...' : 'პაროლის განახლება და შესვლა'}
+              </button>
+            </form>
+          </>
+        ) : step === 'slug' ? (
+          <>
+            <h2 className={styles.title} data-gsap-field>PayFlow</h2>
+            <p className={styles.subtitle} data-gsap-field>თქვენი კომპანიის subdomain</p>
+
+            <form onSubmit={handleSlugSubmit} className={styles.form}>
+              <div className={styles.field} data-gsap-field>
+                <label className={styles.label}>Subdomain (slug)</label>
+                <input
+                  type="text"
+                  value={slugInput}
+                  onChange={e => setSlugInput(e.target.value)}
+                  placeholder="magaliti-magazia"
+                  className={styles.input}
+                  autoFocus
+                />
+              </div>
+
+              {slugError && <p className={styles.error}>⚠️ {slugError}</p>}
+
+              <button type="submit" disabled={slugLoading} className={styles.submitBtn} data-gsap-field>
+                {slugLoading ? 'მიმდინარეობს...' : 'გაგრძელება'}
+              </button>
+
+              <button
+                type="button"
+                onClick={onNavigateToRegister}
+                className={styles.registerLink}
+                data-gsap-field
+              >
+                კომპანია არ გაქვთ დარეგისტრირებული? დაარეგისტრირეთ აქ
+              </button>
+            </form>
+          </>
+        ) : (
+          <>
+            <h2 className={styles.title} data-gsap-field>{resolvedOrg?.name}</h2>
+            <p className={styles.subtitle} data-gsap-field>სისტემაში შესვლა</p>
+
+            <form onSubmit={handleSubmit} className={styles.form}>
+              <div className={styles.field} data-gsap-field>
+                <label className={styles.label}>მომხმარებელი</label>
+                <input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder="admin, manager ან cashier" className={styles.input} autoFocus />
+              </div>
+
+              <div className={styles.field} data-gsap-field>
+                <label className={styles.label}>პაროლი</label>
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="ჩაწერეთ 1234" className={styles.input} />
+              </div>
+
+              {error && <p className={styles.error}>⚠️ {error}</p>}
+
+              <button type="submit" className={styles.submitBtn} data-gsap-field>შესვლა</button>
+
+              <button
+                type="button"
+                onClick={handleChangeCompany}
+                className={styles.registerLink}
+                data-gsap-field
+              >
+                ← სხვა კომპანია?
               </button>
             </form>
           </>
