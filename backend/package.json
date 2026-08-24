@@ -8,6 +8,7 @@
     "init-db": "npx ts-node src/init-db.ts",
     "migrate": "npx ts-node src/migrate.ts",
     "create-platform-admin": "npx ts-node src/create-platform-admin.ts",
+    "test-migration": "npx ts-node src/test-migration-on-branch.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

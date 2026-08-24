@@ -294,13 +294,15 @@ Frontend-ის ცალკე ვერიფიკაცია (frontend-ს 
 7. ~~PR #3-ის merge-ის გადაწყვეტილება~~ ✅ **დასრულებული — merge commit `115c8ca`**, `main`-ში STEP 1 + STEP 2 (ტიერი 1-5) მთლიანად
 8. ~~Production incident: migration 013 production Neon-ზე~~ ✅ **დასრულებული, 23.08.2026** — იხ. "🚨 Production ინციდენტი" სექცია ზემოთ. Production დადასტურებულია აღდგენილად (login, dashboard, products)
 9. **STEP 2.2 (RLS)** — დამატებითი, defense-in-depth შრე route-level `WHERE organization_id`-ის თავზე (route-scoping უკვე ცალკე საკმარისია production-ისთვის, RLS extra-hardening-ია)
-10. **Neon branch-ის მომზადება** — კვლავ ბლოკილია მომხმარებელზე (Neon API key). ასევე გახდის შესაძლებელს future migration-ების staging-ზე წინასწარ ტესტირებას push-ამდე (იხ. lesson learned production-ინციდენტის სექციაში)
-11. ~~გადაწყვეტილების წერტილი — SaaS vs Multi-Store~~ ✅ **გადაწყვეტილია, 23.08.2026 — SaaS მიმართულება, email platform-wide უნიკალურობით.** `users.name` per-org uniqueness საკითხი კვლავ ღიაა (STEP 2.2/RLS-ის ან ცალკე migration-ის scope) — ახალი registration-ის ნაკადს ამ ეტაპზე არ ბლოკავს, რადგან username-კონფლიქტი 409-ით ინფორმატიულად ბრუნდება.
+10. ~~Neon branch-ის მომზადება~~ ✅ **დასრულებული, ავტომატიზებული, 24.08.2026** — იხ. "🌿 Neon branch-ზე migration-ის ავტომატური ტესტირება" სექცია ქვემოთ.
+11. ~~გადაწყვეტილების წერტილი — SaaS vs Multi-Store~~ ✅ **გადაწყვეტილია, 23.08.2026 — SaaS მიმართულება, email platform-wide უნიკალურობით.** `users.name` per-org uniqueness საკითხი ✅ **დახურულია, 24.08.2026 — განზრახ, დოკუმენტირებული უარი, `users.name` რჩება გლობალურად unique.** იხ. "🔒 გადაწყვეტილება — `users.name` uniqueness" სექცია ქვემოთ.
 12. ~~დოკუმენტირებული, განზრახ გადადებული ხარვეზები (role-restriction: `GET /payments`, export/excel, export/pdf; cashier-impersonation: `syncSingleOfflineReceipt()`)~~ ✅ **დასრულებული, ტესტირებული (34/34), commit `030465c`** — იხ. "✅ დარჩენილი 2 security-ხარვეზი" სექცია ზემოთ. დარჩენილია მხოლოდ: `syncSingleOfflineReceipt()`-ის cashier-impersonation-ის მესამე, უფრო ღრმა ვარიანტი (თუ ოდესმე გამოვლინდება — cross-register/cross-shift ცალკე scenario-ები STEP 2.2-ის (RLS) ფარგლებში შეიძლება საბოლოოდ დაიხუროს) — non-blocking
 13. ~~STEP 3 — კომპანიის Self-Service რეგისტრაცია~~ ✅ **სრულად დასრულებული, ტესტირებული (39/39), commit `9d13855`, push-ილი, migration 014 გატარებული ორივე გარემოში (ლოკალურად + production Neon), ხელით დადასტურებული production-ზეც** — იხ. "✅ STEP 3" სექცია ზემოთ.
 14. **STEP 7 (subdomain routing)** — STEP 3-ის `slug` ველი ჯერ მხოლოდ მონაცემია, რეალური subdomain-ზე routing/tenant-resolution ჯერ არ არსებობს.
 15. ~~Dashboard "დღეს" სტატისტიკის timezone ბაგი~~ ✅ **დასრულებული, 24.08.2026** — იხ. "🐛 Dashboard timezone ბაგი" სექცია ქვემოთ.
 16. ~~STEP 8 — Superadmin Panel~~ ✅ **სრულად დასრულებული, ტესტირებული, deploy-ილი და production-ზე დადასტურებული, 24.08.2026, commit `1a5e911`** — იხ. "✅ STEP 8" სექცია ზემოთ.
+17. ~~`users.name` uniqueness — per-org გახდომის საკითხი~~ ✅ **დახურულია, 24.08.2026, კოდის ცვლილების გარეშე** — იხ. "🔒 გადაწყვეტილება — `users.name` uniqueness" სექცია ქვემოთ.
+18. ~~Neon branch-ზე migration-ის ავტომატური ტესტირება~~ ✅ **დასრულებული, end-to-end დადასტურებული production-ზე ზემოქმედების გარეშე, 24.08.2026** — იხ. "🌿 Neon branch-ზე migration-ის ავტომატური ტესტირება" სექცია ქვემოთ.
 
 დანარჩენი უცვლელად ვალიდურია `ROADMAP - Multi-Tenant SaaS - 16.08.2026.md`-დან.
 
@@ -395,3 +397,80 @@ Frontend-ის ცალკე ვერიფიკაცია (frontend-ს 
 ✅ **Production-ზე ხელით დადასტურებული** (`pay-flow-zet3.vercel.app/admin`): login ახლადშექმნილი Superadmin ანგარიშით, org-სია სწორი სტატისტიკით — **ლოკალურის იდენტური ქცევა**.
 
 ⚠️ **დარჩენილი, მომავალი STEP-ების scope:** ცალკე UI Superadmin ანგარიშების შესაქმნელად (ამ ეტაპზე მხოლოდ CLI), billing/გეგმის მართვა, org-ის სრული წაშლა, უფრო დეტალური audit-ლოგის ფილტრაცია.
+
+---
+
+## 🔒 გადაწყვეტილება — `users.name` uniqueness რჩება გლობალური (არა per-org), 24.08.2026
+
+### კონტექსტი
+
+განახლებული პრიორიტეტების რიგის (item #11-ის ღია დათქმა) ლოგიკური შემდეგი ნაბიჯი ეს იყო — `products.name`-ის migration 013-ის იგივე პატერნით (`UNIQUE(barcode)/(name)` → `UNIQUE(organization_id, barcode)/(organization_id, name)`) `users.name`-ისთვისაც გამეორება, რომ ორ სხვადასხვა org-ს შეძლებოდა ერთი და იმავე admin-username-ის (მაგ. "admin") არჩევა STEP 3-ის (self-service registration) დროს.
+
+### რატომ არ არის ეს "products.name-ის იგივე ფიქსი"
+
+`products.name`-ის per-org unique constraint უსაფრთხოა, რადგან **ყველა** query, რომელიც მასზე დამოკიდებულია (`dupCheck`, `GET /products` და ა.შ.), უკვე ავტორიზებული მოთხოვნაა — JWT-ს (და მასში `organizationId`-ს) უკვე გააჩნია context, სანამ `products.name`-ს საერთოდ ვინმე ეხება.
+
+`users.name` კი განსხვავებულია: `POST /login` (`auth.ts`, ხაზი ~59-66) მომხმარებელს პოულობს **მხოლოდ** `WHERE LOWER(u.name) = LOWER($1) LIMIT 1`-ით — org-ის კონტექსტის გარეშე, რადგან org-ი (და მისი JWT) სწორედ ამ query-ის შედეგადაა მისაღები (chicken-and-egg). Login ფორმას ამჟამად მხოლოდ ერთი ველი აქვს — username + password, კომპანიის იდენტიფიკატორის გარეშე.
+
+თუ `users.name`-ს per-org unique გავხდიდით constraint-ის დონეზე, ეს **არ** მოაგვარებდა რეალურ პრობლემას — მხოლოდ დაშვებდა ორ org-ს ერთი და იმავე username-ის ქონას, `POST /login`-ის query კი კვლავ `LIMIT 1`-ს დაუბრუნებდა შემთხვევით ერთ-ერთს ორივედან. ესეც სახიფათო რომ არა (რომელი org-ის admin შედის, დამოკიდებული იქნებოდა row-order-ზე/`created_at`-ზე, არა მომხმარებლის განზრახვაზე), password-ის `bcrypt.compare`-იც მხოლოდ ერთ candidate-row-ს შეამოწმებდა — ანუ **სწორ org-ში სწორ password-ითაც კი login ვერ გაივლიდა**, თუ query-მ არასწორი org-ის იგივე-username row აარჩია.
+
+### გადაწყვეტილება (`AskUserQuestion`-ით დაზუსტებული)
+
+3 ვარიანტი დაისვა (products.name-ის იგივე per-org migration; per-org + login-ზე company-slug ველის დამატება; per-org + login მხოლოდ email-ით admin-ისთვის) — **მომხმარებელმა აირჩია სტატუს-კვოს შენარჩუნება**: `users.name` რჩება **გლობალურად unique** (`users_name_key`, migration 001-იდან, უცვლელი).
+
+**რატომ ეს გონივრულია, არა უბრალოდ "გადადება":**
+- ეს არ ბლოკავს არცერთ არსებულ ნაკადს — STEP 3-ის registration უკვე მეგობრულად აბრუნებს 409-ს დაკავებული username-ის შემთხვევაში (`organizations.ts`, ხაზი 112-115 + 23505 fallback).
+- ალტერნატივები (login-ზე company-slug ველის დამატება, ან email-ზე დაფუძნებული login) ორივე მოითხოვდა login-ის ფლოუს/UI-ს გადაკეთებას — risk/scope რეალურ პრობლემასთან (username-კონფლიქტის onboarding-friction) შედარებით არაპროპორციულია STEP 7-მდე (subdomain routing), რომლის ფარგლებშიც ბუნებრივად გაჩნდება org-disambiguation მექანიზმი login-ისთვის (subdomain-ის მიხედვით).
+- `users.name`-ის გლობალური uniqueness-ი რეალურად **იცავს** login-ის ამჟამინდელ, მარტივ (username+password) მოდელს — ambiguity-ს არქიტექტურულადვე გამორიცხავს, `LIMIT 1`-ის საფრთხის გარეშე.
+
+### შედეგი
+
+**კოდის ცვლილება არ განხორციელებულა.** `users_name_key` (global UNIQUE) უცვლელი რჩება. საკითხი ხელახლა უნდა გადაისინჯოს STEP 7-ის (subdomain routing) ფარგლებში, როცა login-ს ისედაც დასჭირდება org-resolution მექანიზმი (subdomain/slug-ის საშუალებით) — მხოლოდ მაშინ იქნება უსაფრთხო `users.name`-ის per-org დაშვება, რადგან login-ს მანამდე უკვე ექნება org-context, `POST /login`-ის query-ს კი დაემატება `AND organization_id = $2`.
+
+---
+
+## 🌿 Neon branch-ზე migration-ის ავტომატური ტესტირება, 24.08.2026
+
+### კონტექსტი
+
+განახლებული პრიორიტეტების რიგის item #10 — "🚨 Production ინციდენტი" სექციის lesson learned-ის პირდაპირი გაგრძელება: 23.08-ის production crash-ის root cause ის იყო, რომ migration 013 არასდროს გატესტილა production-ის რეალურ schema-ზე push-ამდე, მხოლოდ ლოკალურად. ამ ხარვეზის სტრუქტურული (არა მხოლოდ "მომავალში ყურადღებით ვიყოთ"-ტიპის) გადაწყვეტა იყო მიზანი.
+
+### აღმოჩენა — network egress შეზღუდვა
+
+სანამ ავტომატიზაციაზე გადავიდოდით, დადასტურდა, რომ **არც Claude-ის cloud sandbox-ს, არც device_bash-ის (მომხმარებლის კომპიუტერზე მომუშავე) sandbox-ს არ აქვს ქსელური წვდომა Neon API-სთან** (`api.neon.tech`/`console.neon.tech`) — ორივე მხრიდან timeout/no-network დადასტურდა ცხადად. ეს ორგანიზაციის/ანგარიშის egress allowlist-ის შეზღუდვაა.
+
+**გადაწყვეტილება (მომხმარებელთან განხილვის შემდეგ):** სკრიპტი დაიწერა ისე, რომ **მომხმარებელმა თავად გაუშვას საკუთარი ტერმინალიდან** (VS Code-ში), სადაც ჩვეულებრივი, შეუზღუდავი ინტერნეტია — Claude ვერ იძახებს ამ სკრიპტს პირდაპირ, მაგრამ სკრიპტი თავად სრულად ავტომატიზებულია (ერთი command, არა ხელით Neon console-ში click-through).
+
+### რა აშენდა
+
+**`backend/src/test-migration-on-branch.ts`** — Neon API-ს (`console.neon.tech/api/v2`) გამოყენებით:
+1. პოულობს parent branch-ს (`NEON_PARENT_BRANCH`, default `"production"`).
+2. ქმნის დროებით child branch-ს production-იდან (copy-on-write, production-ის მონაცემებს/performance-ს არ ეხება).
+3. Neon-ის ასინქრონული ოპერაციების (`operations`) დასრულებას პოლინგავს, სანამ endpoint არ იქნება მზად.
+4. connection URI-ს იღებს (`/connection_uri` endpoint, branch-ის database/role-იდან).
+5. მითითებულ ერთ migration ფაილს უშვებს ამ branch-ზე (`pg`-ით, `db.ts`-ის იგივე SSL კონვენცია).
+6. sanity-შემოწმებას სვამს (public schema-ს ცხრილების სია).
+7. შლის დროებით branch-ს (`--keep`-ით შეიძლება დატოვო ხელით შესამოწმებლად, connection string-იც იბეჭდება).
+
+**`backend/package.json`** — `npm run test-migration -- <ფაილი.sql> [--keep]`.
+**`backend/.env.example`** — ახალი, დოკუმენტაციისთვის (`NEON_API_KEY`/`NEON_PROJECT_ID`/`NEON_PARENT_BRANCH`-ის სახელები, ცარიელი მნიშვნელობებით — `.gitignore`-ით ერთადერთი `.env*` ფაილი, რომელიც commit-დება).
+
+### Setup (მომხმარებლის მხრიდან)
+
+- `NEON_API_KEY` — console.neon.tech → Account settings → API keys → "Create new API key" (Free plan-ზე account-wide, project-scope არჩევანი არ ჩანდა).
+- `NEON_PROJECT_ID` — `rough-lake-28754800` (ჩანს პირდაპირ console.neon.tech-ის URL-ში).
+- `NEON_PARENT_BRANCH=production`.
+
+ორივე ველი `backend/.env`-ში ჩაიწერა (chat-ში არასდროს გამოჩენილა რეალური მნიშვნელობა, `.env` `.gitignore`-ით დაცულია).
+
+⚠️ **ინციდენტი setup-ის დროს:** მომხმარებელმა პირველად "Connect to your branch" მოდალიდან Postgres connection string ჩააკოპირა `NEON_API_KEY`-ის ადგილას (არასწორი მნიშვნელობა — connection string ≠ API key), screenshot-ის საშუალებით ეს რეალური production DB პაროლიც გამოჩნდა chat-ში. რეკომენდირებული იყო role-ის პაროლის reset (Neon console-ის "Reset password") სიფრთხილისთვის — სწორი, ცალკე API key ბოლოს "Account settings → API keys"-იდან დაგენერირდა.
+
+### ვერიფიკაცია (რეალური გაშვება, მომხმარებლის ტერმინალიდან)
+
+`npm run test-migration -- 014_add_users_email.sql` — სრული ციკლი წარმატებით: parent branch ნაპოვნია (`production`, `br-polished-sunset-a2cyz4i4`) → დროებითი branch შეიქმნა და endpoint მზად გახდა (`br-plain-meadow-a2c86ik3`) → connection string აღებულია → migration გაეშვა და **მოსალოდნელად** დაეჯახა თავისივე idempotency-გუარდს ("Migration 014 უკვე გატარებულია" — migration 014 უკვე ერთხელაა production-ზე გატარებული, ანუ branch ზუსტად production-ის მდგომარეობას ასახავდა) → branch წარმატებით წაიშალა.
+
+ეს დადასტურებულია, როგორც **სრული success ამ ტესტისთვის** — თავად "migration ჩავარდა"-ს მოსალოდნელობა (უკვე გატარებული migration-ისთვის) სწორედ იმის მტკიცებულებაა, რომ branch production-ის ზუსტი ასლია და მთელი ავტომატიზაცია (create → connect → run → cleanup) გამართულია. Production-ს არაფერი შეხებია.
+
+### შედეგი
+
+STEP 2.2-ის (RLS) გარდა, roadmap-ის ყველა დანარჩენი ღია პუნქტი ამ სესიით დაიხურა. მომავალი ნებისმიერი migration (STEP 7-ის subdomain-routing-ის, ან სხვა) ახლა შეიძლება უსაფრთხოდ გატესტდეს production-ის ასლზე, push/production-migration-ამდე — ზუსტად ის პროცესის ხარვეზი, რომელმაც 23.08-ის ინციდენტი გამოიწვია, ახლა დახურულია.
