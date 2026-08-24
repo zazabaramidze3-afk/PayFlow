@@ -12,9 +12,19 @@ import path from 'path';
 // POST /payments/sync-offline) ცალკე, გამორჩეული PoolClient-ია საჭირო —
 // pool.query() ყოველ გამოძახებაზე შემთხვევით connection-ს იღებს, SAVEPOINT
 // კი ერთსა და იმავე connection-ზეა "მიბმული".
-import { Pool, PoolClient } from 'pg';
-// შემოგვაქვს მზა PostgreSQL პული ძირითადი ფაილიდან
-import { db } from '../index';
+import { PoolClient } from 'pg';
+// 🔒 Roadmap STEP 2.2 (RLS Pilot, "24.08.2026") — `withOrgContext` ცვლის
+// ამ ფაილში ყველა წინანდელ `db.query(...)`-ს (პირდაპირ shared pool-ზე).
+// RLS-ს (migration 017) სჭირდება `app.current_org_id`, კონკრეტულ
+// connection-ზე/ტრანზაქციაზე დაყენებული — `withOrgContext` ამას
+// უზრუნველყოფს ცხადი BEGIN/`set_config(..., true)`/COMMIT-ტრანზაქციით
+// (იხ. `backend/src/db.ts`-ის დეტალური კომენტარი). ეს ამავდროულად
+// აგვარებს დამოუკიდებელ, უკვე არსებულ ბაგსაც: POST /payments-სა და POST
+// /payments/:id/void-ს ადრე `db.query('BEGIN')`/`COMMIT`/`ROLLBACK`
+// ჰქონდათ **პირდაპირ pool-ზე** (არა dedicated client-ზე) — ტრანზაქციის
+// უსაფრთხოება ტექნიკურად გარანტირებული არ იყო (pool-ს connection-ის
+// გაცემა/დაბრუნება შეეძლო სტატემენტებს შორის).
+import { withOrgContext } from '../db';
 import { authenticateToken, writeAuditLog } from './auth';
 import { checkActiveShift, CustomRequest } from './checkShift';
 import {
@@ -33,6 +43,29 @@ import { requireRegister } from '../middleware/registerAuth';
 import { OfflineSyncReceiptItem, OfflineSyncReceiptPayload, OfflineSyncResult } from '../types';
 
 const router = Router();
+
+// ==========================================
+// 🔒 HttpError — Roadmap STEP 2.2 (RLS Pilot, "24.08.2026")
+// ==========================================
+// `withOrgContext`-ის callback-ის შიგნით validation-ტიპის შეცდომებს
+// (400/403/404) ისე ისვრის, რომ გარეთა catch-ბლოკმა იცოდეს — საჭიროა
+// თუ არა 500-ის ნაცვლად სხვა status-კოდი. `body`-ში ზუსტად ის JSON
+// inline ინახავს, რასაც ეს route ორიგინალურად აბრუნებდა (ზოგი route
+// `{ message }`-ს იყენებდა, ზოგი — `{ error }`-ს) — refactor-მა
+// response-ის ფორმა არცერთ endpoint-ზე არ უნდა შეცვალოს.
+class HttpError extends Error {
+  public readonly statusCode: number;
+  public readonly body: Record<string, unknown>;
+
+  constructor(statusCode: number, body: Record<string, unknown>) {
+    const message =
+      typeof body.message === 'string' ? body.message : typeof body.error === 'string' ? body.error : 'შეცდომა';
+    super(message);
+    this.name = 'HttpError';
+    this.statusCode = statusCode;
+    this.body = body;
+  }
+}
 
 // ==========================================
 // 🕐 Client-Side Timestamp Audit — Roadmap STEP 1.4
@@ -70,11 +103,12 @@ function formatDbTimestamp(date: Date): string {
 // ==========================================
 
 // ა) ცვლის სტატუსის შემოწმება (მიმდინარე მოლარისთვის)
+// 🔒 STEP 2.2 (RLS Pilot) — `withOrgContext`-ში გადატანილია, `shifts`-ზე
+// RLS ჩართულია (migration 017).
 router.get('/shifts/status', authenticateToken, async (req: CustomRequest, res: Response) => {
   try {
-    const result = await db.query(
-      `SELECT * FROM shifts WHERE cashier_id = $1 AND status = 'open' LIMIT 1`,
-      [req.user?.id]
+    const result = await withOrgContext(req.user?.organizationId, (client) =>
+      client.query(`SELECT * FROM shifts WHERE cashier_id = $1 AND status = 'open' LIMIT 1`, [req.user?.id])
     );
 
     if (result.rows.length === 0) {
@@ -90,6 +124,8 @@ router.get('/shifts/status', authenticateToken, async (req: CustomRequest, res: 
 // ბ) ახალი ცვლის გახსნა
 // 🖥️ Roadmap STEP 2.1 — requireRegister აუცილებელია: ცვლის "Per Register"
 // იზოლაცია ვერ იმუშავებს, თუ არ ვიცით, რომელ ფიზიკურ სალაროზეა მოთხოვნა.
+// 🔒 STEP 2.2 (RLS Pilot) — ორივე შემოწმება + INSERT ერთ `withOrgContext`
+// ტრანზაქციაშია გაერთიანებული (ადრე სამი ცალკე, ავტოკომიტ query იყო).
 router.post('/shifts/open', authenticateToken, requireRegister, async (req: CustomRequest, res: Response) => {
   if (req.user?.role !== 'cashier') {
     return res.status(403).json({ message: "ცვლის გახსნა შეუძლია მხოლოდ მოლარეს" });
@@ -101,70 +137,75 @@ router.post('/shifts/open', authenticateToken, requireRegister, async (req: Cust
   }
 
   try {
-    // 🖥️ STEP 2.1 — "მხოლოდ ერთი აქტიური Shift" წესი ორ დონეზე მოწმდება:
-    //   (ა) ამ კონკრეტულ Register-ზე უკვე არავის აქვს ღია ცვლა (სხვადასხვა
-    //       ფიზიკურ Register-ზე კი პარალელურად რამდენიმე მოლარეს შეუძლია);
-    //   (ბ) ამ მოლარეს (ადამიანს) არ აქვს სხვა Register-ზეც ღია ცვლა —
-    //       ერთ ადამიანს ერთდროულად ორ სალაროზე ყოფნა ლოგიკურად არ შეიძლება.
-    const registerCheck = await db.query(
-      `SELECT id, cashier_id FROM shifts WHERE register_id = $1 AND status = 'open' LIMIT 1`,
-      [req.registerId]
-    );
+    const shiftId = await withOrgContext(req.user?.organizationId, async (client) => {
+      // 🖥️ STEP 2.1 — "მხოლოდ ერთი აქტიური Shift" წესი ორ დონეზე მოწმდება:
+      //   (ა) ამ კონკრეტულ Register-ზე უკვე არავის აქვს ღია ცვლა (სხვადასხვა
+      //       ფიზიკურ Register-ზე კი პარალელურად რამდენიმე მოლარეს შეუძლია);
+      //   (ბ) ამ მოლარეს (ადამიანს) არ აქვს სხვა Register-ზეც ღია ცვლა —
+      //       ერთ ადამიანს ერთდროულად ორ სალაროზე ყოფნა ლოგიკურად არ შეიძლება.
+      const registerCheck = await client.query(
+        `SELECT id, cashier_id FROM shifts WHERE register_id = $1 AND status = 'open' LIMIT 1`,
+        [req.registerId]
+      );
 
-    if (registerCheck.rows.length > 0) {
-      const existing = registerCheck.rows[0];
-      const message = existing.cashier_id !== req.user?.id
-        ? "ეს სალარო უკვე დაკავებულია — სხვა მოლარეს აქვს ღია ცვლა. დაელოდეთ მის დახურვას."
-        : "თქვენ უკვე გაქვთ გახსნილი ცვლა ამ სალაროზე";
-      return res.status(400).json({ message });
-    }
+      if (registerCheck.rows.length > 0) {
+        const existing = registerCheck.rows[0];
+        const message = existing.cashier_id !== req.user?.id
+          ? "ეს სალარო უკვე დაკავებულია — სხვა მოლარეს აქვს ღია ცვლა. დაელოდეთ მის დახურვას."
+          : "თქვენ უკვე გაქვთ გახსნილი ცვლა ამ სალაროზე";
+        throw new HttpError(400, { message });
+      }
 
-    const cashierCheck = await db.query(
-      `SELECT id FROM shifts WHERE cashier_id = $1 AND status = 'open' LIMIT 1`,
-      [req.user?.id]
-    );
+      const cashierCheck = await client.query(
+        `SELECT id FROM shifts WHERE cashier_id = $1 AND status = 'open' LIMIT 1`,
+        [req.user?.id]
+      );
 
-    if (cashierCheck.rows.length > 0) {
-      return res.status(400).json({ message: "თქვენ უკვე გაქვთ გახსნილი ცვლა სხვა სალაროზე" });
-    }
+      if (cashierCheck.rows.length > 0) {
+        throw new HttpError(400, { message: "თქვენ უკვე გაქვთ გახსნილი ცვლა სხვა სალაროზე" });
+      }
 
-    // 🩹 FIX (16.08) — ადრე TO_CHAR(CURRENT_TIMESTAMP, ...) იყენებდა Postgres
-    // სერვერის default timezone-ს (Neon-ზე UTC), ხოლო PUT /shifts/close ქვემოთ
-    // ცხადად Asia/Tbilisi-ზე კონვერტირებულ დროს ინახავს (`new Date().toLocaleString(...,
-    // { timeZone: 'Asia/Tbilisi' })`). შედეგად Manager Dashboard-ის "მოლარეების
-    // ცვლები" ცხრილში opened_at ~4 საათით ჩამორჩებოდა closed_at-ს (UTC vs
-    // UTC+4). `AT TIME ZONE 'Asia/Tbilisi'` აქაც იმავე კონვენციაზე გადმოჰყავს.
-    // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 5 (Roadmap "23.08.2026") —
-    // **write-blocker fix**: migration 013-ის შემდეგ `shifts.organization_id`
-    // NOT NULL-ია — ამის გარეშე ეს INSERT 500-ით ჩავარდებოდა, ანუ "ცვლის
-    // გახსნა" (POS-ის სამუშაო ციკლის პირველი ნაბიჯი) საერთოდ არ იმუშავებდა
-    // STEP 1-ის production-ზე merge-ის შემდეგ. `requireRegister`-მა უკვე
-    // დაადასტურა (ზემოთ, registerAuth.ts), რომ req.registerId ამ user-ის
-    // საკუთარ org-ს ეკუთვნის.
-    const insertQuery = `
-      INSERT INTO shifts (cashier_id, register_id, start_amount, status, opened_at, organization_id)
-      VALUES ($1, $2, $3, 'open', TO_CHAR(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi', 'YYYY-MM-DD HH24:MI:SS'), $4)
-      RETURNING id
-    `;
-    const insertResult = await db.query(insertQuery, [req.user?.id, req.registerId, start_amount, req.user?.organizationId]);
+      // 🩹 FIX (16.08) — ადრე TO_CHAR(CURRENT_TIMESTAMP, ...) იყენებდა Postgres
+      // სერვერის default timezone-ს (Neon-ზე UTC), ხოლო PUT /shifts/close ქვემოთ
+      // ცხადად Asia/Tbilisi-ზე კონვერტირებულ დროს ინახავს (`new Date().toLocaleString(...,
+      // { timeZone: 'Asia/Tbilisi' })`). შედეგად Manager Dashboard-ის "მოლარეების
+      // ცვლები" ცხრილში opened_at ~4 საათით ჩამორჩებოდა closed_at-ს (UTC vs
+      // UTC+4). `AT TIME ZONE 'Asia/Tbilisi'` აქაც იმავე კონვენციაზე გადმოჰყავს.
+      // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 5 (Roadmap "23.08.2026") —
+      // **write-blocker fix**: migration 013-ის შემდეგ `shifts.organization_id`
+      // NOT NULL-ია — ამის გარეშე ეს INSERT 500-ით ჩავარდებოდა, ანუ "ცვლის
+      // გახსნა" (POS-ის სამუშაო ციკლის პირველი ნაბიჯი) საერთოდ არ იმუშავებდა
+      // STEP 1-ის production-ზე merge-ის შემდეგ. `requireRegister`-მა უკვე
+      // დაადასტურა (ზემოთ, registerAuth.ts), რომ req.registerId ამ user-ის
+      // საკუთარ org-ს ეკუთვნის.
+      const insertQuery = `
+        INSERT INTO shifts (cashier_id, register_id, start_amount, status, opened_at, organization_id)
+        VALUES ($1, $2, $3, 'open', TO_CHAR(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi', 'YYYY-MM-DD HH24:MI:SS'), $4)
+        RETURNING id
+      `;
+      const insertResult = await client.query(insertQuery, [req.user?.id, req.registerId, start_amount, req.user?.organizationId]);
+      return insertResult.rows[0].id;
+    });
 
-    res.status(201).json({ message: "ცვლა გაიხსნა", shiftId: insertResult.rows[0].id });
+    res.status(201).json({ message: "ცვლა გაიხსნა", shiftId });
   } catch (err: any) {
+    if (err instanceof HttpError) return res.status(err.statusCode).json(err.body);
     res.status(500).json({ error: err.message });
   }
 });
 
 // 💰 ერთი ცვლის ნაღდი/ბარათის ჯამების + ჩეკების რაოდენობის გამოთვლა —
 // ერთი წყარო PUT /shifts/close-სთვისაც და Migration 012-ის late-sync
-// reconciliation-ისთვისაც (syncSingleOfflineReceipt, ქვემოთ). `Pool |
-// PoolClient` — close ცალკე pool.query()-ს იყენებს, reconciliation კი
-// უკვე გახსნილი SAVEPOINT-ის PoolClient-ს (იხ. ფაილის თავში კომენტარი
-// SAVEPOINT-ების საჭიროებაზე).
+// reconciliation-ისთვისაც (syncSingleOfflineReceipt, ქვემოთ).
+// 🔒 STEP 2.2 (RLS Pilot) — ხელმოწერა გამარტივდა `Pool | PoolClient` →
+// მხოლოდ `PoolClient`: ორივე caller ახლა `withOrgContext`-ის მიერ
+// მოწოდებულ dedicated client-ს იყენებს (ადრე PUT /shifts/close პირდაპირ
+// shared pool-ს (`db`) გადასცემდა).
 async function computeShiftTotals(
-  queryable: Pool | PoolClient,
+  client: PoolClient,
   shiftId: string
 ): Promise<{ total_cash: number; total_card: number; receipt_count: number }> {
-  const salesSumResult = await queryable.query(
+  const salesSumResult = await client.query(
     `SELECT
        COALESCE(SUM(CASE WHEN p.payment_method = 'cash' THEN p.total_amount ELSE 0 END), 0)
          + COALESCE((
@@ -194,6 +235,7 @@ async function computeShiftTotals(
 }
 
 // გ) ცვლის დახურვა
+// 🔒 STEP 2.2 (RLS Pilot) — `withOrgContext`-ში გადატანილია.
 router.put('/shifts/close', authenticateToken, async (req: CustomRequest, res: Response) => {
   const { end_amount_actual } = req.body;
 
@@ -202,72 +244,76 @@ router.put('/shifts/close', authenticateToken, async (req: CustomRequest, res: R
   }
 
   try {
-    const shiftResult = await db.query(
-      `SELECT * FROM shifts WHERE cashier_id = $1 AND status = 'open' LIMIT 1`,
-      [req.user?.id]
-    );
+    const responseData = await withOrgContext(req.user?.organizationId, async (client) => {
+      const shiftResult = await client.query(
+        `SELECT * FROM shifts WHERE cashier_id = $1 AND status = 'open' LIMIT 1`,
+        [req.user?.id]
+      );
 
-    if (shiftResult.rows.length === 0) {
-      return res.status(400).json({ message: "აქტიური ცვლა ვერ მოიძებნა" });
-    }
+      if (shiftResult.rows.length === 0) {
+        throw new HttpError(400, { message: "აქტიური ცვლა ვერ მოიძებნა" });
+      }
 
-    const shift = shiftResult.rows[0];
+      const shift = shiftResult.rows[0];
 
-    // 🧾 FIX (Roadmap ეტაპი 4): გაუქმებული ჩეკები (is_voided = true) აღარ უნდა
-    // ერთვებოდეს მოსალოდნელ ნაღდ ფულში — მარაგიც უკან დაბრუნდა POST /:id/void-ზე,
-    // ფულადი შემოსავალიც ფაქტობრივად აღარ არსებობს. წინააღმდეგ შემთხვევაში Z-Report-ის
-    // "მოსალოდნელი" თანხა გაუქმებული ჩეკის ღირებულებასაც ითვლიდა რეალურად მიღებულად.
-    // 🖨 receipt_count დაემატა Roadmap ეტაპი 7-ისთვის — Z-Report ბეჭდვას (PrintableZReport)
-    // სჭირდება "გაყიდული ჩეკების რაოდენობა", იმავე is_voided-ფილტრით.
-    //
-    // 💰 FIX (Roadmap ეტაპი 8): total_cash აქამდე SUM(total_amount)-ს იღებდა
-    // ყოველგვარი payment_method-ის დიფერენციაციის გარეშე — ანუ ბარათით
-    // გადახდილი ჩეკიც ისე ითვლებოდა, თითქოს ფიზიკურად სალაროში ნაღდი ფული
-    // შესულიყო. ახლა "მოსალოდნელი" ნაღდი ფული ითვლის მხოლოდ:
-    //   • payment_method = 'cash' ჩეკების სრულ თანხას, პლუს
-    //   • payment_method = 'split' ჩეკებიდან მხოლოდ payment_splits.method = 'cash' ნაწილს.
-    // payment_method = 'card' საერთოდ არ ერთვება — ეს ფული სალაროში არასდროს
-    // შედის, ბანკის ანგარიშზე მიდის. total_card ცალკე ემატება response-ს
-    // (არსებულს არაფერს არ ცვლის) — მომავალში Z-Report ეკრანზეც გამოსაჩენად.
-    //
-    // 🧾 FIX (Migration 012): აქამდე receipt_count/total_card მხოლოდ ამ
-    // response-ში ითვლებოდა და არსად ინახებოდა — თუ მოგვიანებით late-sync
-    // reconciliation-მა (syncSingleOfflineReceipt) ეს ცვლა შეცვალა,
-    // Manager Dashboard-ს (Dashboard.tsx-ის "მოლარეების ცვლები" ცხრილს)
-    // Z-Report-ის ხელახლა დასაბეჭდად receipt_count/card_total-იც სჭირდება,
-    // არა მხოლოდ end_amount_expected/difference — ამიტომ ახლა shifts
-    // row-შიც ვინახავთ, ცალკე computeShiftTotals()-ის საშუალებით.
-    const { total_cash, total_card, receipt_count } = await computeShiftTotals(db, shift.id);
-    const end_amount_expected = shift.start_amount + total_cash;
-    const difference = Number(end_amount_actual) - end_amount_expected;
+      // 🧾 FIX (Roadmap ეტაპი 4): გაუქმებული ჩეკები (is_voided = true) აღარ უნდა
+      // ერთვებოდეს მოსალოდნელ ნაღდ ფულში — მარაგიც უკან დაბრუნდა POST /:id/void-ზე,
+      // ფულადი შემოსავალიც ფაქტობრივად აღარ არსებობს. წინააღმდეგ შემთხვევაში Z-Report-ის
+      // "მოსალოდნელი" თანხა გაუქმებული ჩეკის ღირებულებასაც ითვლიდა რეალურად მიღებულად.
+      // 🖨 receipt_count დაემატა Roadmap ეტაპი 7-ისთვის — Z-Report ბეჭდვას (PrintableZReport)
+      // სჭირდება "გაყიდული ჩეკების რაოდენობა", იმავე is_voided-ფილტრით.
+      //
+      // 💰 FIX (Roadmap ეტაპი 8): total_cash აქამდე SUM(total_amount)-ს იღებდა
+      // ყოველგვარი payment_method-ის დიფერენციაციის გარეშე — ანუ ბარათით
+      // გადახდილი ჩეკიც ისე ითვლებოდა, თითქოს ფიზიკურად სალაროში ნაღდი ფული
+      // შესულიყო. ახლა "მოსალოდნელი" ნაღდი ფული ითვლის მხოლოდ:
+      //   • payment_method = 'cash' ჩეკების სრულ თანხას, პლუს
+      //   • payment_method = 'split' ჩეკებიდან მხოლოდ payment_splits.method = 'cash' ნაწილს.
+      // payment_method = 'card' საერთოდ არ ერთვება — ეს ფული სალაროში არასდროს
+      // შედის, ბანკის ანგარიშზე მიდის. total_card ცალკე ემატება response-ს
+      // (არსებულს არაფერს არ ცვლის) — მომავალში Z-Report ეკრანზეც გამოსაჩენად.
+      //
+      // 🧾 FIX (Migration 012): აქამდე receipt_count/total_card მხოლოდ ამ
+      // response-ში ითვლებოდა და არსად ინახებოდა — თუ მოგვიანებით late-sync
+      // reconciliation-მა (syncSingleOfflineReceipt) ეს ცვლა შეცვალა,
+      // Manager Dashboard-ს (Dashboard.tsx-ის "მოლარეების ცვლები" ცხრილს)
+      // Z-Report-ის ხელახლა დასაბეჭდად receipt_count/card_total-იც სჭირდება,
+      // არა მხოლოდ end_amount_expected/difference — ამიტომ ახლა shifts
+      // row-შიც ვინახავთ, ცალკე computeShiftTotals()-ის საშუალებით.
+      const { total_cash, total_card, receipt_count } = await computeShiftTotals(client, shift.id);
+      const end_amount_expected = shift.start_amount + total_cash;
+      const difference = Number(end_amount_actual) - end_amount_expected;
 
-    const closedAt = new Date().toLocaleString('en-US', { timeZone: 'Asia/Tbilisi', hour12: false });
+      const closedAt = new Date().toLocaleString('en-US', { timeZone: 'Asia/Tbilisi', hour12: false });
 
-    const updateQuery = `
-      UPDATE shifts
-      SET status = 'closed',
-          closed_at = $1,
-          end_amount_expected = $2,
-          end_amount_actual = $3,
-          difference = $4,
-          receipt_count = $5,
-          card_total = $6
-      WHERE id = $7
-    `;
-    await db.query(updateQuery, [closedAt, end_amount_expected, end_amount_actual, difference, receipt_count, total_card, shift.id]);
+      const updateQuery = `
+        UPDATE shifts
+        SET status = 'closed',
+            closed_at = $1,
+            end_amount_expected = $2,
+            end_amount_actual = $3,
+            difference = $4,
+            receipt_count = $5,
+            card_total = $6
+        WHERE id = $7
+      `;
+      await client.query(updateQuery, [closedAt, end_amount_expected, end_amount_actual, difference, receipt_count, total_card, shift.id]);
 
-    res.json({
-      message: "ცვლა დაიხურა",
-      start: shift.start_amount,
-      expected: end_amount_expected,
-      actual: Number(end_amount_actual),
-      difference,
-      receiptCount: receipt_count,
-      // 💰 Roadmap ეტაპი 8 — დამატებითი ველი, არსებულს არაფერს არ ცვლის.
-      cardTotal: total_card,
+      return {
+        message: "ცვლა დაიხურა",
+        start: shift.start_amount,
+        expected: end_amount_expected,
+        actual: Number(end_amount_actual),
+        difference,
+        receiptCount: receipt_count,
+        // 💰 Roadmap ეტაპი 8 — დამატებითი ველი, არსებულს არაფერს არ ცვლის.
+        cardTotal: total_card,
+      };
     });
 
+    res.json(responseData);
   } catch (err: any) {
+    if (err instanceof HttpError) return res.status(err.statusCode).json(err.body);
     res.status(500).json({ error: err.message });
   }
 });
@@ -283,6 +329,7 @@ router.put('/shifts/close', authenticateToken, async (req: CustomRequest, res: R
 // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 4 (Roadmap "23.08.2026") —
 // `AND s.organization_id = $1` დაემატა. `req: any` → `req: CustomRequest`
 // (org-ის წვდომისთვის საჭირო).
+// 🔒 STEP 2.2 (RLS Pilot) — `withOrgContext`-ში გადატანილია.
 router.get('/shifts/history', authenticateToken, async (req: CustomRequest, res: Response) => {
   if (req.user?.role === 'cashier') return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
 
@@ -295,7 +342,9 @@ router.get('/shifts/history', authenticateToken, async (req: CustomRequest, res:
   `;
 
   try {
-    const result = await db.query(query, [req.user?.organizationId]);
+    const result = await withOrgContext(req.user?.organizationId, (client) =>
+      client.query(query, [req.user?.organizationId])
+    );
     res.json(result.rows);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -400,13 +449,19 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
   // არა აქვს, მაგრამ POST /api/auth/verify-manager-pin-იდან მიღებული
   // X-Manager-Override: Bearer <token> ჰედერი ვალიდურია (ხელმოწერა+ვადა+
   // cashierId ემთხვევა+jti ჯერ არ მოხმარებულა) — ტრანზაქცია მაინც დაიშვება.
+  //
+  // 🔒 STEP 2.2 (RLS Pilot) — `users`-ის ეს SELECT-იც `withOrgContext`-ში
+  // გადავიდა (ცალკე, პატარა ტრანზაქციაში — checkout-ის მთავარ INSERT-ებთან
+  // ატომურობა აქ საჭირო არაა, უფლების pre-check-ია).
   // ==========================================
   let managerOverrideUsed: ManagerOverridePayload | null = null;
 
   if (discountType !== null && discountValue > 0) {
     try {
-      const permCheck = await db.query('SELECT can_use_discount FROM users WHERE id = $1', [req.user?.id]);
-      const hasOwnPermission = permCheck.rows.length > 0 && permCheck.rows[0].can_use_discount === true;
+      const hasOwnPermission = await withOrgContext(req.user?.organizationId, async (client) => {
+        const permCheck = await client.query('SELECT can_use_discount FROM users WHERE id = $1', [req.user?.id]);
+        return permCheck.rows.length > 0 && permCheck.rows[0].can_use_discount === true;
+      });
 
       if (!hasOwnPermission) {
         const overrideToken = extractBearerToken(req.headers['x-manager-override']);
@@ -477,62 +532,68 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
     changeDue = Number((received - cashDue).toFixed(2));
   }
 
+  // 🔒 STEP 2.2 (RLS Pilot) — მთელი checkout-ტრანზაქცია (payment INSERT +
+  // splits + items + stock decrement) ერთ `withOrgContext`-შია. ორიგინალი
+  // ქცევა შენარჩუნებულია: ნებისმიერი შეცდომა (მარაგის დეფიციტის ჩათვლით)
+  // 400-ს აბრუნებდა, არა მხოლოდ "ნამდვილი" validation-შეცდომები — ეს
+  // refactor მხოლოდ ტრანზაქცია-მართვას (BEGIN/COMMIT/ROLLBACK) ცვლის
+  // `withOrgContext`-ის სასარგებლოდ, response-კონტრაქტს არა.
   try {
-    await db.query('BEGIN');
+    const paymentId = await withOrgContext(req.user?.organizationId, async (client) => {
+      // 🖥️ register_id (STEP 1.3) და created_at (STEP 1.4, DB DEFAULT-ის
+      // ნაცვლად ცალსახად გადაცემული) დაემატა INSERT-ს.
+      // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 5 (Roadmap "23.08.2026") —
+      // **write-blocker fix**: `organization_id` NOT NULL-ია (migration 013)
+      // — ამის გარეშე ყოველი checkout 500-ით ჩავარდებოდა.
+      const paymentQuery = `
+        INSERT INTO payments (cashier_id, shift_id, register_id, subtotal_amount, discount_type, discount_value, total_amount, payment_method, cash_received, created_at, organization_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        RETURNING id
+      `;
+      const paymentResult = await client.query(paymentQuery, [
+        req.user?.id,
+        req.activeShiftId,
+        req.registerId,
+        subtotalAmount,
+        discountType,
+        discountValue,
+        totalAmount,
+        paymentMethod,
+        cashReceivedToStore,
+        createdAtToStore,
+        req.user?.organizationId
+      ]);
+      const newPaymentId = paymentResult.rows[0].id;
 
-    // 🖥️ register_id (STEP 1.3) და created_at (STEP 1.4, DB DEFAULT-ის
-    // ნაცვლად ცალსახად გადაცემული) დაემატა INSERT-ს.
-    // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 5 (Roadmap "23.08.2026") —
-    // **write-blocker fix**: `organization_id` NOT NULL-ია (migration 013)
-    // — ამის გარეშე ყოველი checkout 500-ით ჩავარდებოდა.
-    const paymentQuery = `
-      INSERT INTO payments (cashier_id, shift_id, register_id, subtotal_amount, discount_type, discount_value, total_amount, payment_method, cash_received, created_at, organization_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-      RETURNING id
-    `;
-    const paymentResult = await db.query(paymentQuery, [
-      req.user?.id,
-      req.activeShiftId,
-      req.registerId,
-      subtotalAmount,
-      discountType,
-      discountValue,
-      totalAmount,
-      paymentMethod,
-      cashReceivedToStore,
-      createdAtToStore,
-      req.user?.organizationId
-    ]);
-    const paymentId = paymentResult.rows[0].id;
-
-    // 🔀 SPLIT-ის ორი ტენდერ-ხაზი — PUT /shifts/close-ის Z-Report ამათგან
-    // ითვლის, რა ნაწილი ევალება ფაქტობრივად სალაროში ნაღდ ფულში.
-    if (paymentMethod === 'split') {
-      await db.query(
-        `INSERT INTO payment_splits (payment_id, method, amount) VALUES ($1, 'cash', $2), ($1, 'card', $3)`,
-        [paymentId, splitCash, splitCard]
-      );
-    }
-
-    for (const item of items) {
-      const pId = item.productId || item.product_id;
-
-      await db.query(
-        `INSERT INTO payment_items (payment_id, product_id, quantity, price) VALUES ($1, $2, $3, $4)`,
-        [paymentId, pId, item.quantity, item.price]
-      );
-
-      const updateStockResult = await db.query(
-        `UPDATE products SET stock = stock - $1 WHERE id = $2 AND stock >= $1`,
-        [item.quantity, pId]
-      );
-
-      if (updateStockResult.rowCount === 0) {
-        throw new Error(`არ არის საკმარისი მარაგი პროდუქტზე ID: ${pId}`);
+      // 🔀 SPLIT-ის ორი ტენდერ-ხაზი — PUT /shifts/close-ის Z-Report ამათგან
+      // ითვლის, რა ნაწილი ევალება ფაქტობრივად სალაროში ნაღდ ფულში.
+      if (paymentMethod === 'split') {
+        await client.query(
+          `INSERT INTO payment_splits (payment_id, method, amount) VALUES ($1, 'cash', $2), ($1, 'card', $3)`,
+          [newPaymentId, splitCash, splitCard]
+        );
       }
-    }
 
-    await db.query('COMMIT');
+      for (const item of items) {
+        const pId = item.productId || item.product_id;
+
+        await client.query(
+          `INSERT INTO payment_items (payment_id, product_id, quantity, price) VALUES ($1, $2, $3, $4)`,
+          [newPaymentId, pId, item.quantity, item.price]
+        );
+
+        const updateStockResult = await client.query(
+          `UPDATE products SET stock = stock - $1 WHERE id = $2 AND stock >= $1`,
+          [item.quantity, pId]
+        );
+
+        if (updateStockResult.rowCount === 0) {
+          throw new Error(`არ არის საკმარისი მარაგი პროდუქტზე ID: ${pId}`);
+        }
+      }
+
+      return newPaymentId;
+    });
 
     // 🔑 Manager PIN Override გამოყენებული იყო ამ გადახდაზე — ტოკენი
     // ვნიშნავთ "მოხმარებულად" (single-use, ვეღარ გამოიყენება ხელახლა
@@ -573,7 +634,6 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
     });
 
   } catch (err: any) {
-    await db.query('ROLLBACK');
     res.status(400).json({ error: err.message });
   }
 });
@@ -593,6 +653,10 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
 // ნაცვლად. payments.id ახლა UUID string-ია, აღარ არის SERIAL INTEGER.
 const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+// 🔒 STEP 2.2 (RLS Pilot) — მთელი ნაკადი (paymentCheck → permission-check →
+// items → stock-restore → UPDATE) ერთ `withOrgContext`-შია გაერთიანებული.
+// 404/400/403-ის ორიგინალური სტატუს-კოდები `HttpError`-ით ინარჩუნებს ზუსტ
+// response-ფორმას.
 router.post('/payments/:id/void', authenticateToken, async (req: CustomRequest, res: Response) => {
   const paymentId = req.params.id;
   if (!UUID_V4_REGEX.test(paymentId)) {
@@ -600,83 +664,83 @@ router.post('/payments/:id/void', authenticateToken, async (req: CustomRequest, 
   }
 
   try {
-    // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 5 (Roadmap "23.08.2026", IDOR fix)
-    // — `AND organization_id = $2` დაემატა. ამის გარეშე ეს ერთ-ერთი
-    // ყველაზე სერიოზული IDOR იყო მთელ STEP 2-ში: ნებისმიერ ავტორიზებულ
-    // (can_void_receipt უფლების ან manager override-ის მქონე) user-ს,
-    // payment id-ის (UUID) გამოცნობით/გაუჟონვით, შეეძლო **სხვა org-ის
-    // რეალური ფინანსური ჩეკის გაუქმება** — მარაგის დაბრუნებით და
-    // ფინანსური ისტორიის შეცვლით ერთად.
-    const paymentCheck = await db.query(
-      'SELECT id, is_voided FROM payments WHERE id = $1 AND organization_id = $2',
-      [paymentId, req.user?.organizationId]
-    );
-
-    if (paymentCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'ჩეკი ვერ მოიძებნა' });
-    }
-
-    if (paymentCheck.rows[0].is_voided === true) {
-      return res.status(400).json({ error: 'ეს ჩეკი უკვე გაუქმებულია' });
-    }
-
-    // 🔐 can_void_receipt-ის სერვერული შემოწმება + Manager PIN Override —
-    // POST /payments-ის დისკაუნთის შემოწმების ზუსტი ანალოგი.
-    let managerOverrideUsed: ManagerOverridePayload | null = null;
-
-    const permCheck = await db.query('SELECT can_void_receipt FROM users WHERE id = $1', [req.user?.id]);
-    const hasOwnPermission = permCheck.rows.length > 0 && permCheck.rows[0].can_void_receipt === true;
-
-    if (!hasOwnPermission) {
-      const overrideToken = extractBearerToken(req.headers['x-manager-override']);
-      const overridePayload = overrideToken ? verifyManagerOverrideToken(overrideToken) : null;
-
-      // 🔒 იგივე დაცვა, რაც checkout-ზე: override ტოკენი მკაცრად იმ
-      // მოლარეს უნდა ეკუთვნოდეს, ვინც PIN დაადასტურა.
-      managerOverrideUsed = overridePayload && overridePayload.cashierId === req.user?.id ? overridePayload : null;
-    }
-
-    if (!hasOwnPermission && !managerOverrideUsed) {
-      return res.status(403).json({ error: 'თქვენ არ გაქვთ ჩეკის გაუქმების უფლება' });
-    }
-
-    await db.query('BEGIN');
-
-    const itemsResult = await db.query(
-      'SELECT product_id, quantity FROM payment_items WHERE payment_id = $1',
-      [paymentId]
-    );
-
-    for (const item of itemsResult.rows) {
-      // best-effort restock — თუ პროდუქტი მას შემდეგ წაშლილა, rowCount 0-ია
-      // და მარაგის დაბრუნებაზე აზრი აღარ აქვს, მაგრამ ჩეკის გაუქმებას მაინც
-      // არ უნდა ვუშალოთ (payment_items.product_id-ს FK-შეზღუდვა არც აქვს).
-      await db.query(
-        'UPDATE products SET stock = stock + $1 WHERE id = $2',
-        [item.quantity, item.product_id]
+    const { managerOverrideUsed, voidPayment } = await withOrgContext(req.user?.organizationId, async (client) => {
+      // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 5 (Roadmap "23.08.2026", IDOR fix)
+      // — `AND organization_id = $2` დაემატა. ამის გარეშე ეს ერთ-ერთი
+      // ყველაზე სერიოზული IDOR იყო მთელ STEP 2-ში: ნებისმიერ ავტორიზებულ
+      // (can_void_receipt უფლების ან manager override-ის მქონე) user-ს,
+      // payment id-ის (UUID) გამოცნობით/გაუჟონვით, შეეძლო **სხვა org-ის
+      // რეალური ფინანსური ჩეკის გაუქმება** — მარაგის დაბრუნებით და
+      // ფინანსური ისტორიის შეცვლით ერთად.
+      const paymentCheck = await client.query(
+        'SELECT id, is_voided FROM payments WHERE id = $1 AND organization_id = $2',
+        [paymentId, req.user?.organizationId]
       );
-    }
 
-    // 🩹 FIX (16.08) — იგივე UTC-vs-Tbilisi ბაგი, რაც shifts.opened_at-ს
-    // ჰქონდა: raw CURRENT_TIMESTAMP Postgres-ის server timezone-ს (UTC)
-    // იყენებდა, payments.created_at კი formatDbTimestamp()-ით სამუშაოდ
-    // ცხადად Asia/Tbilisi-ზეა კონვერტირებული. AT TIME ZONE იმავე
-    // კონვენციაზე გადმოჰყავს voided_at-იც.
-    // 🏢 STEP 2, ტიერი 5 — `AND organization_id = $3` აქაც, თანმიმდევრობის
-    // გულისთვის (paymentCheck-ით უკვე დავრწმუნდით ორგ-საკუთრებაში, მაგრამ
-    // defense-in-depth — dupCheck+UPDATE-ის იგივე ორმაგი შემოწმების
-    // პატერნი, რასაც products.ts-ის PUT იყენებს).
-    const voidResult = await db.query(
-      `UPDATE payments
-       SET is_voided = true,
-           voided_at = TO_CHAR(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi', 'YYYY-MM-DD HH24:MI:SS'),
-           voided_by = $1
-       WHERE id = $2 AND organization_id = $3
-       RETURNING id, is_voided, voided_at, voided_by`,
-      [req.user?.id, paymentId, req.user?.organizationId]
-    );
+      if (paymentCheck.rows.length === 0) {
+        throw new HttpError(404, { error: 'ჩეკი ვერ მოიძებნა' });
+      }
 
-    await db.query('COMMIT');
+      if (paymentCheck.rows[0].is_voided === true) {
+        throw new HttpError(400, { error: 'ეს ჩეკი უკვე გაუქმებულია' });
+      }
+
+      // 🔐 can_void_receipt-ის სერვერული შემოწმება + Manager PIN Override —
+      // POST /payments-ის დისკაუნთის შემოწმების ზუსტი ანალოგი.
+      let managerOverrideUsed: ManagerOverridePayload | null = null;
+
+      const permCheck = await client.query('SELECT can_void_receipt FROM users WHERE id = $1', [req.user?.id]);
+      const hasOwnPermission = permCheck.rows.length > 0 && permCheck.rows[0].can_void_receipt === true;
+
+      if (!hasOwnPermission) {
+        const overrideToken = extractBearerToken(req.headers['x-manager-override']);
+        const overridePayload = overrideToken ? verifyManagerOverrideToken(overrideToken) : null;
+
+        // 🔒 იგივე დაცვა, რაც checkout-ზე: override ტოკენი მკაცრად იმ
+        // მოლარეს უნდა ეკუთვნოდეს, ვინც PIN დაადასტურა.
+        managerOverrideUsed = overridePayload && overridePayload.cashierId === req.user?.id ? overridePayload : null;
+      }
+
+      if (!hasOwnPermission && !managerOverrideUsed) {
+        throw new HttpError(403, { error: 'თქვენ არ გაქვთ ჩეკის გაუქმების უფლება' });
+      }
+
+      const itemsResult = await client.query(
+        'SELECT product_id, quantity FROM payment_items WHERE payment_id = $1',
+        [paymentId]
+      );
+
+      for (const item of itemsResult.rows) {
+        // best-effort restock — თუ პროდუქტი მას შემდეგ წაშლილა, rowCount 0-ია
+        // და მარაგის დაბრუნებაზე აზრი აღარ აქვს, მაგრამ ჩეკის გაუქმებას მაინც
+        // არ უნდა ვუშალოთ (payment_items.product_id-ს FK-შეზღუდვა არც აქვს).
+        await client.query(
+          'UPDATE products SET stock = stock + $1 WHERE id = $2',
+          [item.quantity, item.product_id]
+        );
+      }
+
+      // 🩹 FIX (16.08) — იგივე UTC-vs-Tbilisi ბაგი, რაც shifts.opened_at-ს
+      // ჰქონდა: raw CURRENT_TIMESTAMP Postgres-ის server timezone-ს (UTC)
+      // იყენებდა, payments.created_at კი formatDbTimestamp()-ით სამუშაოდ
+      // ცხადად Asia/Tbilisi-ზეა კონვერტირებული. AT TIME ZONE იმავე
+      // კონვენციაზე გადმოჰყავს voided_at-იც.
+      // 🏢 STEP 2, ტიერი 5 — `AND organization_id = $3` აქაც, თანმიმდევრობის
+      // გულისთვის (paymentCheck-ით უკვე დავრწმუნდით ორგ-საკუთრებაში, მაგრამ
+      // defense-in-depth — dupCheck+UPDATE-ის იგივე ორმაგი შემოწმების
+      // პატერნი, რასაც products.ts-ის PUT იყენებს).
+      const voidResult = await client.query(
+        `UPDATE payments
+         SET is_voided = true,
+             voided_at = TO_CHAR(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi', 'YYYY-MM-DD HH24:MI:SS'),
+             voided_by = $1
+         WHERE id = $2 AND organization_id = $3
+         RETURNING id, is_voided, voided_at, voided_by`,
+        [req.user?.id, paymentId, req.user?.organizationId]
+      );
+
+      return { managerOverrideUsed, voidPayment: voidResult.rows[0] };
+    });
 
     // 🔑 Manager PIN Override იყო გამოყენებული ამ გაუქმებაზე — ტოკენს
     // ვნიშნავთ მოხმარებულად (single-use) და ვწერთ აუდიტ-ლოგს, ისევე
@@ -697,10 +761,10 @@ router.post('/payments/:id/void', authenticateToken, async (req: CustomRequest, 
     res.json({
       success: true,
       message: 'ჩეკი წარმატებით გაუქმდა',
-      payment: voidResult.rows[0],
+      payment: voidPayment,
     });
   } catch (err: any) {
-    await db.query('ROLLBACK');
+    if (err instanceof HttpError) return res.status(err.statusCode).json(err.body);
     res.status(500).json({ error: err.message });
   }
 });
@@ -1029,6 +1093,10 @@ async function syncSingleOfflineReceipt(
 // ერთბაშად, ამ ერთი მოთხოვნით აგზავნის. თითოეული ჩეკი დამოუკიდებელ
 // SAVEPOINT-ში მუშავდება (იხ. syncSingleOfflineReceipt) — ერთი "ცუდი"
 // ჩეკი (მაგ. წაშლილი shift) დანარჩენების commit-ს არ აჩერებს.
+// 🔒 STEP 2.2 (RLS Pilot) — ადრე ეს route ხელით (`db.connect()`) იღებდა
+// dedicated client-ს (ერთადერთი ადგილი ფაილში, SAVEPOINT-ების გამო, სადაც
+// ეს უკვე სწორად იყო გაკეთებული) — ახლა იმავე client-ს `withOrgContext`
+// გვაძლევს, ორგ-კონტექსტიც ავტომატურად ერთვის.
 router.post(
   '/payments/sync-offline',
   authenticateToken,
@@ -1062,44 +1130,41 @@ router.post(
     }
 
     const payloads = receiptsInput as OfflineSyncReceiptPayload[];
-    const results: OfflineSyncResult[] = [];
 
-    const client = await db.connect();
     try {
-      await client.query('BEGIN');
+      const results = await withOrgContext(req.user?.organizationId, async (client) => {
+        const batchResults: OfflineSyncResult[] = [];
 
-      for (const receipt of payloads) {
-        // 🔖 SAVEPOINT სახელი — hyphen-ების გარეშე (PostgreSQL იდენტიფიკატორი),
-        // UUID-ის საკმარისად უნიკალურია batch-ის ფარგლებში.
-        const savepoint = `sp_${receipt.id.replace(/-/g, '')}`;
-        try {
-          await client.query(`SAVEPOINT ${savepoint}`);
-          const result = await syncSingleOfflineReceipt(
-            client,
-            receipt,
-            req.registerId as string,
-            req.user?.organizationId,
-            req.user?.id,
-            req.user?.role
-          );
-          await client.query(`RELEASE SAVEPOINT ${savepoint}`);
-          results.push(result);
-        } catch (itemErr: any) {
-          await client.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
-          await client.query(`RELEASE SAVEPOINT ${savepoint}`);
-          results.push({ id: receipt.id, status: 'failed', error: itemErr.message || 'უცნობი შეცდომა' });
+        for (const receipt of payloads) {
+          // 🔖 SAVEPOINT სახელი — hyphen-ების გარეშე (PostgreSQL იდენტიფიკატორი),
+          // UUID-ის საკმარისად უნიკალურია batch-ის ფარგლებში.
+          const savepoint = `sp_${receipt.id.replace(/-/g, '')}`;
+          try {
+            await client.query(`SAVEPOINT ${savepoint}`);
+            const result = await syncSingleOfflineReceipt(
+              client,
+              receipt,
+              req.registerId as string,
+              req.user?.organizationId,
+              req.user?.id,
+              req.user?.role
+            );
+            await client.query(`RELEASE SAVEPOINT ${savepoint}`);
+            batchResults.push(result);
+          } catch (itemErr: any) {
+            await client.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+            await client.query(`RELEASE SAVEPOINT ${savepoint}`);
+            batchResults.push({ id: receipt.id, status: 'failed', error: itemErr.message || 'უცნობი შეცდომა' });
+          }
         }
-      }
 
-      await client.query('COMMIT');
+        return batchResults;
+      });
+
+      res.json({ results });
     } catch (err: any) {
-      await client.query('ROLLBACK');
-      return res.status(500).json({ error: err.message });
-    } finally {
-      client.release();
+      res.status(500).json({ error: err.message });
     }
-
-    res.json({ results });
   }
 );
 
@@ -1116,6 +1181,10 @@ router.post(
 // void-ზეა), და მხოლოდ ამის დადასტურების შემდეგ ჩაწეროს აუდიტ-ლოგი.
 // frontend-ს დამოუკიდებლად არ შეუძლია "მოიგონოს" ეს ლოგი — ტოკენის გარეშე
 // 403-ს დააბრუნებს.
+// 🔒 STEP 2.2 (RLS Pilot) — ეს route არცერთ RLS-ჩართულ ცხრილს პირდაპირ არ
+// ეხება (მხოლოდ `writeAuditLog()`-ს იძახებს, რომელიც `audit_logs`-ში წერს —
+// ეს ცხრილი განზრახ გამორიცხულია migration 017-ის scope-იდან), ამიტომ
+// უცვლელად რჩება.
 const CART_OVERRIDE_ACTIONS = ['clear-cart-override', 'remove-item-override'] as const;
 type CartOverrideAction = (typeof CART_OVERRIDE_ACTIONS)[number];
 
@@ -1271,6 +1340,8 @@ function buildPaymentsFilterQuery(baseSelect: string, query: any, organizationId
 // ზუსტად იგივე პატერნი: მოლარეს არ უნდა შეეძლოს მთელი ორგანიზაციის
 // სრული გაყიდვების ისტორიის ნახვა (მისი "საკუთარი ცვლის" scope-ია
 // `GET /payments/my-history`, ქვემოთ) — მხოლოდ admin/manager.
+// 🔒 STEP 2.2 (RLS Pilot) — სამივე query (payments/items/splits) ერთ
+// `withOrgContext`-შია, ისე რომ ერთი, კონსისტენტური snapshot-ი დაბრუნდეს.
 router.get('/payments', authenticateToken, async (req: CustomRequest, res: any) => {
   if (req.user?.role === 'cashier') return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
 
@@ -1292,45 +1363,45 @@ router.get('/payments', authenticateToken, async (req: CustomRequest, res: any) 
   const { sql, params } = buildPaymentsFilterQuery(baseSelect, req.query, req.user?.organizationId);
 
   try {
-    const paymentsResult = await db.query(sql, params);
-    const payments = paymentsResult.rows;
+    const paymentsWithItems = await withOrgContext(req.user?.organizationId, async (client) => {
+      const paymentsResult = await client.query(sql, params);
+      const payments = paymentsResult.rows;
 
-    if (payments.length === 0) return res.json([]);
+      if (payments.length === 0) return [];
 
-    const paymentIds = payments.map(p => p.id);
-    const itemsQuery = `
-      SELECT pi.payment_id, pi.quantity, pi.price, pr.name
-      FROM payment_items pi
-      LEFT JOIN products pr ON pi.product_id = pr.id
-      WHERE pi.payment_id = ANY($1)
-    `;
-    const itemsResult = await db.query(itemsQuery, [paymentIds]);
-    const items = itemsResult.rows;
+      const paymentIds = payments.map((p) => p.id);
+      const itemsQuery = `
+        SELECT pi.payment_id, pi.quantity, pi.price, pr.name
+        FROM payment_items pi
+        LEFT JOIN products pr ON pi.product_id = pr.id
+        WHERE pi.payment_id = ANY($1)
+      `;
+      const itemsResult = await client.query(itemsQuery, [paymentIds]);
+      const items = itemsResult.rows;
 
-    // 💰 Roadmap ეტაპი 8 — SPLIT ჩეკების ტენდერ-ხაზები, items-ის ზუსტი
-    // ანალოგიით ცალკე query-თი წამოღებული და payment_id-ით მიბმული.
-    // Map<paymentId, {cash, card}> — ერთ round-trip-ში ყველა ჩეკისთვის ერთად.
-    const splitsQuery = `
-      SELECT payment_id, method, amount
-      FROM payment_splits
-      WHERE payment_id = ANY($1)
-    `;
-    const splitsResult = await db.query(splitsQuery, [paymentIds]);
-    // 🆔 UUID მიგრაცია — payment_id ახლა UUID string-ია.
-    const splitsByPayment = new Map<string, { cash: number; card: number }>();
-    for (const row of splitsResult.rows) {
-      const entry = splitsByPayment.get(row.payment_id) ?? { cash: 0, card: 0 };
-      if (row.method === 'cash') entry.cash = Number(row.amount);
-      else if (row.method === 'card') entry.card = Number(row.amount);
-      splitsByPayment.set(row.payment_id, entry);
-    }
+      // 💰 Roadmap ეტაპი 8 — SPLIT ჩეკების ტენდერ-ხაზები, items-ის ზუსტი
+      // ანალოგიით ცალკე query-თი წამოღებული და payment_id-ით მიბმული.
+      // Map<paymentId, {cash, card}> — ერთ round-trip-ში ყველა ჩეკისთვის ერთად.
+      const splitsQuery = `
+        SELECT payment_id, method, amount
+        FROM payment_splits
+        WHERE payment_id = ANY($1)
+      `;
+      const splitsResult = await client.query(splitsQuery, [paymentIds]);
+      // 🆔 UUID მიგრაცია — payment_id ახლა UUID string-ია.
+      const splitsByPayment = new Map<string, { cash: number; card: number }>();
+      for (const row of splitsResult.rows) {
+        const entry = splitsByPayment.get(row.payment_id) ?? { cash: 0, card: 0 };
+        if (row.method === 'cash') entry.cash = Number(row.amount);
+        else if (row.method === 'card') entry.card = Number(row.amount);
+        splitsByPayment.set(row.payment_id, entry);
+      }
 
-    const paymentsWithItems = payments.map(payment => {
-      return {
+      return payments.map((payment) => ({
         ...payment,
-        items: items.filter(item => item.payment_id === payment.id),
-        splits: splitsByPayment.get(payment.id) ?? null
-      };
+        items: items.filter((item) => item.payment_id === payment.id),
+        splits: splitsByPayment.get(payment.id) ?? null,
+      }));
     });
 
     res.json(paymentsWithItems);
@@ -1348,6 +1419,8 @@ router.get('/payments', authenticateToken, async (req: CustomRequest, res: any) 
 // ითვლიან ჯამებს shift_id-ის მიხედვით. checkActiveShift middleware
 // ავსებს req.activeShiftId-ს (და თუ ცვლა არ არის გახსნილი, თავად
 // აბრუნებს შესაბამის შეცდომას POST /payments-ის ანალოგიურად).
+// 🔒 STEP 2.2 (RLS Pilot) — `withOrgContext`-ში გადატანილია (permission-check
+// ჩათვლით), GET /payments-ის იგივე ერთი-ტრანზაქცია-სამი-query პატერნით.
 router.get(
   '/payments/my-history',
   authenticateToken,
@@ -1361,84 +1434,89 @@ router.get(
     }
 
     try {
-      // 🔐 can_view_history ფრეშად ვამოწმებთ ბაზაში (არა JWT-დან), რომ ადმინის
-      // მიერ გამორთვა მომენტალურად ამოქმედდეს, მოლარეს ტოკენის განახლების გარეშეც.
-      const permissionCheck = await db.query('SELECT can_view_history FROM users WHERE id = $1', [cashierId]);
-      if (permissionCheck.rows.length === 0 || permissionCheck.rows[0].can_view_history === false) {
-        return res.status(403).json({ error: 'ისტორიის ნახვის უფლება გამორთულია!' });
-      }
+      const responseData = await withOrgContext(req.user?.organizationId, async (client) => {
+        // 🔐 can_view_history ფრეშად ვამოწმებთ ბაზაში (არა JWT-დან), რომ ადმინის
+        // მიერ გამორთვა მომენტალურად ამოქმედდეს, მოლარეს ტოკენის განახლების გარეშეც.
+        const permissionCheck = await client.query('SELECT can_view_history FROM users WHERE id = $1', [cashierId]);
+        if (permissionCheck.rows.length === 0 || permissionCheck.rows[0].can_view_history === false) {
+          throw new HttpError(403, { error: 'ისტორიის ნახვის უფლება გამორთულია!' });
+        }
 
-      // 🧾 p.is_voided დამატებულია Roadmap ეტაპი 4-ისთვის — POS ეკრანის "ჩემი
-      // ისტორია" პანელს სჭირდება ვიცოდეთ, რომელი ჩეკია უკვე გაუქმებული, რომ
-      // არც ხელახლა შესთავაზოს გაუქმება და არც დამალოს ჩეკი სიიდან. ჯამებზე
-      // (totalSum) ჯერ არ მოქმედებს — ეს ცალკე გასასწორებელია (იხ. sales.ts-ის
-      // POST /payments/:id/void-ის კომენტარი GET /shifts/close-ის შესახებ).
-      //
-      // 💰 p.payment_method დამატებულია (Roadmap ეტაპი 8) — იგივე მიზეზით,
-      // რაც GET /payments-ში.
-      // 🩹 FIX (12.08) — იგივე UUID-ორდერინგის ბაგი, `created_at`-ზე
-      // (იხ. buildPaymentsFilterQuery-ის კომენტარი ზემოთ).
-      const query = `
-        SELECT p.id, p.subtotal_amount, p.discount_type, p.discount_value, p.total_amount, p.created_at, p.is_voided, p.payment_method, u.name AS cashier_name
-        FROM payments p
-        LEFT JOIN users u ON p.cashier_id = u.id
-        WHERE p.cashier_id = $1 AND p.shift_id = $2
-        ORDER BY p.created_at DESC
-      `;
+        // 🧾 p.is_voided დამატებულია Roadmap ეტაპი 4-ისთვის — POS ეკრანის "ჩემი
+        // ისტორია" პანელს სჭირდება ვიცოდეთ, რომელი ჩეკია უკვე გაუქმებული, რომ
+        // არც ხელახლა შესთავაზოს გაუქმება და არც დამალოს ჩეკი სიიდან. ჯამებზე
+        // (totalSum) ჯერ არ მოქმედებს — ეს ცალკე გასასწორებელია (იხ. sales.ts-ის
+        // POST /payments/:id/void-ის კომენტარი GET /shifts/close-ის შესახებ).
+        //
+        // 💰 p.payment_method დამატებულია (Roadmap ეტაპი 8) — იგივე მიზეზით,
+        // რაც GET /payments-ში.
+        // 🩹 FIX (12.08) — იგივე UUID-ორდერინგის ბაგი, `created_at`-ზე
+        // (იხ. buildPaymentsFilterQuery-ის კომენტარი ზემოთ).
+        const query = `
+          SELECT p.id, p.subtotal_amount, p.discount_type, p.discount_value, p.total_amount, p.created_at, p.is_voided, p.payment_method, u.name AS cashier_name
+          FROM payments p
+          LEFT JOIN users u ON p.cashier_id = u.id
+          WHERE p.cashier_id = $1 AND p.shift_id = $2
+          ORDER BY p.created_at DESC
+        `;
 
-      const paymentsResult = await db.query(query, [cashierId, shiftId]);
-      const payments = paymentsResult.rows;
+        const paymentsResult = await client.query(query, [cashierId, shiftId]);
+        const payments = paymentsResult.rows;
 
-      if (payments.length === 0) {
-        return res.json({ receipts: [], summary: { totalReceipts: 0, totalSum: 0 } });
-      }
+        if (payments.length === 0) {
+          return { receipts: [], summary: { totalReceipts: 0, totalSum: 0 } };
+        }
 
-      const paymentIds = payments.map((p) => p.id);
-      const itemsQuery = `
-        SELECT pi.payment_id, pi.quantity, pi.price, pr.name
-        FROM payment_items pi
-        LEFT JOIN products pr ON pi.product_id = pr.id
-        WHERE pi.payment_id = ANY($1)
-      `;
-      const itemsResult = await db.query(itemsQuery, [paymentIds]);
-      const items = itemsResult.rows;
+        const paymentIds = payments.map((p) => p.id);
+        const itemsQuery = `
+          SELECT pi.payment_id, pi.quantity, pi.price, pr.name
+          FROM payment_items pi
+          LEFT JOIN products pr ON pi.product_id = pr.id
+          WHERE pi.payment_id = ANY($1)
+        `;
+        const itemsResult = await client.query(itemsQuery, [paymentIds]);
+        const items = itemsResult.rows;
 
-      // 💰 Roadmap ეტაპი 8 — SPLIT ჩეკების cash/card ხაზები, GET /payments-ის
-      // ზუსტი ანალოგიით.
-      const splitsQuery = `
-        SELECT payment_id, method, amount
-        FROM payment_splits
-        WHERE payment_id = ANY($1)
-      `;
-      const splitsResult = await db.query(splitsQuery, [paymentIds]);
-      // 🆔 UUID მიგრაცია — payment_id ახლა UUID string-ია.
-    const splitsByPayment = new Map<string, { cash: number; card: number }>();
-      for (const row of splitsResult.rows) {
-        const entry = splitsByPayment.get(row.payment_id) ?? { cash: 0, card: 0 };
-        if (row.method === 'cash') entry.cash = Number(row.amount);
-        else if (row.method === 'card') entry.card = Number(row.amount);
-        splitsByPayment.set(row.payment_id, entry);
-      }
+        // 💰 Roadmap ეტაპი 8 — SPLIT ჩეკების cash/card ხაზები, GET /payments-ის
+        // ზუსტი ანალოგიით.
+        const splitsQuery = `
+          SELECT payment_id, method, amount
+          FROM payment_splits
+          WHERE payment_id = ANY($1)
+        `;
+        const splitsResult = await client.query(splitsQuery, [paymentIds]);
+        // 🆔 UUID მიგრაცია — payment_id ახლა UUID string-ია.
+        const splitsByPayment = new Map<string, { cash: number; card: number }>();
+        for (const row of splitsResult.rows) {
+          const entry = splitsByPayment.get(row.payment_id) ?? { cash: 0, card: 0 };
+          if (row.method === 'cash') entry.cash = Number(row.amount);
+          else if (row.method === 'card') entry.card = Number(row.amount);
+          splitsByPayment.set(row.payment_id, entry);
+        }
 
-      const receipts = payments.map((payment) => ({
-        ...payment,
-        items: items.filter((item) => item.payment_id === payment.id),
-        splits: splitsByPayment.get(payment.id) ?? null,
-      }));
+        const receipts = payments.map((payment) => ({
+          ...payment,
+          items: items.filter((item) => item.payment_id === payment.id),
+          splits: splitsByPayment.get(payment.id) ?? null,
+        }));
 
-      // 🧾 FIX (Roadmap ეტაპი 4): receipts სია განზრახ აბრუნებს ყველა ჩეკს (გაუქმებულებსაც,
-      // is_voided ბეიჯისთვის Sales.tsx-ში), მაგრამ "ჯამური თანხა" მხოლოდ აქტიურ, არაგაუქმებულ
-      // ჩეკებზე უნდა ითვლებოდეს — წინააღმდეგ შემთხვევაში მოლარეს ცვლის ჯამში გაუქმებული
-      // გაყიდვის თანხაც ეჩვენებოდა, თითქოს რეალურად მიღებული ჰქონდეს.
-      const totalSum = payments
-        .filter((p) => p.is_voided !== true)
-        .reduce((sum, p) => sum + Number(p.total_amount), 0);
+        // 🧾 FIX (Roadmap ეტაპი 4): receipts სია განზრახ აბრუნებს ყველა ჩეკს (გაუქმებულებსაც,
+        // is_voided ბეიჯისთვის Sales.tsx-ში), მაგრამ "ჯამური თანხა" მხოლოდ აქტიურ, არაგაუქმებულ
+        // ჩეკებზე უნდა ითვლებოდეს — წინააღმდეგ შემთხვევაში მოლარეს ცვლის ჯამში გაუქმებული
+        // გაყიდვის თანხაც ეჩვენებოდა, თითქოს რეალურად მიღებული ჰქონდეს.
+        const totalSum = payments
+          .filter((p) => p.is_voided !== true)
+          .reduce((sum, p) => sum + Number(p.total_amount), 0);
 
-      res.json({
-        receipts,
-        summary: { totalReceipts: payments.length, totalSum },
+        return {
+          receipts,
+          summary: { totalReceipts: payments.length, totalSum },
+        };
       });
+
+      res.json(responseData);
     } catch (err: any) {
+      if (err instanceof HttpError) return res.status(err.statusCode).json(err.body);
       res.status(500).json({ error: err.message });
     }
   }
@@ -1448,6 +1526,10 @@ router.get(
 // ==========================================
 // 📊 4. EXCEL ექსპორტი — from/to/cashierId ფილტრებით + ფასდაკლების სვეტები
 // ==========================================
+// 🔒 STEP 2.2 (RLS Pilot) — ეს route `authenticateToken`-ს არ იყენებს
+// (token query param-იდან მოდის), ამიტომ `req.user` არასდროს არსებობს —
+// `organizationId` decoded JWT payload-იდან მოდის (უცვლელად), `withOrgContext`-საც
+// იმავე მნიშვნელობას ვაწვდით.
 router.get('/payments/export/excel', async (req: any, res: any) => {
   const token = req.query.token as string;
   const secretKey = process.env.JWT_SECRET || 'super-secret-key';
@@ -1503,7 +1585,7 @@ router.get('/payments/export/excel', async (req: any, res: any) => {
 
     worksheet.getRow(1).font = { bold: true };
 
-    const result = await db.query(sql, params);
+    const result = await withOrgContext(organizationId, (client) => client.query(sql, params));
     // 🧾 is_voided (boolean) → ადამიანისთვის წასაკითხი ტექსტი ცალკე სვეტში;
     // ნედლი is_voided მნიშვნელობა worksheet.columns-ში არ არის განსაზღვრული
     // (key არ ემთხვევა), ამიტომ ExcelJS მას უბრალოდ იგნორირებას გაუკეთებს.
@@ -1529,6 +1611,7 @@ router.get('/payments/export/excel', async (req: any, res: any) => {
 // ==========================================
 // 🟥 5. PDF ექსპორტი — from/to/cashierId ფილტრებით + ფასდაკლების სვეტი
 // ==========================================
+// 🔒 STEP 2.2 (RLS Pilot) — export/excel-ის იგივე მიზეზი.
 router.get('/payments/export/pdf', async (req: any, res: any) => {
   const token = req.query.token as string;
   const secretKey = process.env.JWT_SECRET || 'super-secret-key';
@@ -1563,7 +1646,7 @@ router.get('/payments/export/pdf', async (req: any, res: any) => {
     `;
     const { sql, params } = buildPaymentsFilterQuery(baseSelect, req.query, organizationId);
 
-    const result = await db.query(sql, params);
+    const result = await withOrgContext(organizationId, (client) => client.query(sql, params));
     const rows = result.rows;
 
     const doc = new PDFDocument({ margin: 50 });
