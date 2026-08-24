@@ -293,7 +293,7 @@ Frontend-ის ცალკე ვერიფიკაცია (frontend-ს 
 6. ~~push (`23fcdc8` + `ad4ed47`) + PR #3-ის description-ის განახლება~~ ✅ **დასრულებული**
 7. ~~PR #3-ის merge-ის გადაწყვეტილება~~ ✅ **დასრულებული — merge commit `115c8ca`**, `main`-ში STEP 1 + STEP 2 (ტიერი 1-5) მთლიანად
 8. ~~Production incident: migration 013 production Neon-ზე~~ ✅ **დასრულებული, 23.08.2026** — იხ. "🚨 Production ინციდენტი" სექცია ზემოთ. Production დადასტურებულია აღდგენილად (login, dashboard, products)
-9. **STEP 2.2 (RLS)** — დამატებითი, defense-in-depth შრე route-level `WHERE organization_id`-ის თავზე (route-scoping უკვე ცალკე საკმარისია production-ისთვის, RLS extra-hardening-ია)
+9. **STEP 2.2 (RLS)** — ⚠️ **Pilot დასრულებულია (item #20, sales.ts), სრული rollout კვლავ ღიაა** — დამატებითი, defense-in-depth შრე route-level `WHERE organization_id`-ის თავზე (route-scoping უკვე ცალკე საკმარისია production-ისთვის, RLS extra-hardening-ია). დარჩენილი: ~9 route ფაილი/~92 `db.query()` call site (`auth.ts`, `products.ts`, `registers.ts`, `dashboard.ts`, `notifications.ts`, `platformAdmin.ts`, `organizations.ts` და სხვ.) ჯერ არ არის `withOrgContext`-ზე გადასული. იხ. "🔒 STEP 2.2 (RLS) — sales.ts Pilot" სექცია ქვემოთ.
 10. ~~Neon branch-ის მომზადება~~ ✅ **დასრულებული, ავტომატიზებული, 24.08.2026** — იხ. "🌿 Neon branch-ზე migration-ის ავტომატური ტესტირება" სექცია ქვემოთ.
 11. ~~გადაწყვეტილების წერტილი — SaaS vs Multi-Store~~ ✅ **გადაწყვეტილია, 23.08.2026 — SaaS მიმართულება, email platform-wide უნიკალურობით.** `users.name` per-org uniqueness საკითხი ✅ **დახურულია, 24.08.2026 — განზრახ, დოკუმენტირებული უარი, `users.name` რჩება გლობალურად unique.** იხ. "🔒 გადაწყვეტილება — `users.name` uniqueness" სექცია ქვემოთ.
 12. ~~დოკუმენტირებული, განზრახ გადადებული ხარვეზები (role-restriction: `GET /payments`, export/excel, export/pdf; cashier-impersonation: `syncSingleOfflineReceipt()`)~~ ✅ **დასრულებული, ტესტირებული (34/34), commit `030465c`** — იხ. "✅ დარჩენილი 2 security-ხარვეზი" სექცია ზემოთ. დარჩენილია მხოლოდ: `syncSingleOfflineReceipt()`-ის cashier-impersonation-ის მესამე, უფრო ღრმა ვარიანტი (თუ ოდესმე გამოვლინდება — cross-register/cross-shift ცალკე scenario-ები STEP 2.2-ის (RLS) ფარგლებში შეიძლება საბოლოოდ დაიხუროს) — non-blocking
@@ -304,6 +304,7 @@ Frontend-ის ცალკე ვერიფიკაცია (frontend-ს 
 17. ~~`users.name` uniqueness — per-org გახდომის საკითხი~~ ✅ **დახურულია, 24.08.2026, კოდის ცვლილების გარეშე** — იხ. "🔒 გადაწყვეტილება — `users.name` uniqueness" სექცია ქვემოთ.
 18. ~~Neon branch-ზე migration-ის ავტომატური ტესტირება~~ ✅ **დასრულებული, end-to-end დადასტურებული production-ზე ზემოქმედების გარეშე, 24.08.2026** — იხ. "🌿 Neon branch-ზე migration-ის ავტომატური ტესტირება" სექცია ქვემოთ.
 19. ~~STEP 7-lite — კომპანიის slug login~~ ✅ **დასრულებულია (24.08.2026)** — migration 016 გატარდა Neon branch-ზე, ლოკალურად და production-ზე; `vitest run tests/isolation` — 46 passed | 1 todo; commit `a5bd6e7` push-ილია; production-ზე (`pay-flow-zet3.vercel.app`) ხელით დადასტურებულია ორსაფეხურიანი login რამდენიმე org-ისთვის (tenant isolation production-შიც სწორად მუშაობს). იხ. "🏢 STEP 7-lite — კომპანიის slug login" სექცია ქვემოთ.
+20. ~~STEP 2.2 (RLS) — sales.ts Pilot~~ ✅ **დასრულებულია (24.08.2026), scope შეზღუდულია სალკა sales.ts-ზე** — migration 017 გატარდა Neon branch-ზე, ლოკალურად და production-ზე; `vitest run tests/isolation` — 46 passed | 1 todo; commit `eb28d8a` push-ილია; production-ზე ხელით დადასტურებულია (checkout, void, shift history, dashboard). ⚠️ **სრული RLS rollout (დანარჩენი ~9 route ფაილი) ჯერ არ დაწყებულა** — იხ. "🔒 STEP 2.2 (RLS) — sales.ts Pilot" სექცია ქვემოთ.
 
 დანარჩენი უცვლელად ვალიდურია `ROADMAP - Multi-Tenant SaaS - 16.08.2026.md`-დან.
 
@@ -524,5 +525,55 @@ STEP 7-ის (item #14, subdomain routing) კვლევისას გა�
 4. **Migration 016 production Neon-ზე** (SQL Editor, branch `production`) — წარმატებით გატარდა commit/push-მდე, roadmap-ის სტანდარტული lesson-ის მიხედვით.
 5. `git add`/`commit`/`push` — commit `a5bd6e7` ("feat: STEP 7-lite — კომპანიის slug login + users.name per-org unique"), ზუსტად 10 შეცვლილი ფაილით (`.git/index.lock`-ის VS Code-ის race-ი გვერდი აუარეს რამდენჯერმე — იხ. "🔧 გვერდითი აღმოჩენა" სექცია).
 6. **Production deploy (Vercel) დადასტურებულია** — `pay-flow-zet3.vercel.app`-ზე ორსაფეხურიანი slug→credentials login მუშაობს რამდენიმე org-ისთვის (განსხვავებული dashboard-მონაცემები თითოეულისთვის — tenant isolation production-შიც უსაფრთხოდ მუშაობს).
+
+---
+
+## 🔒 STEP 2.2 (RLS) — sales.ts Pilot, 24.08.2026
+
+### კონტექსტი და scope-გადაწყვეტილება
+
+STEP 2-ის (ტიერი 1-5) route-level org-scoping (`WHERE organization_id = $1`, ყოველ query-ში ხელით) უკვე მთელ აპლიკაციაზეა დანერგილი და production-ისთვის **თავისთავად საკმარისია**. RLS (Row-Level Security) ამის **ჩანაცვლება არაა** — ეს დამატებითი, database-level "safety net"-ია: თუნდაც route-ის query-ში მომავალში შეცდომა/დავიწყებული WHERE იყოს, თავად Postgres-ი აღარ დაუშვებს სხვა org-ის row-ის დაბრუნებას/შეცვლას.
+
+92 `db.query()` call site-ის (9 route ფაილი) სრული ერთბაშად გადაყვანა RLS-ზე ერთ სესიაში მაღალი რისკის იქნებოდა, ამიტომ `AskUserQuestion`-ით მომხმარებელმა აირჩია **Pilot — მხოლოდ `sales.ts`-ზე პირველად** (8 ცხრილი, რომელსაც ეს ფაილი პირდაპირ ეხება: `users`, `products`, `shifts`, `payments`, `payment_items`, `payment_splits`, `shift_amendments`, `stock_deficit_notifications`), როგორც proof-of-concept სრული rollout-ის წინ.
+
+### არქიტექტურული გამოწვევა — fail-open escape hatch
+
+RLS policy per-ცხრილია, არა per-route — ანუ ერთი და იმავე ცხრილის (მაგ. `payments`) წაკითხვა შესაძლებელია როგორც `sales.ts`-იდან (ახლა `withOrgContext`-ზეა გადასული), ისე სხვა, ჯერ არ-მიგრირებული route-ებიდან (`dashboard.ts`, `platformAdmin.ts` და ა.შ.), რომლებიც კვლავ ძველ, shared-pool `db.query()`-ს იყენებენ. ეს route-ები RLS-ის მოთხოვნილ session-კონტექსტს (`app.current_org_id`) არასდროს დააყენებენ.
+
+Fail-closed policy (ანუ "თუ კონტექსტი არ დგას, არაფერი აჩვენო") migration 017-ის გაშვებისთანავე production-ს მყისიერად დაამტვრევდა ყველა არა-`sales.ts` route-ისთვის. ამიტომ ყველა policy აშენდა **fail-open**-ად, განზრახ და დროებით:
+
+```sql
+current_setting('app.current_org_id', true) IS NULL
+OR current_setting('app.current_org_id', true) = ''
+OR organization_id = current_setting('app.current_org_id', true)::uuid
+```
+
+ანუ RLS ფაქტობრივად **მხოლოდ** `sales.ts`-ის connection-ებზე მოქმედებს ამ ეტაპზე — დანარჩენი route-ები უცვლელად, მხოლოდ route-level WHERE-ით განაგრძობენ მუშაობას. **TODO (მომავალი ფაზა):** ყველა route-ის `withOrgContext`-ზე გადასვლის შემდეგ, ცალკე migration-ით მოსაშორებელია "IS NULL OR" ნაწილი policy-ებიდან, fail-closed-ის სასარგებლოდ. `audit_logs` ცხრილი განზრახ გამორიცხულია ამ pilot-ის scope-იდან.
+
+### რა შეიცვალა
+
+**`backend/src/db.ts` — ახალი `withOrgContext<T>()` helper:** `pool.connect()`-ით dedicated `PoolClient`-ს იღებს, ხსნის ცხად ტრანზაქციას (`BEGIN`), `set_config('app.current_org_id', $1, true)`-ით (**პარამეტრიზებული**, SQL-ინექციისგან დაცული) აყენებს session-კონტექსტს (`is_local = true` — მნიშვნელობა ავტომატურად იშლება COMMIT/ROLLBACK-ზე, pool-ში დაბრუნებულ connection-ს არასდროს "გადმორჩება" წინა request-ის org-კონტექსტი), უშვებს callback-ს, COMMIT/ROLLBACK-ავს და ბოლოს `client.release()`-ს აკეთებს.
+
+**ახალი migration `backend/migrations/017_rls_sales_pilot.sql`:** 8-ვე ცხრილზე `ENABLE ROW LEVEL SECURITY` + **`FORCE ROW LEVEL SECURITY`** (საჭირო, რადგან app-ის DB role სავარაუდოდ table owner-ია — უბრალო `ENABLE`-ს არანაირი ეფექტი არ ექნებოდა owner-ის query-ებზე, Postgres-ის default ქცევის გამო) + `CREATE POLICY` (child ცხრილებზე, `payment_items`/`payment_splits`, EXISTS-subquery `payments.organization_id`-ზე, migration 009-ის FK-ის მიხედვით).
+
+**`backend/src/routes/sales.ts` — სრული refactor `withOrgContext`-ზე:** ყველა 12 route handler (`shifts/open`, `shifts/close`, `shifts/history`, `payments` checkout, `payments/:id/void`, `payments/sync-offline`, `payments`, `payments/my-history`, export-ები და ა.შ.) გადავიდა `withOrgContext(req.user?.organizationId, async (client) => {...})`-ზე. ახალი ლოკალური `HttpError` კლასი (statusCode + ზუსტი body) დაემატა, რომ callback-ის შიგნიდან throw-ით მაინც შენარჩუნდეს თითოეული route-ის ორიგინალი JSON response-ფორმა (ზოგი `{message}`, ზოგი `{error}`) — API contract არსად შეცვლილა.
+
+**გვერდითი, დამოუკიდებელი ბაგ-ფიქსი:** checkout-ისა და void-ის route-ები აქამდე `BEGIN`/`COMMIT`/`ROLLBACK`-ს პირდაპირ shared `pool`-ზე იძახებდნენ (არა dedicated client-ზე) — ტრანზაქციის ატომურობა ტექნიკურად გარანტირებული არ იყო. `withOrgContext`-ზე გადასვლამ ეს automatur-ად გამოასწორა (dedicated client-ს იყენებს).
+
+### ვერიფიკაცია
+
+1. **Backend `tsc --strict --noEmit`** — მთელი პროექტზე (cloud sandbox-ში, `device_bash`-ის 45წმ-იანი ლიმიტის გვერდის ავლით) — **სუფთა, 0 შეცდომა**.
+2. **Neon branch-ზე migration ტესტი** (`npm run test-migration -- 017_rls_sales_pilot.sql`) — წარმატებული, production-ზე ზემოქმედების გარეშე.
+3. **Migration 017 ლოკალურად** (pgAdmin) — წარმატებით გატარდა.
+4. **`vitest run tests/isolation`** ლოკალურად, backend RLS-migrated DB-ს წინააღმდეგ — ✅ **46 passed | 1 todo (47 total)**, რეგრესია არ არის (მათ შორის Org A/Org B cross-tenant ტესტები checkout/void/history/sync-offline-ზე ზუსტად).
+5. **Migration 017 production Neon-ზე** (SQL Editor, branch `production`) — 27/27 statement წარმატებით, commit/push-მდე.
+6. `git add`/`commit`/`push` — commit `eb28d8a` ("RLS pilot: sales.ts org-isolation policies (migration 017)"), ზუსტად 3 ფაილით (`db.ts`, `sales.ts`, `017_rls_sales_pilot.sql`).
+7. **Production deploy (Vercel) დადასტურებულია** — `pay-flow-zet3.vercel.app`-ზე ხელით: checkout (testproduct, 1₾), void (დადასტურების მოდალით), shift history სწორად ასახავს ორივეს (გაუქმებული + აქტიური), admin dashboard-ის sales history ჯამი სწორია.
+
+### ⚠️ დარჩენილი, მომავალი ეტაპის scope
+
+- **სრული RLS rollout** — დანარჩენი ~9 route ფაილი/~92 `db.query()` call site (`auth.ts`, `products.ts`, `registers.ts`, `dashboard.ts`, `notifications.ts`, `platformAdmin.ts`, `organizations.ts`) ჯერ არ არის `withOrgContext`-ზე გადასული — ამ ცხრილებზე RLS ჯერ **არ** მოქმედებს რეალურად (fail-open escape hatch-ის გამო).
+- **Fail-open escape hatch-ის მოშორება** — ყველა route-ის მიგრაციის შემდეგ, ცალკე migration-ით policy-ებიდან "IS NULL OR" ნაწილის ამოღება, fail-closed-ის სასარგებლოდ (ნამდვილი, ბოლომდე მკაცრი DB-level დაცვისთვის).
+- **`audit_logs`** — განზრახ გამორიცხული ამ pilot-იდან, `writeAuditLog()` (auth.ts) კვლავ პირდაპირ `db.query`-ს იყენებს.
 
 **ღია დარჩა:** `frontend`-ს `typescript` დამოკიდებულება არ აქვს (იხ. ⚠️ აღმოჩენა ვერიფიკაციისას ზემოთ) — მომხმარებლის გადასაწყვეტია, ცალკე task.
