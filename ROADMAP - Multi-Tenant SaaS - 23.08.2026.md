@@ -303,7 +303,7 @@ Frontend-ის ცალკე ვერიფიკაცია (frontend-ს 
 16. ~~STEP 8 — Superadmin Panel~~ ✅ **სრულად დასრულებული, ტესტირებული, deploy-ილი და production-ზე დადასტურებული, 24.08.2026, commit `1a5e911`** — იხ. "✅ STEP 8" სექცია ზემოთ.
 17. ~~`users.name` uniqueness — per-org გახდომის საკითხი~~ ✅ **დახურულია, 24.08.2026, კოდის ცვლილების გარეშე** — იხ. "🔒 გადაწყვეტილება — `users.name` uniqueness" სექცია ქვემოთ.
 18. ~~Neon branch-ზე migration-ის ავტომატური ტესტირება~~ ✅ **დასრულებული, end-to-end დადასტურებული production-ზე ზემოქმედების გარეშე, 24.08.2026** — იხ. "🌿 Neon branch-ზე migration-ის ავტომატური ტესტირება" სექცია ქვემოთ.
-19. **STEP 7-lite — კომპანიის slug login** 🚧 **კოდი დაწერილი, `tsc --strict` სუფთა, ტესტ-ფაილიც განახლებული, მომხმარებლის მანქანაზე commit-მდე** — migration 016 (`users.name` per-org unique) ჯერ არც ლოკალურად, არც production-ზე არ გაშვებულა. დარჩენილი ნაბიჯები: (ა) `npm run test-migration -- 016_users_name_per_org.sql` Neon branch-ზე, (ბ) migration ლოკალურად + production-ზე, (გ) `vitest run tests/isolation`, (დ) commit/push/deploy. იხ. "🏢 STEP 7-lite — კომპანიის slug login" სექცია ქვემოთ.
+19. ~~STEP 7-lite — კომპანიის slug login~~ ✅ **დასრულებულია (24.08.2026)** — migration 016 გატარდა Neon branch-ზე, ლოკალურად და production-ზე; `vitest run tests/isolation` — 46 passed | 1 todo; commit `a5bd6e7` push-ილია; production-ზე (`pay-flow-zet3.vercel.app`) ხელით დადასტურებულია ორსაფეხურიანი login რამდენიმე org-ისთვის (tenant isolation production-შიც სწორად მუშაობს). იხ. "🏢 STEP 7-lite — კომპანიის slug login" სექცია ქვემოთ.
 
 დანარჩენი უცვლელად ვალიდურია `ROADMAP - Multi-Tenant SaaS - 16.08.2026.md`-დან.
 
@@ -514,13 +514,15 @@ STEP 7-ის (item #14, subdomain routing) კვლევისას გა�
 
 ⚠️ **აღმოჩენა ვერიფიკაციისას:** `frontend`-ს **საერთოდ არ აქვს** `typescript` დამოკიდებულება დაყენებული (`package.json`-ში არც devDependency, არც `tsconfig.json`) — `npm run build` (`vite build`) ტიპების შემოწმებას საერთოდ არ აკეთებს, მხოლოდ esbuild-ის transpile-ს. ანუ ტიპის შეცდომები frontend-ში ამჟამად **მხოლოდ** ამ სესიის ხელით, დროებით დაყენებული `typescript`-ით შემოწმდა — ეს არაა repo-ს მუდმივი ნაწილი. **რეკომენდაცია (არ განხორციელებულა, მომხმარებლის გადასაწყვეტია):** `typescript` დაემატოს `frontend`-ის devDependency-ებში + `tsconfig.json` შეიქმნას, რომ ტიპის უსაფრთხოება მუდმივად, ავტომატურად მოწმდებოდეს (და არა მხოლოდ session-დამოკიდებულად).
 
-**`vitest run tests/isolation`** — **ჯერ არ გაშვებულა** (საჭიროებს რეალურ backend-ს + test DB-ს, migration 016-ის გატარების შემდეგ).
+**`vitest run tests/isolation`** — ✅ **გაშვებულია, სრული წარმატება: 46 passed | 1 todo (47 total)**.
 
-### დარჩენილი ნაბიჯები (მომხმარებლის მხრიდან)
+### ✅ შესრულებული ნაბიჯები (24.08.2026)
 
-1. **Migration 016 Neon branch-ზე ტესტი:** `npm run test-migration -- 016_users_name_per_org.sql` (`backend/`-იდან) — production-ის ასლზე უსაფრთხო გატესტვა, production-ზე ზემოქმედების გარეშე.
-2. **Migration 016 ლოკალურად** (pgAdmin ან `psql`) — sanity-შემოწმება.
-3. **`vitest run tests/isolation`** ლოკალურად, backend + ლოკალური test DB-ის წინააღმდეგ — ახალი "STEP 7-lite" ბლოკის ჩათვლით.
-4. **Migration 016 production Neon-ზე** (SQL Editor, branch `production`) — commit/push-ზე **ადრე**, roadmap-ის სტანდარტული lesson-ის მიხედვით (იხ. "🚨 Production ინციდენტი" სექცია).
-5. `git add`/`commit`/`push` (`.git/index.lock`-ის ცნობილი VS Code-ის race-ის გათვალისწინებით — იხ. "🔧 გვერდითი აღმოჩენა" სექცია).
-6. Production deploy-ის (Vercel) ხელით დადასტურება: login ახალი ორსაფეხურიანი ფლოუთი, `pay-flow-zet3.vercel.app`-ზე.
+1. **Migration 016 Neon branch-ზე ტესტი** — `npm run test-migration -- 016_users_name_per_org.sql` — წარმატებული, production-ზე ზემოქმედების გარეშე.
+2. **Migration 016 ლოკალურად** (pgAdmin) — წარმატებით გატარდა.
+3. **`vitest run tests/isolation`** ლოკალურად — 46 passed | 1 todo (47 total), STEP 7-lite ბლოკის ჩათვლით.
+4. **Migration 016 production Neon-ზე** (SQL Editor, branch `production`) — წარმატებით გატარდა commit/push-მდე, roadmap-ის სტანდარტული lesson-ის მიხედვით.
+5. `git add`/`commit`/`push` — commit `a5bd6e7` ("feat: STEP 7-lite — კომპანიის slug login + users.name per-org unique"), ზუსტად 10 შეცვლილი ფაილით (`.git/index.lock`-ის VS Code-ის race-ი გვერდი აუარეს რამდენჯერმე — იხ. "🔧 გვერდითი აღმოჩენა" სექცია).
+6. **Production deploy (Vercel) დადასტურებულია** — `pay-flow-zet3.vercel.app`-ზე ორსაფეხურიანი slug→credentials login მუშაობს რამდენიმე org-ისთვის (განსხვავებული dashboard-მონაცემები თითოეულისთვის — tenant isolation production-შიც უსაფრთხოდ მუშაობს).
+
+**ღია დარჩა:** `frontend`-ს `typescript` დამოკიდებულება არ აქვს (იხ. ⚠️ აღმოჩენა ვერიფიკაციისას ზემოთ) — მომხმარებლის გადასაწყვეტია, ცალკე task.
