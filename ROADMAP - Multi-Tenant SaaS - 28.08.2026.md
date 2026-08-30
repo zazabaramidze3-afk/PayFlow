@@ -98,7 +98,7 @@
 |------|-------|----------|
 | 2.2 | RLS Full Rollout | ✅ **სრულად დასრულებული** (იხ. სესია #2/#3-ის ჩანაწერები ქვემოთ) |
 | 5 | Discount System + Payment Methods | ✅ **სრულად დასრულებული** — migration 002/008-დან, `sales.ts`-ში სრულად ინტეგრირებული (ეს ცხრილში აქამდე არასწორად ეწერა "⚠️ დაუსრულებელი") |
-| 6 | Dashboard Charts | 🟡 **ნაწილობრივ აშენებული, მაგრამ ჩართული არაა** — `ExecutiveDashboard.tsx` სრულად აქვს Recharts (LineChart/BarChart) და backend-საც (`dashboard.ts`) `dailyTrend`/`topProducts` aggregation, მაგრამ ეს ფაილი `App.tsx`-ის routing-ში არ არის ჩართული; hourly-peak aggregation query საერთოდ არ არსებობს |
+| 6 | Dashboard Charts | ✅ **სრულად მუშაობს production-ზე** (30.08-ს live screenshot-ით დადასტურდა — `Dashboard.tsx` თავად რენდერავს `ExecutiveDashboard`-ს "ანალიტიკა" ტაბის ქვეშ, ჩემი წინა "არ არის ჩართული" პირველი შემოწმება არასწორი იყო). ერთადერთი ნამდვილად დარჩენილი — hourly-peak (საათობრივი) aggregation query, ეს ნამდვილად არ არსებობს |
 | 2 (frontend) | Frontend TypeScript | 🟡 **ტიპები უკვე ყველგან დაწერილია** (ყველა ფაილი `.tsx`/`.ts`-ია, `interface`/`useState<T>` ა.შ.), **მაგრამ** `tsconfig.json` და `typescript` პაკეტი საერთოდ არ არსებობს — არავითარი რეალური type-check არ ხდება build-ზე |
 | 7 | Subdomain Routing | `slug`-ზე დაფუძნებული tenant-routing — ეს ჩანაწერი **სწორია**, მართლა არ არის დასრულებული |
 | 8 | Dockerization | production Dockerfile/docker-compose — **სწორია**, მართლა არ არსებობს |
@@ -189,7 +189,7 @@
 - Frontend: Sales.tsx → "დაკანოკა" button → percentage/amount input → real-time recalculate
 - Validation: discount_amount ≤ total
 
-#### 3.3 Dashboard დაკემპლექტება — 🟡 ნაწილობრივ დასრულებული (იხ. შენიშვნა ქვემოთ)
+#### 3.3 Dashboard დაკემპლექტება — ✅ სინამდვილეში სრულად დასრულებული (გარდა hourly-peak-ისა)
 
 ახალი SQL aggregation queries:
 
@@ -516,4 +516,19 @@ STEP 2.2-ის production-დადასტურების შემდე�
 | Dockerization/Deployment | 🔴 არ დაწყებულა |
 
 **რეკომენდაცია:** ორივე "ნახევრად" item (Dashboard Charts-ის ჩართვა, TypeScript-ის verification-ის ჩართვა) გაცილებით სწრაფად დასასრულებელია, ვიდრე roadmap-ის თავდაპირველი დროის შეფასება ვარაუდობდა (თითოეული სავარაუდოდ 1 დღეზე ნაკლები, არა "1-2 დღე"/"1 კვირა"), რადგან საფუძველი უკვე აშენებულია.
+
+---
+
+## 🔧 გასწორება #2 — Dashboard Charts სინამდვილეში სრულად მუშაობს (30.08.2026, სესია #3)
+
+წინა ვერიფიკაციის (იხ. ზემოთ "🔍 კოდის რეალურ მდგომარეობასთან შედარება") "Dashboard Charts აშენებულია, მაგრამ ჩართული არაა" დასკვნა **არასწორი აღმოჩნდა** — production-ის live screenshot-მა აჩვენა, რომ chart-ები (LineChart დღიური დინამიკა, BarChart ტოპ 5 პროდუქტი) სრულად მუშაობს Manager Dashboard-ის "ანალიტიკა" ტაბზე.
+
+**რეალური ახსნა:** `frontend/src/pages/Dashboard.tsx` (ხაზი 4) იმპორტავს `ExecutiveDashboard`-ს და რენდერავს მას პირობითად (ხაზი 216): `{activeTab === 'analytics' && <ExecutiveDashboard />}`. ჩემმა პირველმა ვერიფიკაციამ `Dashboard.tsx`-ში პირდაპირ ვეძებდი chart-ბიბლიოთეკის საკვანძო სიტყვებს (`recharts`, `LineChart` და ა.შ.) და, ბუნებრივია, ვერაფერი ვიპოვე იქ — მაგრამ არ შევამოწმე, თავად `Dashboard.tsx` იყენებდა თუ არა `ExecutiveDashboard`-ს, როგორც sub-component-ს. არასრული ძებნა იყო.
+
+**საბოლოო, გადამოწმებული სტატუსი:**
+- ✅ LineChart (დღიური გაყიდვების დინამიკა) — მუშაობს
+- ✅ BarChart (ტოპ 5 პროდუქტი) — მუშაობს
+- ❌ Hourly-peak (საათობრივი დატვირთვის) ცალკე chart/query — **ეს ერთადერთია, რაც ნამდვილად არ არსებობს** (გადამოწმებულია `backend/src/routes/dashboard.ts`-სა და `frontend/src/pages/ExecutiveDashboard.tsx`-ში `hour`/`HOUR`-ის ძებნით — არსად ჩანს)
+
+**დასკვნა:** STEP 6 (Dashboard Charts) პრაქტიკულად **სრულად დასრულებულია** — დარჩენილია მხოლოდ ერთი, მცირე დამატება (hourly-peak), არა მთელი ინტეგრაცია, როგორც წინა (არასწორი) ვერსია ამტკიცებდა.
 
