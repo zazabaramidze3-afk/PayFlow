@@ -5,6 +5,12 @@ import path from 'path';
 import { authenticateToken, CustomRequest } from './auth';
 // შემოგვაქვს მზა PostgreSQL პული ძირითადი ფაილიდან (ერთადერთი, საერთო pool)
 import { db } from '../index';
+// 🔒 Roadmap STEP 2.2 (RLS Full Rollout, "28.08.2026") — products.ts, ბლოკი 2.
+// იგივე `withOrgContext` pattern, რაც auth.ts-ს (ბლოკი 1) და sales.ts-ს
+// (pilot) დაერთო — `products` ცხრილზე migration 017-ის RLS policy-ს
+// უერთდება, route-level `WHERE/AND organization_id` scoping-ის დამატებით
+// შრედ.
+import { withOrgContext } from '../db';
 
 const router = Router();
 
@@ -32,7 +38,7 @@ router.get('/products', authenticateToken, async (req: CustomRequest, res: Respo
 
     query += ' ORDER BY name ASC';
 
-    const result = await db.query(query, params);
+    const result = await withOrgContext(req.user?.organizationId, (client) => client.query(query, params));
     res.json(result.rows);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -52,9 +58,11 @@ router.get('/products/barcode/:barcode', authenticateToken, async (req: CustomRe
   }
 
   try {
-    const result = await db.query(
-      'SELECT * FROM products WHERE barcode = $1 AND organization_id = $2 LIMIT 1',
-      [req.params.barcode, req.user?.organizationId]
+    const result = await withOrgContext(req.user?.organizationId, (client) =>
+      client.query(
+        'SELECT * FROM products WHERE barcode = $1 AND organization_id = $2 LIMIT 1',
+        [req.params.barcode, req.user?.organizationId]
+      )
     );
 
     if (result.rows.length === 0) {
@@ -96,17 +104,21 @@ router.post('/products', authenticateToken, async (req: CustomRequest, res: Resp
     // ფილტრის გარეშე dupCheck არასწორად უარყოფდა Org A-ს მოთხოვნას,
     // თუ Org B-ს უკვე ჰქონდა იგივე სახელით პროდუქტი. INSERT-ის
     // organization_id-ის გარეშე კი (NOT NULL constraint) 500 იქნებოდა.
-    const dupCheck = await db.query(
-      'SELECT id FROM products WHERE LOWER(name) = LOWER($1) AND organization_id = $2',
-      [name.trim(), req.user?.organizationId]
+    const dupCheck = await withOrgContext(req.user?.organizationId, (client) =>
+      client.query(
+        'SELECT id FROM products WHERE LOWER(name) = LOWER($1) AND organization_id = $2',
+        [name.trim(), req.user?.organizationId]
+      )
     );
     if (dupCheck.rows.length > 0) {
       return res.status(409).json({ error: 'ამ სახელით პროდუქტი უკვე არსებობს!' });
     }
 
-    const result = await db.query(
-      `INSERT INTO products (name, price, stock, barcode, organization_id) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [name.trim(), price, stock ?? 0, barcode || null, req.user?.organizationId]
+    const result = await withOrgContext(req.user?.organizationId, (client) =>
+      client.query(
+        `INSERT INTO products (name, price, stock, barcode, organization_id) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+        [name.trim(), price, stock ?? 0, barcode || null, req.user?.organizationId]
+      )
     );
 
     res.status(201).json(result.rows[0]);
@@ -142,23 +154,27 @@ router.put('/products/:id', authenticateToken, async (req: CustomRequest, res: R
     // id-ს გამოიცნობდა/მოიპოვებდა, შეეძლო მისი რედაქტირება — org-ის
     // საკუთრების შემოწმების გარეშე `WHERE id = $N` ნებისმიერ id-ს იღებდა.
     if (name) {
-      const dupCheck = await db.query(
-        'SELECT id FROM products WHERE LOWER(name) = LOWER($1) AND id != $2 AND organization_id = $3',
-        [name.trim(), req.params.id, req.user?.organizationId]
+      const dupCheck = await withOrgContext(req.user?.organizationId, (client) =>
+        client.query(
+          'SELECT id FROM products WHERE LOWER(name) = LOWER($1) AND id != $2 AND organization_id = $3',
+          [name.trim(), req.params.id, req.user?.organizationId]
+        )
       );
       if (dupCheck.rows.length > 0) {
         return res.status(409).json({ error: 'ამ სახელით სხვა პროდუქტი უკვე არსებობს!' });
       }
     }
 
-    const result = await db.query(
-      `UPDATE products SET
-        name = COALESCE($1, name),
-        price = COALESCE($2, price),
-        stock = COALESCE($3, stock),
-        barcode = COALESCE($4, barcode)
-       WHERE id = $5 AND organization_id = $6 RETURNING *`,
-      [name?.trim(), price, stock, barcode, req.params.id, req.user?.organizationId]
+    const result = await withOrgContext(req.user?.organizationId, (client) =>
+      client.query(
+        `UPDATE products SET
+          name = COALESCE($1, name),
+          price = COALESCE($2, price),
+          stock = COALESCE($3, stock),
+          barcode = COALESCE($4, barcode)
+         WHERE id = $5 AND organization_id = $6 RETURNING *`,
+        [name?.trim(), price, stock, barcode, req.params.id, req.user?.organizationId]
+      )
     );
 
     if (result.rows.length === 0) {
@@ -192,9 +208,11 @@ router.patch('/products/:id/restock', authenticateToken, async (req: CustomReque
     // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 3 (Roadmap "23.08.2026", IDOR fix)
     // — `AND organization_id = $3` დაემატა. ორგანიზაციის საკუთრების
     // შემოწმების გარეშე სხვა org-ის პროდუქტის მარაგის ცვლილება იყო შესაძლებელი.
-    const result = await db.query(
-      'UPDATE products SET stock = stock + $1 WHERE id = $2 AND organization_id = $3 RETURNING *',
-      [qty, req.params.id, req.user?.organizationId]
+    const result = await withOrgContext(req.user?.organizationId, (client) =>
+      client.query(
+        'UPDATE products SET stock = stock + $1 WHERE id = $2 AND organization_id = $3 RETURNING *',
+        [qty, req.params.id, req.user?.organizationId]
+      )
     );
 
     if (result.rows.length === 0) {
@@ -217,9 +235,11 @@ router.delete('/products/:id', authenticateToken, async (req: CustomRequest, res
     // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 3 (Roadmap "23.08.2026", IDOR fix)
     // — `AND organization_id = $2` დაემატა. ორგანიზაციის შემოწმების გარეშე
     // ადმინს სხვა org-ის პროდუქტის წაშლა შეეძლო, id-ს გამოცნობით/მოპოვებით.
-    const result = await db.query(
-      'DELETE FROM products WHERE id = $1 AND organization_id = $2 RETURNING id',
-      [req.params.id, req.user?.organizationId]
+    const result = await withOrgContext(req.user?.organizationId, (client) =>
+      client.query(
+        'DELETE FROM products WHERE id = $1 AND organization_id = $2 RETURNING id',
+        [req.params.id, req.user?.organizationId]
+      )
     );
 
     if (result.rows.length === 0) {
@@ -251,7 +271,7 @@ router.get('/products/export/excel', authenticateToken, async (req: CustomReques
     }
     query += ' ORDER BY name ASC';
 
-    const result = await db.query(query, params);
+    const result = await withOrgContext(req.user?.organizationId, (client) => client.query(query, params));
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Products');
@@ -297,7 +317,7 @@ router.get('/products/export/pdf', authenticateToken, async (req: CustomRequest,
     }
     query += ' ORDER BY name ASC';
 
-    const result = await db.query(query, params);
+    const result = await withOrgContext(req.user?.organizationId, (client) => client.query(query, params));
     const rows = result.rows;
 
     const doc = new PDFDocument({ margin: 50 });

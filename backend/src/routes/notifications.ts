@@ -1,6 +1,12 @@
 import { Router, Response } from 'express';
 // შემოგვაქვს მზა PostgreSQL პული ძირითადი ფაილიდან
 import { db } from '../index';
+// 🔒 Roadmap STEP 2.2 (RLS Full Rollout, "28.08.2026") — notifications.ts,
+// ბლოკი 4. `stock_deficit_notifications`-სა და `shift_amendments`-ს
+// ორივეს აქვს RLS policy (migration 017) — `withOrgContext`-ზე გადასვლა
+// დღესვე რეალურ დამატებით დაცვას იძლევა (platformAdmin.ts/organizations.ts-
+// ისგან განსხვავებით, რომლებიც scope-ის გარეთაა by design).
+import { withOrgContext } from '../db';
 import { authenticateToken, CustomRequest, writeAuditLog } from './auth';
 import { requireAnyRole } from '../middleware/requireRole';
 import { StockDeficitNotification, ShiftAmendmentNotification } from '../types';
@@ -32,20 +38,22 @@ router.get(
   requireAnyRole('admin', 'manager'),
   async (req: CustomRequest, res: Response) => {
     try {
-      const result = await db.query<StockDeficitNotification & { cashier_name: string | null; register_name: string | null }>(
-        `SELECT
-           sdn.id, sdn.payment_id, sdn.product_id, sdn.product_name, sdn.register_id, sdn.cashier_id,
-           sdn.requested_quantity, sdn.available_quantity, sdn.deficit_quantity,
-           sdn.is_resolved, sdn.resolved_by, sdn.resolved_at, sdn.created_at,
-           u.name AS cashier_name,
-           r.name AS register_name
-         FROM stock_deficit_notifications sdn
-         LEFT JOIN users u ON u.id = sdn.cashier_id
-         LEFT JOIN registers r ON r.id = sdn.register_id
-         WHERE sdn.is_resolved = false AND sdn.organization_id = $1
-         ORDER BY sdn.created_at DESC
-         LIMIT 100`,
-        [req.user?.organizationId]
+      const result = await withOrgContext(req.user?.organizationId, (client) =>
+        client.query<StockDeficitNotification & { cashier_name: string | null; register_name: string | null }>(
+          `SELECT
+             sdn.id, sdn.payment_id, sdn.product_id, sdn.product_name, sdn.register_id, sdn.cashier_id,
+             sdn.requested_quantity, sdn.available_quantity, sdn.deficit_quantity,
+             sdn.is_resolved, sdn.resolved_by, sdn.resolved_at, sdn.created_at,
+             u.name AS cashier_name,
+             r.name AS register_name
+           FROM stock_deficit_notifications sdn
+           LEFT JOIN users u ON u.id = sdn.cashier_id
+           LEFT JOIN registers r ON r.id = sdn.register_id
+           WHERE sdn.is_resolved = false AND sdn.organization_id = $1
+           ORDER BY sdn.created_at DESC
+           LIMIT 100`,
+          [req.user?.organizationId]
+        )
       );
       res.json(result.rows);
     } catch (err: any) {
@@ -66,14 +74,16 @@ router.put(
   requireAnyRole('admin', 'manager'),
   async (req: CustomRequest, res: Response) => {
     try {
-      const result = await db.query(
-        `UPDATE stock_deficit_notifications
-         SET is_resolved = true,
-             resolved_by = $1,
-             resolved_at = CURRENT_TIMESTAMP
-         WHERE id = $2 AND is_resolved = false AND organization_id = $3
-         RETURNING id`,
-        [req.user?.id, req.params.id, req.user?.organizationId]
+      const result = await withOrgContext(req.user?.organizationId, (client) =>
+        client.query(
+          `UPDATE stock_deficit_notifications
+           SET is_resolved = true,
+               resolved_by = $1,
+               resolved_at = CURRENT_TIMESTAMP
+           WHERE id = $2 AND is_resolved = false AND organization_id = $3
+           RETURNING id`,
+          [req.user?.id, req.params.id, req.user?.organizationId]
+        )
       );
 
       if (result.rows.length === 0) {
@@ -109,20 +119,22 @@ router.get(
   requireAnyRole('admin', 'manager'),
   async (req: CustomRequest, res: Response) => {
     try {
-      const result = await db.query<ShiftAmendmentNotification & { cashier_name: string | null; register_name: string | null }>(
-        `SELECT
-           sa.id, sa.shift_id, sa.payment_id, sa.cashier_id, sa.register_id,
-           sa.previous_expected, sa.new_expected, sa.previous_difference, sa.new_difference,
-           sa.is_resolved, sa.resolved_by, sa.resolved_at, sa.created_at,
-           u.name AS cashier_name,
-           r.name AS register_name
-         FROM shift_amendments sa
-         LEFT JOIN users u ON u.id = sa.cashier_id
-         LEFT JOIN registers r ON r.id = sa.register_id
-         WHERE sa.is_resolved = false AND sa.organization_id = $1
-         ORDER BY sa.created_at DESC
-         LIMIT 100`,
-        [req.user?.organizationId]
+      const result = await withOrgContext(req.user?.organizationId, (client) =>
+        client.query<ShiftAmendmentNotification & { cashier_name: string | null; register_name: string | null }>(
+          `SELECT
+             sa.id, sa.shift_id, sa.payment_id, sa.cashier_id, sa.register_id,
+             sa.previous_expected, sa.new_expected, sa.previous_difference, sa.new_difference,
+             sa.is_resolved, sa.resolved_by, sa.resolved_at, sa.created_at,
+             u.name AS cashier_name,
+             r.name AS register_name
+           FROM shift_amendments sa
+           LEFT JOIN users u ON u.id = sa.cashier_id
+           LEFT JOIN registers r ON r.id = sa.register_id
+           WHERE sa.is_resolved = false AND sa.organization_id = $1
+           ORDER BY sa.created_at DESC
+           LIMIT 100`,
+          [req.user?.organizationId]
+        )
       );
       res.json(result.rows);
     } catch (err: any) {
@@ -142,14 +154,16 @@ router.put(
   requireAnyRole('admin', 'manager'),
   async (req: CustomRequest, res: Response) => {
     try {
-      const result = await db.query(
-        `UPDATE shift_amendments
-         SET is_resolved = true,
-             resolved_by = $1,
-             resolved_at = CURRENT_TIMESTAMP
-         WHERE id = $2 AND is_resolved = false AND organization_id = $3
-         RETURNING id`,
-        [req.user?.id, req.params.id, req.user?.organizationId]
+      const result = await withOrgContext(req.user?.organizationId, (client) =>
+        client.query(
+          `UPDATE shift_amendments
+           SET is_resolved = true,
+               resolved_by = $1,
+               resolved_at = CURRENT_TIMESTAMP
+           WHERE id = $2 AND is_resolved = false AND organization_id = $3
+           RETURNING id`,
+          [req.user?.id, req.params.id, req.user?.organizationId]
+        )
       );
 
       if (result.rows.length === 0) {

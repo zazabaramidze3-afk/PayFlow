@@ -3,6 +3,13 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 // შემოგვაქვს მზა PostgreSQL პული ძირითადი ფაილიდან
 import { db } from '../index';
+// 🔒 Roadmap STEP 2.2 (RLS Full Rollout, "28.08.2026") — auth.ts, ბლოკი 1.
+// `withOrgContext` (backend/src/db.ts) `users` ცხრილზე (migration 017-ის
+// RLS policy-ს) იმავე pattern-ით უერთდება, რასაც sales.ts უკვე იყენებდა
+// pilot-ად. `WHERE/AND organization_id = $N` route-level scoping უცვლელად
+// რჩება ყველგან (defense-in-depth-ის ორივე შრე ერთდროულად მუშაობს) —
+// RLS მხოლოდ დამატებითი, DB-level "safety net"-ია.
+import { withOrgContext } from '../db';
 import { User } from '../types';
 import { checkRateLimit, registerFailedAttempt, clearAttempts, getRateLimitKey } from '../middleware/managerPinRateLimit';
 import { signManagerOverrideToken } from '../middleware/managerOverride';
@@ -269,9 +276,11 @@ router.post('/auth/verify-manager-pin', authenticateToken, async (req: CustomReq
     // გათვალისწინების გარეშე) — read-only route არაა, მაგრამ
     // ავთენტიფიკაციის query-ია, ამიტომ იგივე STEP 2 review-ის ფარგლებში
     // გასწორდა.
-    const result = await db.query<Pick<User, 'id' | 'name' | 'status' | 'manager_pin'>>(
-      `SELECT id, name, status, manager_pin FROM users WHERE role = 'manager' AND manager_pin IS NOT NULL AND organization_id = $1`,
-      [req.user?.organizationId]
+    const result = await withOrgContext(req.user?.organizationId, (client) =>
+      client.query<Pick<User, 'id' | 'name' | 'status' | 'manager_pin'>>(
+        `SELECT id, name, status, manager_pin FROM users WHERE role = 'manager' AND manager_pin IS NOT NULL AND organization_id = $1`,
+        [req.user?.organizationId]
+      )
     );
 
     // 🔒 დაბლოკილი მენეჯერის PIN აღარ მუშაობს — იგივე სტატუსის შემოწმების
@@ -362,13 +371,15 @@ router.post('/users', authenticateToken, async (req: CustomRequest, res) => {
       RETURNING id, can_view_history, requires_password_reset
     `;
 
-    const result = await db.query(query, [
-      username.trim(),
-      hashedPassword,
-      role,
-      can_view_history,
-      req.user?.organizationId,
-    ]);
+    const result = await withOrgContext(req.user?.organizationId, (client) =>
+      client.query(query, [
+        username.trim(),
+        hashedPassword,
+        role,
+        can_view_history,
+        req.user?.organizationId,
+      ])
+    );
     const newUserId = result.rows[0].id;
 
     res.status(201).json({
@@ -406,12 +417,14 @@ router.post('/users', authenticateToken, async (req: CustomRequest, res) => {
 // ამ ცვლილებას ამოწმებს.
 router.get('/users', authenticateToken, async (req: CustomRequest, res) => {
   try {
-    const result = await db.query(
-      `SELECT id, name AS username, role, status, can_view_history, can_use_discount,
-              can_void_receipt, can_clear_cart,
-              requires_password_reset, (manager_pin IS NOT NULL) AS has_manager_pin
-       FROM users WHERE organization_id = $1 ORDER BY id ASC`,
-      [req.user?.organizationId]
+    const result = await withOrgContext(req.user?.organizationId, (client) =>
+      client.query(
+        `SELECT id, name AS username, role, status, can_view_history, can_use_discount,
+                can_void_receipt, can_clear_cart,
+                requires_password_reset, (manager_pin IS NOT NULL) AS has_manager_pin
+         FROM users WHERE organization_id = $1 ORDER BY id ASC`,
+        [req.user?.organizationId]
+      )
     );
     res.json(result.rows);
   } catch (err: any) {
@@ -430,12 +443,14 @@ router.put('/users/:id', authenticateToken, async (req: CustomRequest, res) => {
     // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 3 (Roadmap "23.08.2026", IDOR fix)
     // — `AND organization_id = $5` დაემატა. ამის გარეშე ერთი org-ის ადმინს
     // შეეძლო სხვა org-ის user-ის id-ს გამოცნობით მისი role/status შეცვლა.
-    const result = await db.query(
-      `UPDATE users
-       SET role = $1, status = $2, can_view_history = COALESCE($3, can_view_history)
-       WHERE id = $4 AND organization_id = $5
-       RETURNING id, name AS username, role, status, can_view_history`,
-      [role, status, can_view_history, req.params.id, req.user?.organizationId]
+    const result = await withOrgContext(req.user?.organizationId, (client) =>
+      client.query(
+        `UPDATE users
+         SET role = $1, status = $2, can_view_history = COALESCE($3, can_view_history)
+         WHERE id = $4 AND organization_id = $5
+         RETURNING id, name AS username, role, status, can_view_history`,
+        [role, status, can_view_history, req.params.id, req.user?.organizationId]
+      )
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა' });
     res.json({ success: true, user: result.rows[0] });
@@ -493,9 +508,11 @@ router.put('/users/:id/history-access', authenticateToken, async (req: CustomReq
   try {
     // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 3 (Roadmap "23.08.2026", IDOR fix)
     // — `AND organization_id = $3` დაემატა (იხ. PUT /users/:id-ის იგივე კომენტარი).
-    const result = await db.query(
-      'UPDATE users SET can_view_history = $1 WHERE id = $2 AND organization_id = $3 RETURNING id, name AS username, can_view_history',
-      [can_view_history, req.params.id, req.user?.organizationId]
+    const result = await withOrgContext(req.user?.organizationId, (client) =>
+      client.query(
+        'UPDATE users SET can_view_history = $1 WHERE id = $2 AND organization_id = $3 RETURNING id, name AS username, can_view_history',
+        [can_view_history, req.params.id, req.user?.organizationId]
+      )
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა' });
 
@@ -523,9 +540,11 @@ router.put('/users/:id/discount-access', authenticateToken, async (req: CustomRe
   try {
     // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 3 (Roadmap "23.08.2026", IDOR fix)
     // — `AND organization_id = $3` დაემატა (იხ. PUT /users/:id-ის იგივე კომენტარი).
-    const result = await db.query(
-      'UPDATE users SET can_use_discount = $1 WHERE id = $2 AND organization_id = $3 RETURNING id, name AS username, can_use_discount',
-      [can_use_discount, req.params.id, req.user?.organizationId]
+    const result = await withOrgContext(req.user?.organizationId, (client) =>
+      client.query(
+        'UPDATE users SET can_use_discount = $1 WHERE id = $2 AND organization_id = $3 RETURNING id, name AS username, can_use_discount',
+        [can_use_discount, req.params.id, req.user?.organizationId]
+      )
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა' });
 
@@ -552,9 +571,11 @@ router.put('/users/:id/void-access', authenticateToken, async (req: CustomReques
   try {
     // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 3 (Roadmap "23.08.2026", IDOR fix)
     // — `AND organization_id = $3` დაემატა (იხ. PUT /users/:id-ის იგივე კომენტარი).
-    const result = await db.query(
-      'UPDATE users SET can_void_receipt = $1 WHERE id = $2 AND organization_id = $3 RETURNING id, name AS username, can_void_receipt',
-      [can_void_receipt, req.params.id, req.user?.organizationId]
+    const result = await withOrgContext(req.user?.organizationId, (client) =>
+      client.query(
+        'UPDATE users SET can_void_receipt = $1 WHERE id = $2 AND organization_id = $3 RETURNING id, name AS username, can_void_receipt',
+        [can_void_receipt, req.params.id, req.user?.organizationId]
+      )
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა' });
 
@@ -581,9 +602,11 @@ router.put('/users/:id/clear-cart-access', authenticateToken, async (req: Custom
   try {
     // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 3 (Roadmap "23.08.2026", IDOR fix)
     // — `AND organization_id = $3` დაემატა (იხ. PUT /users/:id-ის იგივე კომენტარი).
-    const result = await db.query(
-      'UPDATE users SET can_clear_cart = $1 WHERE id = $2 AND organization_id = $3 RETURNING id, name AS username, can_clear_cart',
-      [can_clear_cart, req.params.id, req.user?.organizationId]
+    const result = await withOrgContext(req.user?.organizationId, (client) =>
+      client.query(
+        'UPDATE users SET can_clear_cart = $1 WHERE id = $2 AND organization_id = $3 RETURNING id, name AS username, can_clear_cart',
+        [can_clear_cart, req.params.id, req.user?.organizationId]
+      )
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა' });
 
@@ -601,6 +624,14 @@ router.put('/users/:id/clear-cart-access', authenticateToken, async (req: Custom
 // = $1` დაემატა WHERE-ში. LEFT JOIN users actor/target-ზე organization_id-ს
 // განზრახ არ ვამატებთ — ეს მხოლოდ სახელების საჩვენებლად join-ავს, filter-ი
 // უკვე თავად audit_logs-ის ჩანაწერზეა.
+// 🔒 STEP 2.2 (RLS Full Rollout, "28.08.2026") — ეს ორი endpoint (GET/DELETE
+// /audit-logs) განზრახ **არ არის** გადატანილი `withOrgContext`-ზე: migration
+// 017-მა RLS policy `audit_logs`-ზე საერთოდ არ დააყენა (roadmap-ის განზრახი
+// გამორიცხვა — `writeAuditLog()` კვლავ პირდაპირ `db.query`-ს იყენებს,
+// context-ის დაყენების გარეშე). `app.current_org_id`-ის დაყენება ამ
+// route-ისთვის ამ ეტაპზე ნულოვანი დაცვის სარგებელი იქნებოდა — route-level
+// `WHERE organization_id = $1` (ქვემოთ) ერთადერთი, საკმარისი შრეა, სანამ
+// ცალკე მიგრაცია `audit_logs`-ზეც RLS policy-ს არ დაამატებს.
 router.get('/audit-logs', authenticateToken, async (req: CustomRequest, res: Response) => {
   if (req.user?.role !== 'admin' && req.user?.role !== 'manager') {
     return res.status(403).json({ error: 'მხოლოდ ადმინისთვის ან მენეჯერისთვის!' });
@@ -669,9 +700,11 @@ router.put('/users/:id/password', authenticateToken, async (req: CustomRequest, 
     // (ან, ახლა, სხვა org-ის) id "წარმატებას" აბრუნებდა, თუმცა არაფერი
     // შეცვლილა. სხვა by-id endpoint-ების (history-access და სხვ.) იგივე
     // 404-შემოწმებას ვამატებთ თანმიმდევრულობისთვის.
-    const result = await db.query(
-      'UPDATE users SET password_hash = $1 WHERE id = $2 AND organization_id = $3',
-      [hashedNewPassword, req.params.id, req.user?.organizationId]
+    const result = await withOrgContext(req.user?.organizationId, (client) =>
+      client.query(
+        'UPDATE users SET password_hash = $1 WHERE id = $2 AND organization_id = $3',
+        [hashedNewPassword, req.params.id, req.user?.organizationId]
+      )
     );
     if (result.rowCount === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა' });
     res.json({ success: true, message: 'პაროლი შეიცვალა!' });
@@ -696,9 +729,11 @@ router.put('/users/:id/pin', authenticateToken, async (req: CustomRequest, res: 
   try {
     // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 3 (Roadmap "23.08.2026", IDOR fix)
     // — `AND organization_id = $2` დაემატა targetCheck-საც და UPDATE-საც.
-    const targetCheck = await db.query<Pick<User, 'id' | 'role'>>(
-      'SELECT id, role FROM users WHERE id = $1 AND organization_id = $2',
-      [req.params.id, req.user?.organizationId]
+    const targetCheck = await withOrgContext(req.user?.organizationId, (client) =>
+      client.query<Pick<User, 'id' | 'role'>>(
+        'SELECT id, role FROM users WHERE id = $1 AND organization_id = $2',
+        [req.params.id, req.user?.organizationId]
+      )
     );
 
     if (targetCheck.rows.length === 0) {
@@ -713,10 +748,12 @@ router.put('/users/:id/pin', authenticateToken, async (req: CustomRequest, res: 
     // rounds კონვენცია, რასაც password_hash იყენებს ამ ფაილში ყველგან.
     const hashedPin = await bcrypt.hash(pin, 10);
 
-    const result = await db.query(
-      `UPDATE users SET manager_pin = $1 WHERE id = $2 AND organization_id = $3
-       RETURNING id, name AS username, role, (manager_pin IS NOT NULL) AS has_manager_pin`,
-      [hashedPin, req.params.id, req.user?.organizationId]
+    const result = await withOrgContext(req.user?.organizationId, (client) =>
+      client.query(
+        `UPDATE users SET manager_pin = $1 WHERE id = $2 AND organization_id = $3
+         RETURNING id, name AS username, role, (manager_pin IS NOT NULL) AS has_manager_pin`,
+        [hashedPin, req.params.id, req.user?.organizationId]
+      )
     );
 
     // 🕵️ აუდიტის ლოგი: არასდროს ვწერთ PIN-ის მნიშვნელობას (ჰეშსაც კი) —
@@ -747,9 +784,11 @@ router.delete('/users/:id', authenticateToken, async (req: CustomRequest, res) =
     // — `AND organization_id = $2` დაემატა (იხ. PUT /users/:id-ის იგივე კომენტარი).
     // ⚠️ ბონუს-ფიქსი: rowCount შემოწმება დაემატა იმავე მიზეზით, რაც PUT
     // /users/:id/password-ს (იხ. ზემოთა კომენტარი).
-    const result = await db.query(
-      "UPDATE users SET status = 'inactive' WHERE id = $1 AND organization_id = $2",
-      [req.params.id, req.user?.organizationId]
+    const result = await withOrgContext(req.user?.organizationId, (client) =>
+      client.query(
+        "UPDATE users SET status = 'inactive' WHERE id = $1 AND organization_id = $2",
+        [req.params.id, req.user?.organizationId]
+      )
     );
     if (result.rowCount === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა' });
     res.json({ success: true, message: 'მომხმარებელი გახდა პასიური!' });

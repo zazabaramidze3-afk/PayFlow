@@ -1,6 +1,12 @@
 import { Router, Response } from 'express';
 // შემოგვაქვს მზა PostgreSQL პული ძირითადი ფაილიდან
 import { db } from '../index';
+// 🔒 Roadmap STEP 2.2 (RLS Full Rollout, "28.08.2026") — dashboard.ts, ბლოკი 3.
+// ყველა query ამ ფაილში `payments`/`shifts`/`products`/`payment_items`-ს
+// ეხება — ყველა მათგანს უკვე აქვს RLS policy (migration 017) — ანუ
+// `withOrgContext`-ზე გადასვლა დღესვე რეალურ, დამატებით დაცვას იძლევა
+// (registers.ts-ისგან განსხვავებით, სადაც policy ჯერ არ არსებობს).
+import { withOrgContext } from '../db';
 import { authenticateToken, CustomRequest } from './auth';
 import { requireAnyRole } from '../middleware/requireRole';
 
@@ -60,23 +66,27 @@ router.get(
       // ახლა `CURRENT_DATE`-ის ნაცვლად იგივე Asia/Tbilisi კონვერტაციას
       // ვიყენებთ, რასაც created_at-ის ჩაწერისას — orders/sales.ts-თან
       // თანმიმდევრულად.
-      const todayResult = await db.query(
-        `SELECT
-           COALESCE(SUM(total_amount), 0) AS revenue,
-           COUNT(*) AS receipt_count,
-           COALESCE(AVG(total_amount), 0) AS average_receipt
-         FROM payments
-         WHERE is_voided = false
-           AND organization_id = $1
-           AND created_at >= TO_CHAR((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date, 'YYYY-MM-DD')
-           AND created_at < TO_CHAR((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date + INTERVAL '1 day', 'YYYY-MM-DD')`,
-        [organizationId]
+      const todayResult = await withOrgContext(organizationId, (client) =>
+        client.query(
+          `SELECT
+             COALESCE(SUM(total_amount), 0) AS revenue,
+             COUNT(*) AS receipt_count,
+             COALESCE(AVG(total_amount), 0) AS average_receipt
+           FROM payments
+           WHERE is_voided = false
+             AND organization_id = $1
+             AND created_at >= TO_CHAR((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date, 'YYYY-MM-DD')
+             AND created_at < TO_CHAR((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date + INTERVAL '1 day', 'YYYY-MM-DD')`,
+          [organizationId]
+        )
       );
 
       // 2️⃣ აქტიური (ღია) ცვლების რაოდენობა — ამ org-ის მასშტაბით
-      const activeShiftsResult = await db.query(
-        `SELECT COUNT(*) AS active_shifts FROM shifts WHERE status = 'open' AND organization_id = $1`,
-        [organizationId]
+      const activeShiftsResult = await withOrgContext(organizationId, (client) =>
+        client.query(
+          `SELECT COUNT(*) AS active_shifts FROM shifts WHERE status = 'open' AND organization_id = $1`,
+          [organizationId]
+        )
       );
 
       // 💰 Roadmap ეტაპი 8 — დღევანდელი გადახდები, დაშლილი მეთოდის მიხედვით
@@ -84,35 +94,39 @@ router.get(
       // ზემოთ — ეს არის იმ ერთი "დღევანდელი შემოსავალის" ჯამის დაშლა სამ
       // ცალკეულ ბარათად, არა ცალკე Z-Report-ის ტიპის სალაროში ფაქტობრივად
       // არსებული ნაღდის გამოთვლა (ის PUT /shifts/close-შია, ცვლის scope-ით).
-      const paymentBreakdownResult = await db.query(
-        `SELECT
-           COALESCE(SUM(CASE WHEN payment_method = 'cash' THEN total_amount ELSE 0 END), 0) AS cash_total,
-           COALESCE(SUM(CASE WHEN payment_method = 'card' THEN total_amount ELSE 0 END), 0) AS card_total,
-           COALESCE(SUM(CASE WHEN payment_method = 'split' THEN total_amount ELSE 0 END), 0) AS split_total,
-           COUNT(*) FILTER (WHERE payment_method = 'cash') AS cash_count,
-           COUNT(*) FILTER (WHERE payment_method = 'card') AS card_count,
-           COUNT(*) FILTER (WHERE payment_method = 'split') AS split_count
-         FROM payments
-         WHERE is_voided = false
-           AND organization_id = $1
-           AND created_at >= TO_CHAR((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date, 'YYYY-MM-DD')
-           AND created_at < TO_CHAR((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date + INTERVAL '1 day', 'YYYY-MM-DD')`,
-        [organizationId]
+      const paymentBreakdownResult = await withOrgContext(organizationId, (client) =>
+        client.query(
+          `SELECT
+             COALESCE(SUM(CASE WHEN payment_method = 'cash' THEN total_amount ELSE 0 END), 0) AS cash_total,
+             COALESCE(SUM(CASE WHEN payment_method = 'card' THEN total_amount ELSE 0 END), 0) AS card_total,
+             COALESCE(SUM(CASE WHEN payment_method = 'split' THEN total_amount ELSE 0 END), 0) AS split_total,
+             COUNT(*) FILTER (WHERE payment_method = 'cash') AS cash_count,
+             COUNT(*) FILTER (WHERE payment_method = 'card') AS card_count,
+             COUNT(*) FILTER (WHERE payment_method = 'split') AS split_count
+           FROM payments
+           WHERE is_voided = false
+             AND organization_id = $1
+             AND created_at >= TO_CHAR((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date, 'YYYY-MM-DD')
+             AND created_at < TO_CHAR((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date + INTERVAL '1 day', 'YYYY-MM-DD')`,
+          [organizationId]
+        )
       );
 
       // 🚫 Roadmap ეტაპი 8 — დღევანდელი გაუქმებული ჩეკები: რაოდენობა და ჯამური
       // თანხა (total_amount, ანუ რამდენი ღირდა გაუქმებამდე — ეს არ ერთვება
       // ზემოთა todayResult/paymentBreakdown ჯამებში, რადგან იქ is_voided = false).
-      const voidedResult = await db.query(
-        `SELECT
-           COALESCE(SUM(total_amount), 0) AS voided_total,
-           COUNT(*) AS voided_count
-         FROM payments
-         WHERE is_voided = true
-           AND organization_id = $1
-           AND created_at >= TO_CHAR((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date, 'YYYY-MM-DD')
-           AND created_at < TO_CHAR((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date + INTERVAL '1 day', 'YYYY-MM-DD')`,
-        [organizationId]
+      const voidedResult = await withOrgContext(organizationId, (client) =>
+        client.query(
+          `SELECT
+             COALESCE(SUM(total_amount), 0) AS voided_total,
+             COUNT(*) AS voided_count
+           FROM payments
+           WHERE is_voided = true
+             AND organization_id = $1
+             AND created_at >= TO_CHAR((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date, 'YYYY-MM-DD')
+             AND created_at < TO_CHAR((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date + INTERVAL '1 day', 'YYYY-MM-DD')`,
+          [organizationId]
+        )
       );
 
       // 3️⃣ ტოპ 5 პროდუქტი მიმდინარე თვეში, რაოდენობის მიხედვით დალაგებული
@@ -121,24 +135,26 @@ router.get(
       // defense-in-depth (payment_items-ს, migration 013-ის დათქმის
       // მიხედვით, თავისი organization_id არ აქვს — payments-ის FK-ითაა
       // ირიბად დაცული, იხ. migration 013-ის თავსართი).
-      const topProductsResult = await db.query(
-        `SELECT
-           pr.id,
-           pr.name,
-           SUM(pi.quantity) AS total_quantity,
-           SUM(pi.quantity * pi.price) AS total_revenue
-         FROM payment_items pi
-         JOIN payments p ON pi.payment_id = p.id
-         JOIN products pr ON pi.product_id = pr.id
-         WHERE p.is_voided = false
-           AND p.organization_id = $1
-           AND pr.organization_id = $1
-           AND p.created_at >= TO_CHAR(date_trunc('month', (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date), 'YYYY-MM-DD')
-           AND p.created_at < TO_CHAR(date_trunc('month', (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date) + INTERVAL '1 month', 'YYYY-MM-DD')
-         GROUP BY pr.id, pr.name
-         ORDER BY total_quantity DESC
-         LIMIT 5`,
-        [organizationId]
+      const topProductsResult = await withOrgContext(organizationId, (client) =>
+        client.query(
+          `SELECT
+             pr.id,
+             pr.name,
+             SUM(pi.quantity) AS total_quantity,
+             SUM(pi.quantity * pi.price) AS total_revenue
+           FROM payment_items pi
+           JOIN payments p ON pi.payment_id = p.id
+           JOIN products pr ON pi.product_id = pr.id
+           WHERE p.is_voided = false
+             AND p.organization_id = $1
+             AND pr.organization_id = $1
+             AND p.created_at >= TO_CHAR(date_trunc('month', (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date), 'YYYY-MM-DD')
+             AND p.created_at < TO_CHAR(date_trunc('month', (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date) + INTERVAL '1 month', 'YYYY-MM-DD')
+           GROUP BY pr.id, pr.name
+           ORDER BY total_quantity DESC
+           LIMIT 5`,
+          [organizationId]
+        )
       );
 
       // 4️⃣ მიმდინარე თვის დღიური დინამიკა — 0-შევსებული სერია თვის დასაწყისიდან
@@ -148,24 +164,26 @@ router.get(
       // WHERE-ში: generate_series LEFT JOIN payments-ზეა, WHERE p.organization_id
       // = $1 ინერტულად INNER JOIN-ად აქცევდა (NULL-ს ფილტრავს ცარიელ
       // დღეებზეც) და ნულოვან-გაყიდვის დღეები Line Chart-იდან გაქრებოდა.
-      const dailyTrendResult = await db.query(
-        `SELECT
-           TO_CHAR(d, 'YYYY-MM-DD') AS day,
-           COALESCE(SUM(p.total_amount), 0) AS revenue,
-           COUNT(p.id) AS receipt_count
-         FROM generate_series(
-                date_trunc('month', (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date),
-                (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date::timestamp,
-                interval '1 day'
-              ) AS d
-         LEFT JOIN payments p
-           ON p.created_at >= TO_CHAR(d, 'YYYY-MM-DD')
-           AND p.created_at < TO_CHAR(d + interval '1 day', 'YYYY-MM-DD')
-           AND p.is_voided = false
-           AND p.organization_id = $1
-         GROUP BY d
-         ORDER BY d ASC`,
-        [organizationId]
+      const dailyTrendResult = await withOrgContext(organizationId, (client) =>
+        client.query(
+          `SELECT
+             TO_CHAR(d, 'YYYY-MM-DD') AS day,
+             COALESCE(SUM(p.total_amount), 0) AS revenue,
+             COUNT(p.id) AS receipt_count
+           FROM generate_series(
+                  date_trunc('month', (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date),
+                  (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date::timestamp,
+                  interval '1 day'
+                ) AS d
+           LEFT JOIN payments p
+             ON p.created_at >= TO_CHAR(d, 'YYYY-MM-DD')
+             AND p.created_at < TO_CHAR(d + interval '1 day', 'YYYY-MM-DD')
+             AND p.is_voided = false
+             AND p.organization_id = $1
+           GROUP BY d
+           ORDER BY d ASC`,
+          [organizationId]
+        )
       );
 
       res.json({
