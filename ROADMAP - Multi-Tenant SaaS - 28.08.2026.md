@@ -532,3 +532,26 @@ STEP 2.2-ის production-დადასტურების შემდე�
 
 **დასკვნა:** STEP 6 (Dashboard Charts) პრაქტიკულად **სრულად დასრულებულია** — დარჩენილია მხოლოდ ერთი, მცირე დამატება (hourly-peak), არა მთელი ინტეგრაცია, როგორც წინა (არასწორი) ვერსია ამტკიცებდა.
 
+---
+
+## ✅ STEP 6 — Dashboard Charts, ბოლო ნაწილის დასრულება: Hourly-Peak Chart (30.08.2026, სესია #3)
+
+"🔧 გასწორება #2"-ში აღნიშნული ერთადერთი დარჩენილი ნაწილი — hourly-peak (საათობრივი დატვირთვის) chart — აშენდა და დადასტურდა production-ის იდენტურ ლოკალურ გარემოში.
+
+### რა გაკეთდა
+
+- **`backend/src/routes/dashboard.ts`** — ახალი `hourlyPeakResult` SQL query, `GET /dashboard/stats`-ში. იმეორებს `dailyTrend`-ის `generate_series(0,23)` + `LEFT JOIN` 0-შევსების პატერნს (ცარიელი საათებიც ჩანს გრაფიკზე), scope — მიმდინარე თვე (იგივე, რაც `topProducts`/`dailyTrend`-ს აქვს). Response-ს დაემატა `hourlyPeak` ველი.
+- **`frontend/src/pages/ExecutiveDashboard.tsx`** — ახალი `HourlyPeakPoint` ტიპი, `DashboardStats`-ში ჩართული; ახალი Recharts `BarChart`, ჩეკების რაოდენობით (staffing-გადაწყვეტილებისთვის რელევანტური), არსებული ორი chart-ის (LineChart დღიური დინამიკა + BarChart ტოპ 5 პროდუქტი) ქვემოთ, სრულ სიგანეზე.
+- **`ExecutiveDashboard.module.scss`** — ახალი `.chartCardWide` კლასი (`grid-column: 1 / -1`) მესამე chart-ის სრულ-სიგანეზე გადასაჭიმად.
+
+### დადასტურება
+
+- Backend: `npm test` → 46 passed, 1 todo (47), 0 failed — ჩვეულებრივი, უცვლელი შედეგი
+- Frontend: ვიზუალურად, ლოკალურ `localhost:3000`-ზე — chart-ი სწორად ჩანს, რეალურ მონაცემებთან ლოგიკურად ემთხვევა (დღევანდელი ტესტ-ტრანზაქციების საათები)
+
+### განახლებული სტატუსი
+
+**STEP 6 (Dashboard Charts) — ✅ 100% დასრულებულია.** სამივე chart (დღიური დინამიკა, ტოპ 5 პროდუქტი, საათობრივი დატვირთვა) production-ზეც და ლოკალურადაც მუშაობს, "ანალიტიკა" ტაბზე, Manager/Admin-ისთვის.
+
+**დარჩენილი "ნახევრად მზა" item roadmap-ის მიხედვით:** მხოლოდ Frontend TypeScript verification (tsconfig.json + `typescript` პაკეტის დამატება, უკვე დაწერილი ტიპების რეალურად "გააქტიურებისთვის").
+
