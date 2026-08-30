@@ -5,6 +5,13 @@ import { db } from '../index';
 import { authenticateToken, CustomRequest } from './auth';
 import { requireAnyRole } from '../middleware/requireRole';
 import { signRegisterToken } from '../middleware/registerAuth';
+// 🔒 Roadmap STEP 2.2 (RLS Full Rollout, "30.08.2026") — registers.ts,
+// ბლოკი 5 (RLS rollout-ის ბოლო route-ფაილი). Migration 018-მა registers/
+// activation_codes-ს RLS policy დაამატა (defense-in-depth, route-level
+// `WHERE organization_id`-ის თავზე) — ამ ფაილშიც იმავე `withOrgContext`
+// pattern-ზე გადავდივართ, რაც უკვე გატარებულია sales.ts (pilot),
+// auth.ts, products.ts, dashboard.ts, notifications.ts-ში.
+import { withOrgContext } from '../db';
 
 const router = Router();
 
@@ -32,6 +39,13 @@ function generateSixDigitCode(): string {
 // 1) კოდის გენერირება — Unlinked ბრაუზერისთვის (ავტორიზაცია არ სჭირდება,
 //    რადგან ამ მოწყობილობას ჯერ არავითარი session/token არ გააჩნია).
 // ==========================================
+// 🔒 RLS შენიშვნა: ეს route **განზრახ რჩება** პირდაპირ `db.query`-ზე —
+// req.user აქ არ არსებობს (pre-auth), ანუ organizationId-იც არა გვაქვს
+// გადასაცემი `withOrgContext`-ში. იგივე მიზეზი, რაც auth.ts-ის
+// POST /login-სა და POST /auth/reset-password-initial-ში. activation_codes
+// row ისედაც NULL org-ით იქმნება (migration 013/018-ის დოკუმენტირებული,
+// NULLABLE დიზაინი) — RLS policy-ის `organization_id IS NULL` escape
+// ამას აწესრიგებს DB-ის მხარეს.
 router.post('/registers/generate-code', async (_req: Request, res: Response) => {
   const expiresAt = new Date(Date.now() + CODE_TTL_MINUTES * 60 * 1000);
 
@@ -79,6 +93,8 @@ router.post('/registers/generate-code', async (_req: Request, res: Response) => 
 // 2) Polling — Unlinked ბრაუზერი ამით ამოწმებს, დაადასტურა თუ არა
 //    მენეჯერმა/ადმინმა დაწყვილება. ავტორიზაცია არ სჭირდება იმავე მიზეზით.
 // ==========================================
+// 🔒 RLS შენიშვნა: იგივე მიზეზით რჩება db.query-ზე, რაც ზემოთა
+// generate-code-ში — pre-auth, organizationId არ არსებობს.
 router.get('/registers/pairing-status/:code', async (req: Request, res: Response) => {
   const { code } = req.params;
   if (!/^\d{6}$/.test(code)) {
@@ -147,10 +163,17 @@ router.post(
     }
 
     try {
-      const codeResult = await db.query(
-        `SELECT id, status, expires_at FROM activation_codes WHERE code = $1
+      // 🔒 activation_codes-ის code-ით ძებნა org-სპეციფიკური არ არის
+      // (კოდი გლობალურად უნიკალურია, org ჯერ არ ჩანს row-ზე) — მაინც
+      // withOrgContext-ში ვახვევთ, RLS defense-in-depth-ის ერთგვაროვნების
+      // შესანარჩუნებლად (policy-ის `organization_id IS NULL` escape
+      // ისედაც გაატარებდა).
+      const codeResult = await withOrgContext(req.user?.organizationId, (client) =>
+        client.query(
+          `SELECT id, status, expires_at FROM activation_codes WHERE code = $1
          ORDER BY created_at DESC LIMIT 1`,
-        [code]
+          [code]
+        )
       );
 
       if (codeResult.rows.length === 0) {
@@ -164,7 +187,9 @@ router.post(
       }
 
       if (new Date(activation.expires_at).getTime() < Date.now()) {
-        await db.query(`UPDATE activation_codes SET status = 'expired' WHERE id = $1`, [activation.id]);
+        await withOrgContext(req.user?.organizationId, (client) =>
+          client.query(`UPDATE activation_codes SET status = 'expired' WHERE id = $1`, [activation.id])
+        );
         return res.status(400).json({ error: 'კოდის ვადა ამოიწურა — მოლარემ ახალი კოდი უნდა დააგენერიროს' });
       }
 
@@ -178,10 +203,15 @@ router.post(
       //      დაწყვილებულიყო, org-ის საკუთრების შემოწმების გარეშე.
       //   2) write-blocker — ახალი register-ის INSERT organization_id-ის
       //      გარეშე 500-ით ჩავარდებოდა (NOT NULL constraint, migration 013).
+      // 🔒 STEP 2.2, ბლოკი 5 — orgId ახლა RLS-ის დამატებით შრესაც
+      // გადის (migration 018), route-level `AND organization_id`-ის
+      // თავზე.
       if (hasExistingRegisterId) {
-        const regResult = await db.query(
-          'SELECT id, is_active FROM registers WHERE id = $1 AND organization_id = $2',
-          [registerId, req.user?.organizationId]
+        const regResult = await withOrgContext(req.user?.organizationId, (client) =>
+          client.query(
+            'SELECT id, is_active FROM registers WHERE id = $1 AND organization_id = $2',
+            [registerId, req.user?.organizationId]
+          )
         );
         if (regResult.rows.length === 0) {
           return res.status(404).json({ error: 'სალარო ვერ მოიძებნა' });
@@ -191,21 +221,25 @@ router.post(
         }
         finalRegisterId = regResult.rows[0].id;
       } else {
-        const createResult = await db.query(
-          `INSERT INTO registers (name, is_active, organization_id) VALUES ($1, true, $2) RETURNING id`,
-          [String(newRegisterName).trim(), req.user?.organizationId]
+        const createResult = await withOrgContext(req.user?.organizationId, (client) =>
+          client.query(
+            `INSERT INTO registers (name, is_active, organization_id) VALUES ($1, true, $2) RETURNING id`,
+            [String(newRegisterName).trim(), req.user?.organizationId]
+          )
         );
         finalRegisterId = createResult.rows[0].id;
       }
 
       const registerToken = signRegisterToken(finalRegisterId);
 
-      await db.query(
-        `UPDATE activation_codes
+      await withOrgContext(req.user?.organizationId, (client) =>
+        client.query(
+          `UPDATE activation_codes
          SET status = 'confirmed', register_id = $1, register_token = $2,
              confirmed_by = $3, confirmed_at = CURRENT_TIMESTAMP
          WHERE id = $4`,
-        [finalRegisterId, registerToken, req.user?.id, activation.id]
+          [finalRegisterId, registerToken, req.user?.id, activation.id]
+        )
       );
 
       res.json({ success: true, registerId: finalRegisterId, registerToken });
@@ -226,11 +260,15 @@ router.post(
 // IDOR ფიქსთან — pairing UI-ს picker-ი წინააღმდეგ შემთხვევაში ყველა
 // org-ის register-ს აჩვენებდა (data leak), მიუხედავად იმისა, რომ
 // pair-ის დროს ახლა org-შემოწმება უკვე დგას.
+// 🔒 STEP 2.2, ბლოკი 5 — withOrgContext დაემატა, RLS migration
+// 018-ის დამატებით შრესთან ერთად.
 router.get('/registers', authenticateToken, requireAnyRole('admin', 'manager'), async (req: CustomRequest, res: Response) => {
   try {
-    const result = await db.query(
-      'SELECT id, name, is_active, created_at FROM registers WHERE organization_id = $1 ORDER BY created_at ASC',
-      [req.user?.organizationId]
+    const result = await withOrgContext(req.user?.organizationId, (client) =>
+      client.query(
+        'SELECT id, name, is_active, created_at FROM registers WHERE organization_id = $1 ORDER BY created_at ASC',
+        [req.user?.organizationId]
+      )
     );
     res.json(result.rows);
   } catch (err: unknown) {

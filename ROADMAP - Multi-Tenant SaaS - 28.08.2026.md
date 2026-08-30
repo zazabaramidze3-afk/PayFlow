@@ -400,9 +400,40 @@ services:
 - [x] products.ts (products)
 - [x] dashboard.ts (payments/shifts/products/payment_items)
 - [x] notifications.ts (stock_deficit_notifications/shift_amendments)
-- [ ] migration 018 — RLS `registers` + `activation_codes`-ზე
-- [ ] registers.ts route-ების მიგრაცია (migration 018-ის შემდეგ)
+- [x] migration 018 — RLS `registers` + `activation_codes`-ზე
+- [x] registers.ts route-ების მიგრაცია (migration 018-ის შემდეგ)
 - [ ] Fail-open → fail-closed transition (ყველა route-ის მიგრაციის სრულად დასრულების შემდეგ — ცალკე migration, `IS NULL OR`-ის მოშორება policy-ებიდან)
 - [x] platformAdmin.ts, organizations.ts — დოკუმენტირებული, განზრახ scope-ის გარეთ
 
-**შედეგი:** STEP 2.2 RLS-ის რეალური (ანუ ცხრილს policy რომ აქვს) scope **სრულად დაფარულია** ერთი migration-ის (018) და ერთი route-ფაილის (registers.ts) გარდა.
+**შედეგი:** STEP 2.2 RLS Full Rollout **სრულად დასრულებულია** — ყველა route-ფაილი, რასაც RLS policy-იანი ცხრილი ეხება, `withOrgContext`-ზეა გადასული. დარჩენილია მხოლოდ ცნობიერი, ცალკე გადაწყვეტილება: fail-open → fail-closed transition (production-ზე გადასვლის წინ).
+
+---
+
+## STEP 2.2 RLS Full Rollout — დასრულება (30.08.2026, სესია #3)
+
+წინა სესიის ("სესია #2") checklist-ის ბოლო ორი ღია item დაიხურა.
+
+### ბლოკი 5 — registers.ts + migration 018
+
+| კომპონენტი | დეტალი | სტატუსი |
+|---|---|---|
+| Migration 018 | RLS policy `registers`-ზე (NOT NULL org, pilot-ის იდენტური pattern) და `activation_codes`-ზე (NULLABLE org — დამატებითი `organization_id IS NULL` escape, migration 013-ის NULLABLE დიზაინის გათვალისწინებით) | ✅ |
+| registers.ts | 5 query site `withOrgContext`-ზე: `POST /registers/pair` (activation_codes lookup, expire-check, registers SELECT/INSERT, activation_codes confirm — 5×), `GET /registers` | ✅ |
+| registers.ts — განზრახ გამონაკლისი | `POST /registers/generate-code`, `GET /registers/pairing-status/:code` — **დარჩა** `db.query`-ზე, pre-auth (organizationId არ არსებობს), იგივე ლოგიკა, რაც auth.ts-ის `/login`-ში | ✅ დოკუმენტირებული |
+
+**დადასტურება:** `npx tsc --noEmit` (სუფთა) + `npm test` → **46 passed, 1 todo (47), 0 failed** — იდენტური შედეგი ყველა წინა ბლოკის.
+
+### განახლებული checklist — STEP 2.2 RLS Full Rollout **100% დასრულებულია**
+
+- [x] sales.ts (pilot)
+- [x] auth.ts (users)
+- [x] products.ts (products)
+- [x] dashboard.ts (payments/shifts/products/payment_items)
+- [x] notifications.ts (stock_deficit_notifications/shift_amendments)
+- [x] migration 018 — RLS `registers` + `activation_codes`-ზე
+- [x] registers.ts route-ების მიგრაცია
+- [x] platformAdmin.ts, organizations.ts — დოკუმენტირებული, განზრახ scope-ის გარეთ
+- [ ] Fail-open → fail-closed transition — **შემდეგი ღია item**, ცალკე ცნობიერი გადაწყვეტილება production-ზე გადასვლის წინ (policy-ებიდან `current_setting(...) IS NULL OR`-ის მოშორება)
+
+**შემდეგი პრიორიტეტი roadmap-ის მიხედვით:** Priority 2 (Frontend TypeScript) ან Priority 3 (Discount System + Payment Methods) — შემდეგი სესიის დასაწყისში გადასაწყვეტია.
+
