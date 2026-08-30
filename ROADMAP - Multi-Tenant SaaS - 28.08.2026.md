@@ -437,3 +437,25 @@ services:
 
 **შემდეგი პრიორიტეტი roadmap-ის მიხედვით:** Priority 2 (Frontend TypeScript) ან Priority 3 (Discount System + Payment Methods) — შემდეგი სესიის დასაწყისში გადასაწყვეტია.
 
+---
+
+## STEP 2.2 RLS — Production დადასტურება (30.08.2026, სესია #3, გაგრძელება)
+
+Migration 017 (RLS pilot, sales.ts) და 018 (registers/activation_codes) დადასტურებულია, რომ **production Neon ბაზაზეც აქტიურია**, არა მხოლოდ ლოკალურ `payflow_test`-ზე.
+
+### რა გაკეთდა
+
+- Production `DATABASE_URL` (Neon `production` branch, `neondb`, **non-pooled** connection — DDL/migration-ისთვის რეკომენდებული, `-pooler` hostname-ის გვერდის ავლით) დროებით დაყენდა ტერმინალის `$env:DATABASE_URL`-ში
+- გაეშვა `npm run migrate` (`backend/src/migrate.ts`) — ეს სკრიპტი ტრეკინგის ცხრილის გარეშეა, ყოველ ჯერზე **ყველა** `.sql` ფაილს (001-018) ხელახლა უშვებს, ცალკეულ ფაილზე შეცდომას იჭერს და აგრძელებს შემდეგზე
+- დასრულების შემდეგ `$env:DATABASE_URL` წაიშალა ტერმინალიდან (`$null`)
+
+### შედეგი
+
+| Migration | Production-ის სტატუსი | კომენტარი |
+|---|---|---|
+| 001-016 | ⏭️ "already exists" (ყველა) | მოსალოდნელი — ეს migration-ები ადრეც იყო გაშვებული production-ზე, idempotency-დაცვამ სწორად თქვა უარი ხელახლა-გაშვებაზე |
+| 017 (RLS pilot, sales.ts) | ⏭️ "already exists" (`org_isolation_payments` policy) | **დადასტურდა, რომ უკვე იყო აქტიური** production-ზე (Aug 24-ის pilot rollout-იდან) |
+| 018 (RLS registers/activation_codes) | ✅ **წარმატებით შესრულდა — პირველად** | ახალი policy-ები (`org_isolation_registers`, `org_isolation_activation_codes`) ახლა რეალურად ცოცხალია production-ზე |
+
+**დასკვნა:** STEP 2.2 RLS Full Rollout — კოდი (GitHub + Vercel deploy) და ბაზის policy-ები (Neon production) ორივე **სრულად სინქრონშია**. აღარაფერია დარჩენილი ამ ეტაპთან დაკავშირებით, გარდა ცნობიერად გადადებული fail-open → fail-closed transition-ისა.
+
