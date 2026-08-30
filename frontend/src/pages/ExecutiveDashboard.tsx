@@ -37,6 +37,13 @@ interface DailyTrendPoint {
   revenue: number;
   receiptCount: number;
 }
+// ⏰ Roadmap ეტაპი 6 — "hourly-peak" chart (30.08.2026-ის roadmap-გასწორების
+// TODO). hour: 0-23, GET /dashboard/stats-ის generate_series(0,23)-ის ზუსტი ასლი.
+interface HourlyPeakPoint {
+  hour: number; // 0-23
+  revenue: number;
+  receiptCount: number;
+}
 // 💰 Roadmap ეტაპი 8 — დღევანდელი გადახდები, დაშლილი მეთოდის მიხედვით.
 interface PaymentMethodStat {
   total: number;
@@ -57,6 +64,7 @@ interface DashboardStats {
   activeShifts: number;
   topProducts: TopProduct[];
   dailyTrend: DailyTrendPoint[];
+  hourlyPeak: HourlyPeakPoint[];
   paymentBreakdown: PaymentBreakdown;
   voided: VoidedStat;
 }
@@ -325,6 +333,11 @@ export default function ExecutiveDashboard() {
   const formatDayFull = (day: string): string =>
     new Date(day).toLocaleDateString('ka-GE', { day: 'numeric', month: 'long' });
 
+  // ⏰ Roadmap ეტაპი 6 — hourly-peak chart-ის ტიკ/tooltip ფორმატერები.
+  // X ღერძზე მოკლედ (მაგ. "9"), tooltip-ში სრულად ("09:00").
+  const formatHourTick = (hour: number): string => String(hour);
+  const formatHourFull = (hour: number): string => `${String(hour).padStart(2, '0')}:00`;
+
   if (loading) {
     return <div className={styles.stateBox}>იტვირთება ანალიტიკა...</div>;
   }
@@ -528,6 +541,32 @@ export default function ExecutiveDashboard() {
                     ანიმაცია გამორთულია, GSAP-ის stagger-ი (useEffect ზემოთ) მართავს
                     თითოეული ბარის reveal-ს ცალ-ცალკე. */}
                 <Bar dataKey="totalQuantity" name="რაოდენობა" fill="#93C5FD" radius={[0, 6, 6, 0]} isAnimationActive={false} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* ⏰ Roadmap ეტაპი 6 — hourly-peak chart (30.08.2026-ის roadmap-გასწორების
+            TODO). 24-საათიანი bar chart, "peak" საათების დანახვისთვის — მოლარეების
+            განრიგის დაგეგმვას (shift optimization) ემსახურება. Full-width
+            (`chartCardWide`), ორივე ზემოთა ვიწრო chart-ის ქვემოთ. */}
+        <div className={`${styles.chartCard} ${styles.chartCardWide}`}>
+          <h3 className={styles.chartTitle}>⏰ დატვირთვა საათების მიხედვით (მიმდინარე თვე)</h3>
+          {stats.hourlyPeak.length === 0 ? (
+            <p className={styles.chartEmpty}>მონაცემები არ მოიძებნა</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={stats.hourlyPeak} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#EEF0F2" vertical={false} />
+                <XAxis dataKey="hour" tickFormatter={formatHourTick} stroke="#9CA3AF" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="#9CA3AF" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+                <Tooltip
+                  labelFormatter={(label) => formatHourFull(Number(label))}
+                  formatter={(value) => [`${Number(value)} ჩეკი`, 'ჩეკების რაოდენობა']}
+                  contentStyle={{ borderRadius: 10, border: '1px solid #E9ECEF', boxShadow: '0 10px 20px rgba(17,17,17,0.08)' }}
+                  cursor={{ fill: 'rgba(37, 99, 235, 0.05)' }}
+                />
+                <Bar dataKey="receiptCount" name="ჩეკები" fill="#FBBF24" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}

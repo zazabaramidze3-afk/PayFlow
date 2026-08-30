@@ -186,6 +186,36 @@ router.get(
         )
       );
 
+      // 5️⃣ საათობრივი დატვირთვა (Hourly Peak) — Roadmap ეტაპი 6, "hourly-peak"
+      // chart (30.08.2026-ის roadmap-გასწორების TODO). 0-23 საათის სრული,
+      // 0-შევსებული სერია (dailyTrend-ის identical generate_series + LEFT
+      // JOIN pattern-ით), მიმდინარე თვის scope-ში (იგივე, რაც topProducts/
+      // dailyTrend-ს აქვს) — მიზანია მოლარეების განრიგის დაგეგმვა
+      // ("peak საათებში მეტი მოლარე"), არა მხოლოდ "დღეს"-ის ერთი დღის
+      // ხმაურიანი სურათი.
+      // ⚠️ payments.created_at TEXT-ია, უკვე Asia/Tbilisi ადგილობრივ დროშია
+      // ჩაწერილი (იხ. ფაილის თავსართის შენიშვნა) — ამიტომ საათის ამოღებას
+      // დამატებითი timezone-კონვერტაცია არ სჭირდება, უბრალო
+      // `EXTRACT(HOUR FROM created_at::timestamp)` საკმარისია.
+      const hourlyPeakResult = await withOrgContext(organizationId, (client) =>
+        client.query(
+          `SELECT
+             h AS hour,
+             COALESCE(SUM(p.total_amount), 0) AS revenue,
+             COUNT(p.id) AS receipt_count
+           FROM generate_series(0, 23) AS h
+           LEFT JOIN payments p
+             ON EXTRACT(HOUR FROM p.created_at::timestamp)::int = h
+             AND p.is_voided = false
+             AND p.organization_id = $1
+             AND p.created_at >= TO_CHAR(date_trunc('month', (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date), 'YYYY-MM-DD')
+             AND p.created_at < TO_CHAR(date_trunc('month', (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tbilisi')::date) + INTERVAL '1 month', 'YYYY-MM-DD')
+           GROUP BY h
+           ORDER BY h ASC`,
+          [organizationId]
+        )
+      );
+
       res.json({
         today: {
           revenue: Number(todayResult.rows[0].revenue),
@@ -210,6 +240,11 @@ router.get(
         })),
         dailyTrend: dailyTrendResult.rows.map((row) => ({
           day: row.day,
+          revenue: Number(row.revenue),
+          receiptCount: Number(row.receipt_count),
+        })),
+        hourlyPeak: hourlyPeakResult.rows.map((row) => ({
+          hour: Number(row.hour),
           revenue: Number(row.revenue),
           receiptCount: Number(row.receipt_count),
         })),

@@ -181,6 +181,12 @@
   padding: 22px;
 }
 
+// ⏰ Roadmap ეტაპი 6 — hourly-peak chart-ი (30.08.2026) ორივე ვიწრო
+// chart-ის ქვემოთ, სრულ სიგანეზე გადაჭიმული (grid-ის ორივე სვეტში).
+.chartCardWide {
+  grid-column: 1 / -1;
+}
+
 .chartTitle {
   margin: 0 0 16px 0;
   color: v.$color-text-primary;
