@@ -92,14 +92,17 @@
 
 ### 🔴 დაუმთავრებული კომპონენტები
 
+> ⚠️ **განახლებულია 30.08.2026-ს, კოდის რეალურ ვერიფიკაციაზე დაყრდნობით** — ეს ცხრილი თავდაპირველად (28.08) რამდენიმე ადგილას მოძველებულ/არასწორ ინფორმაციას შეიცავდა (roadmap-ის ძველ ვერსიაზე დაყრდნობით, კოდის პირდაპირი შემოწმების გარეშე დაწერილი). დეტალური ახსნა იხ. ქვემოთ, "🔍 კოდის რეალურ მდგომარეობასთან შედარება" სექციაში.
+
 | STEP | სფერა | რა დარჩა |
 |------|-------|----------|
-| 2.2 | RLS Full Rollout | დარჩენილი ~9 route-ფაილი `withOrgContext`-ზე |
-| 5 | Discount System | ⚠️ აკლია Payment Methods (Cash/Card/Mixed) |
-| 6 | Dashboard Charts | Recharts integration რეალური aggregation queries-თან |
-| 7 | Subdomain Routing | `slug`-ზე დაფუძნებული tenant-routing |
-| 8 | Dockerization | production Dockerfile/docker-compose |
-| 9 | Cloud Deployment | Render.com PostgreSQL, secrets, VITE_API_URL |
+| 2.2 | RLS Full Rollout | ✅ **სრულად დასრულებული** (იხ. სესია #2/#3-ის ჩანაწერები ქვემოთ) |
+| 5 | Discount System + Payment Methods | ✅ **სრულად დასრულებული** — migration 002/008-დან, `sales.ts`-ში სრულად ინტეგრირებული (ეს ცხრილში აქამდე არასწორად ეწერა "⚠️ დაუსრულებელი") |
+| 6 | Dashboard Charts | 🟡 **ნაწილობრივ აშენებული, მაგრამ ჩართული არაა** — `ExecutiveDashboard.tsx` სრულად აქვს Recharts (LineChart/BarChart) და backend-საც (`dashboard.ts`) `dailyTrend`/`topProducts` aggregation, მაგრამ ეს ფაილი `App.tsx`-ის routing-ში არ არის ჩართული; hourly-peak aggregation query საერთოდ არ არსებობს |
+| 2 (frontend) | Frontend TypeScript | 🟡 **ტიპები უკვე ყველგან დაწერილია** (ყველა ფაილი `.tsx`/`.ts`-ია, `interface`/`useState<T>` ა.შ.), **მაგრამ** `tsconfig.json` და `typescript` პაკეტი საერთოდ არ არსებობს — არავითარი რეალური type-check არ ხდება build-ზე |
+| 7 | Subdomain Routing | `slug`-ზე დაფუძნებული tenant-routing — ეს ჩანაწერი **სწორია**, მართლა არ არის დასრულებული |
+| 8 | Dockerization | production Dockerfile/docker-compose — **სწორია**, მართლა არ არსებობს |
+| 9 | Cloud Deployment | Render.com PostgreSQL, secrets, VITE_API_URL — **სწორია**, მართლა არ დაწყებულა |
 
 ---
 
@@ -137,7 +140,9 @@
 
 ### 🥈 **Priority 2 — Frontend TypeScript Integration** (1-2 დღე)
 
-**პრობლემა:** frontend-ს დამოკიდებულებებში TypeScript აკლია → type-safety აკლია React კომპონენტებში
+> ⚠️ **გასწორება (30.08.2026):** ეს განყოფილება მოძველებული პრობლემის აღწერით იწყება — იხ. "🔍 კოდის რეალურ მდგომარეობასთან შედარება" ქვემოთ ზუსტი მდგომარეობისთვის (ტიპები უკვე დაწერილია, `tsconfig.json`/`typescript` პაკეტი აკლია).
+
+**პრობლემა (ნაწილობრივ მოძველებული — იხ. ზემოთა შენიშვნა):** frontend-ს დამოკიდებულებებში TypeScript აკლია → type-safety აკლია React კომპონენტებში
 
 **გეგმა:**
 
@@ -168,21 +173,23 @@
 
 ### 🥉 **Priority 3 — Advanced POS Features** (Discount + Payment Methods, 5-7 დღე)
 
+> ⚠️ **გასწორება (30.08.2026):** 3.1 და 3.2 ქვემოთ **სრულად დასრულებულია უკვე** (migration 002/008-დან) — ეს გეგმა მოძველებული აღმოჩნდა. 3.3 (Dashboard) ნაწილობრივ დასრულებულია. დეტალები "🔍 კოდის რეალურ მდგომარეობასთან შედარება" სექციაში.
+
 **STEP 5-ის შემდგომი:**
 
-#### 3.1 Payment Methods (Cash/Card/Mixed)
+#### 3.1 Payment Methods (Cash/Card/Mixed) — ✅ სინამდვილეში უკვე დასრულებული
 - `payments` ცხრილი: `payment_method ENUM('cash', 'card', 'mixed')`, DEFAULT 'cash'
 - Backend: POST /payments-ში method validation
 - Frontend: Sales.tsx checkout-ის payment selector (radio/dropdown)
 - Audit: აუდიტ-ლოგი `payment_method` ჩანაწერით
 
-#### 3.2 Discount System (მიმდინარე)
+#### 3.2 Discount System — ✅ სინამდვილეში უკვე დასრულებული
 - `payments` ცხრილი: `discount_amount DECIMAL(12,2)`, `discount_type ENUM('percentage', 'fixed')`
 - Backend: POST /payments → `(total - discount) * 1.18` = final VAT
 - Frontend: Sales.tsx → "დაკანოკა" button → percentage/amount input → real-time recalculate
 - Validation: discount_amount ≤ total
 
-#### 3.3 Dashboard დაკემპლექტება
+#### 3.3 Dashboard დაკემპლექტება — 🟡 ნაწილობრივ დასრულებული (იხ. შენიშვნა ქვემოთ)
 
 ახალი SQL aggregation queries:
 
@@ -458,4 +465,55 @@ Migration 017 (RLS pilot, sales.ts) და 018 (registers/activation_codes) დ�
 | 018 (RLS registers/activation_codes) | ✅ **წარმატებით შესრულდა — პირველად** | ახალი policy-ები (`org_isolation_registers`, `org_isolation_activation_codes`) ახლა რეალურად ცოცხალია production-ზე |
 
 **დასკვნა:** STEP 2.2 RLS Full Rollout — კოდი (GitHub + Vercel deploy) და ბაზის policy-ები (Neon production) ორივე **სრულად სინქრონშია**. აღარაფერია დარჩენილი ამ ეტაპთან დაკავშირებით, გარდა ცნობიერად გადადებული fail-open → fail-closed transition-ისა.
+
+---
+
+## 🔍 კოდის რეალურ მდგომარეობასთან შედარება — გასწორებები (30.08.2026, სესია #3, ვერიფიკაცია)
+
+STEP 2.2-ის production-დადასტურების შემდეგ, მომხმარებელმა production POS-ზე რეალურად ნახა Discount + Payment Method UI უკვე მუშაობდა — ეს გამოააშკარავა, რომ ამ roadmap-ის Priority-სია (28.08-ს დაწერილი) რამდენიმე ადგილას **მოძველებულ/არასწორ ინფორმაციას** შეიცავდა, რადგან თავდაპირველი ანალიზი ძველ roadmap-ზე დაყრდნობით დაიწერა, არა კოდის პირდაპირი წაკითხვით. ქვემოთ — თითოეული Priority-ს ფაქტობრივი (30.08-ს, კოდში პირდაპირ გადამოწმებული) მდგომარეობა.
+
+### 1) Discount System + Payment Methods — ✅ სრულად დასრულებული (Aug 8-9-დან!)
+
+- `backend/migrations/002_add_discount_system.sql` (Aug 8) — `discount_type`, `discount_value`, `subtotal_amount`, `chk_discount_type` constraint
+- `backend/migrations/008_add_payment_method.sql` (Aug 9) — `payment_method` (`cash`/`card`/`split`), `cash_received`, `payment_splits` ცხრილი (გაყოფილი გადახდისთვის)
+- `sales.ts`-ის `POST /payments`-ში სრულადაა ინტეგრირებული: discount-ის გამოთვლა (percent/fixed), `can_use_discount` permission-შემოწმება (+ manager PIN override), payment_method-ის ვალიდაცია და შენახვა
+- Frontend (`Sales.tsx`) — ფასდაკლების ველი, ნაღდი/ბარათი/შერეული ღილაკები, რეალურ დროში გადათვლა — ყველაფერი მუშაობს (production screenshot-ითაც დადასტურდა)
+
+**დასკვნა:** roadmap-ის "⚠️ აკლია Payment Methods" ჩანაწერი (STEP 5-ის სექციაში) **არასწორი იყო** — ორივე ფუნქცია თვეზე მეტია production-ზეა.
+
+### 2) Dashboard Charts (STEP 6 / Priority 3.3) — 🟡 აშენებულია, მაგრამ არ არის ჩართული
+
+- `frontend/src/pages/ExecutiveDashboard.tsx` (538 ხაზი) — **სრულად** აქვს Recharts `LineChart` (დღიური ტრენდი) და `BarChart` (ტოპ პროდუქტები)
+- `backend/src/routes/dashboard.ts`-ში `GET /dashboard/stats` უკვე აბრუნებს `dailyTrend`-ს (SQL: `GROUP BY DATE(created_at)`) და `topProducts`-ს (`GROUP BY pr.id, pr.name`) — roadmap-ის მაგალითის SQL-ები რეალურად უკვე დაწერილი იყო
+- **მაგრამ** `frontend/src/App.tsx`-ის routing `lazy(() => import('./pages/Dashboard'))`-ს იყენებს, **არა** `ExecutiveDashboard`-ს — რეალურად production-ზე გამოჩენილ Dashboard-ს (`Dashboard.tsx`, 487 ხაზი) chart საერთოდ არა აქვს. `ExecutiveDashboard.tsx` ეფექტურად "orphaned" კომპონენტია — აშენებული, არასდროს ჩართული
+
+**რეალურად დარჩენილი სამუშაო:**
+- Hourly-peak SQL aggregation (`EXTRACT(HOUR FROM created_at)`) — ეს ნაწილი roadmap-ის მაგალითში იყო, მაგრამ **ნამდვილად არ არსებობს** არცერთ route-ში
+- გადაწყვეტილება: `ExecutiveDashboard.tsx` `App.tsx`-ში ჩართვა (ჩაანაცვლოს ან დაემატოს `Dashboard.tsx`-ს გვერდით), თუ საერთოდ სხვა მიმართულებით გადაწყდეს
+
+### 3) Frontend TypeScript (Priority 2) — 🟡 ტიპები დაწერილია, verification-ი აკლია
+
+- `frontend/src/`-ში **ყველა** ფაილი უკვე `.tsx`/`.ts` გაფართოებისაა — არცერთი `.jsx`/plain `.js` აღარ არსებობს
+- რეალურად გამოყენებულია `interface`, `type`, `useState<T>()` generic-ები — მაგალითად `Sales.tsx`-ში 85+ ადგილას ნამდვილი ტიპის ანოტაცია (`interface Product { id: number; name: string; ... }`)
+- **მაგრამ:** `tsconfig.json` **არსად არ არსებობს** (არც root-ში, არც `frontend/`-ში), `typescript` პაკეტიც **არ არის** დამატებული (`package-lock.json`-ში ნულოვანი დამთხვევა, `tsc` ბინარიც არსად ჩანს `node_modules/.bin/`-ში). Vite/esbuild მხოლოდ სინტაქსურად "აცლის" ტიპებს build-ისას — **არავითარი რეალური type-check არასდროს ხდება**
+
+**რეალურად დარჩენილი სამუშაო:** `typescript` დამატება devDependency-ებში + `tsconfig.json` შექმნა + `tsc --noEmit`-ის გაშვება, უკვე დაწერილი ტიპების რეალურად "გააქტიურებისთვის" (ალბათ არაერთი ლატენტური ტიპის შეცდომაც გამოჩნდება პირველივე გაშვებაზე — ეს ნორმალურია).
+
+### 4) Subdomain Routing (STEP 7) და Dockerization (Priority 4) — ✅ roadmap-ის თავდაპირველი შეფასება სწორი იყო
+
+- `Login.tsx`-ში პირდაპირ საკუთარი კომენტარია: "subdomain routing (STEP 7) ჯერ ვერ ხერხდება (`*.vercel.app`-ზე wildcard subdomain არ მუშაობს)" — ნამდვილად არ არის დასრულებული
+- არცერთი `Dockerfile`/`docker-compose.yml` არ არსებობს რეპოში — ნამდვილად არ დაწყებულა
+
+### შედეგად, განახლებული პრიორიტეტების რეალური სურათი
+
+| # | სფერო | რეალური სტატუსი |
+|---|---|---|
+| STEP 2.2 RLS | ✅ სრულად დასრულებული (production-ზეც) |
+| Discount + Payment Methods | ✅ სრულად დასრულებული |
+| Dashboard Charts | 🟡 ნახევრად — chart-ები აშენებულია, საჭიროა მხოლოდ ჩართვა + hourly-peak query |
+| Frontend TypeScript | 🟡 ნახევრად — ტიპები დაწერილია, საჭიროა მხოლოდ tsconfig + typescript პაკეტი + პირველი `tsc` გაშვება |
+| Subdomain Routing | 🔴 არ დაწყებულა |
+| Dockerization/Deployment | 🔴 არ დაწყებულა |
+
+**რეკომენდაცია:** ორივე "ნახევრად" item (Dashboard Charts-ის ჩართვა, TypeScript-ის verification-ის ჩართვა) გაცილებით სწრაფად დასასრულებელია, ვიდრე roadmap-ის თავდაპირველი დროის შეფასება ვარაუდობდა (თითოეული სავარაუდოდ 1 დღეზე ნაკლები, არა "1-2 დღე"/"1 კვირა"), რადგან საფუძველი უკვე აშენებულია.
 
