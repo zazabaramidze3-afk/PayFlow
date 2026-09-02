@@ -9,6 +9,17 @@
   box-sizing: border-box;
 }
 
+// 🎨 თემის (Dark/Light) გადართვისას ყველა ელემენტის ფონი/ტექსტი/ბორდერი
+// რბილად იცვლება, მკვეთრი "ციმციმის" ნაცვლად — უფრო სპეციფიკური
+// selector-ების (მაგ. ღილაკების/input-ების საკუთარი transition: all)
+// ეს წესი override-დება ბუნებრივად (CSS specificity), ასე რომ არსებული
+// hover/focus ანიმაციები ხელუხლებლად რჩება.
+*,
+*::before,
+*::after {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+}
+
 html, body {
   margin: 0;
   padding: 0;
