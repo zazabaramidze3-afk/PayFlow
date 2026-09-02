@@ -1,0 +1,24 @@
+# backend/.dockerignore — Docker build context-იდან გამორიცხულია
+node_modules
+dist
+
+# Secrets — image-ში არასდროს ხვდება; production env vars Render
+# Dashboard-იდან მოდის (იხ. render.yaml, envVars: sync: false)
+.env
+.env.local
+.env.*.local
+
+# Dev/CI-only
+tests
+vitest.config.ts
+.git
+.gitignore
+.vscode
+.idea
+*.log
+npm-debug.log*
+coverage
+.cache
+
+# Local docs (build-ს არ სჭირდება)
+*.md

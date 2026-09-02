@@ -9,6 +9,7 @@ import Register from './pages/Register';
 // currentPage === 'sales' branch-თან).
 import RegisterGuard from './components/RegisterGuard';
 import axios from 'axios';
+
 // 1. შემოგვაქვს ტოსტერის კონტეინერი
 import { Toaster } from 'react-hot-toast';
 // 📴 Roadmap STEP 5 — Background Sync Engine. App.tsx-ის root-ში იტვირთება
@@ -19,6 +20,20 @@ import { Toaster } from 'react-hot-toast';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { useBackgroundSyncEngine } from './sync/backgroundSync';
 import styles from './App.module.scss';
+
+// ==========================================================
+// 🌍 API Base URL (PLAN - Backend Migration to Render, 31.08.2026)
+// ==========================================================
+// production-ში (Vercel) აქამდე frontend-ის ყველა API request
+// რელატიური იყო ('/api/...') — საკმარისი იყო, სანამ backend იმავე
+// Vercel origin-ზე მუშაობდა (@vercel/node serverless function).
+// Render-ზე გადატანის შემდეგ backend სხვა origin-ზეა, ამიტომ
+// production-ს absolute URL სჭირდება. VITE_API_URL build-ის დროს
+// შედის (Vite env var, იხ. frontend/.env.example) — თუ არ არის
+// დაყენებული (ლოკალური dev, სადაც vite.config.ts-ის proxy /api-ს
+// localhost:5000-ზე აგზავნის), baseURL ცარიელი string რჩება და
+// ძველი, რელატიური ქცევა უცვლელად გრძელდება.
+axios.defaults.baseURL = import.meta.env.VITE_API_URL || '';
 
 // ==========================================================
 // 🚧 Roadmap-ის მიღმა (12.08) — Route-level code-splitting

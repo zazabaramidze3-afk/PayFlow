@@ -1,0 +1,44 @@
+# ==========================================================
+# render.yaml — Render.com Blueprint (Infrastructure as Code)
+# ==========================================================
+# გამოყენება: Render Dashboard → New → Blueprint → ეს repo (root-ში
+# ვდებთ, Render ავტომატურად პოულობს). ეს ფაილი მხოლოდ სერვისის
+# "ფორმას" აღწერს — რეალური secret მნიშვნელობები (DATABASE_URL,
+# JWT_SECRET, SENTRY_DSN) აქ **არასდროს** იწერება; `sync: false`
+# ნიშნავს, რომ Render პირველი deploy-ისას Dashboard-ში ხელით
+# შეყვანას მოითხოვს.
+#
+# ⚠️ PLAN-ის (31.08.2026) ტექნიკური ცვლილება #4-ის შესაბამისად:
+# DATABASE_URL/JWT_SECRET/SENTRY_DSN — Render Dashboard → Environment,
+# არასდროს git-ში.
+#
+# შენიშვნა: `plan`/`region` მნიშვნელობები დროთა განმავლობაში იცვლება
+# Render-ის მხრიდან — deploy-ის წინ გადაამოწმეთ დღეს აქტუალური
+# plan-სახელები/region-ები Render Dashboard-ში.
+services:
+  - type: web
+    name: payflow-backend
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    region: frankfurt
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # ⚠️ Neon connection string (pooled). db.ts ავტომატურად რთავს
+      # SSL-ს, თუ URL "localhost"-ს არ შეიცავს — Render-ზე ეს პირობა
+      # ყოველთვის სრულდება.
+      - key: DATABASE_URL
+        sync: false
+      # ⚠️ auth middleware-ებში (routes/auth.ts, middleware/*.ts) აქამდე
+      # 'super-secret-key' fallback არსებობს, თუ ეს არ არის დაყენებული —
+      # production-ზე ეს კატეგორიულად უნდა იყოს დაყენებული, ძლიერი,
+      # შემთხვევითი მნიშვნელობით (მაგ. `openssl rand -hex 32`).
+      - key: JWT_SECRET
+        sync: false
+      - key: SENTRY_DSN
+        sync: false

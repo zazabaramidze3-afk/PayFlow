@@ -19,7 +19,13 @@ import axios from 'axios';
 
 export const PLATFORM_ADMIN_TOKEN_KEY = 'payflow_platform_admin_token';
 
-const platformAdminApi = axios.create();
+// VITE_API_URL — იხ. App.tsx-ის იგივე კომენტარი (PLAN - Backend
+// Migration to Render, 31.08.2026). ეს ცალკე axios instance-ია
+// (App.tsx-ის `axios.defaults.baseURL` მას არ ეხება, იხ. ფაილის
+// თავში კომენტარი), ამიტომ baseURL აქაც ცალკე უნდა მიეთითოს.
+const platformAdminApi = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || '',
+});
 
 platformAdminApi.interceptors.request.use(
   (config) => {
