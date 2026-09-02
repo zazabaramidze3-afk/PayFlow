@@ -259,20 +259,7 @@ function App() {
       {/* 2. ჩავსვით ტოსტერის კომპონენტი, რომელიც ეკრანზე ზედა ცენტრში გამოაჩენს შეტყობინებებს */}
       <Toaster position="top-center" reverseOrder={false} />
 
-      {/* 🎨 Dark/Light toggle — მარჯვენა ზედა კუთხეში, ფიქსირებული პოზიციით,
-          ყველა გვერდზე ერთნაირად ხილული (sidebar-ის ნაცვლად, რომელშიც
-          არასასურველ ადგილას იკავებდა სივრცეს). */}
-      <button
-        type="button"
-        onClick={toggleTheme}
-        className={styles.themeToggleFab}
-        aria-label={theme === 'dark' ? 'ღია თემაზე გადართვა' : 'მუქ თემაზე გადართვა'}
-        title={theme === 'dark' ? 'ღია რეჟიმი' : 'მუქი რეჟიმი'}
-      >
-        {theme === 'dark' ? '☀️' : '🌙'}
-      </button>
-
-      {/* 📱 მობილური ზედა ზოლი — ჰამბურგერ ღილაკით */}
+      {/* 📱 მობილური ზედა ზოლი — ჰამბურგერ ღილაკით + თემის toggle მარჯვნივ */}
       <div className={styles.mobileTopbar}>
         <button
           className={styles.hamburgerBtn}
@@ -282,6 +269,15 @@ function App() {
           {mobileNavOpen ? '✕' : '☰'}
         </button>
         <span className={styles.brandTitle}>PayFlow</span>
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className={styles.themeToggleIcon}
+          aria-label={theme === 'dark' ? 'ღია თემაზე გადართვა' : 'მუქ თემაზე გადართვა'}
+          title={theme === 'dark' ? 'ღია რეჟიმი' : 'მუქი რეჟიმი'}
+        >
+          {theme === 'dark' ? '☀️' : '🌙'}
+        </button>
       </div>
 
       {/* 📱 მობილურზე Sidebar-ის მიღმა მუქი overlay, დახურვისთვის */}
@@ -293,8 +289,19 @@ function App() {
       <div className={`${styles.sidebar} ${mobileNavOpen ? styles.sidebarOpen : ''}`}>
         <div className={styles.sidebarTop}>
           <div className={styles.brand}>
-            <span className={styles.brandDot} />
-            <span className={styles.brandTitle}>PayFlow</span>
+            <span className={styles.brandGroup}>
+              <span className={styles.brandDot} />
+              <span className={styles.brandTitle}>PayFlow</span>
+            </span>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className={styles.themeToggleIcon}
+              aria-label={theme === 'dark' ? 'ღია თემაზე გადართვა' : 'მუქ თემაზე გადართვა'}
+              title={theme === 'dark' ? 'ღია რეჟიმი' : 'მუქი რეჟიმი'}
+            >
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
           </div>
           <p className={styles.userMeta}>
             {currentUser?.username} · {userRole}
