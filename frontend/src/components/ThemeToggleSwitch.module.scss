@@ -1,0 +1,75 @@
+@use '../styles/variables' as v;
+
+// ==========================================
+// 🎨 ThemeToggleSwitch — pill/switch სტილის Dark/Light გადამრთველი
+// ==========================================
+// ტრეკის ფერები (ცისფერი/navy) განზრახ ფიქსირებულია და არა თემის
+// ტოკენებზეა დამოკიდებული — თავად წარმოადგენს light/dark მდგომარეობას
+// ვიზუალურად, თემის მიმდინარე აქცენტის ფერისგან დამოუკიდებლად.
+// ==========================================
+
+.switchTrack {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  width: 52px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: v.$radius-pill;
+  background: #BFE0FA;
+  cursor: pointer;
+  transition: background 0.25s ease;
+
+  &:focus-visible {
+    outline: 2px solid v.$color-primary;
+    outline-offset: 2px;
+  }
+
+  &:active {
+    .thumb {
+      width: 24px;
+    }
+  }
+}
+
+.switchTrackDark {
+  background: #22335A;
+
+  .thumb {
+    transform: translateX(24px);
+  }
+}
+
+.iconSun,
+.iconMoon {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+}
+
+.iconSun {
+  left: 6px;
+}
+
+.iconMoon {
+  right: 6px;
+}
+
+.thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.25s ease, width 0.1s ease;
+  z-index: 1;
+}

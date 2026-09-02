@@ -19,6 +19,7 @@ import { Toaster } from 'react-hot-toast';
 // გაფართოებაზეც კი ეს ადგილი სწორი რჩება).
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { useTheme } from './hooks/useTheme';
+import ThemeToggleSwitch from './components/ThemeToggleSwitch';
 import { useBackgroundSyncEngine } from './sync/backgroundSync';
 import styles from './App.module.scss';
 
@@ -269,15 +270,7 @@ function App() {
           {mobileNavOpen ? '✕' : '☰'}
         </button>
         <span className={styles.brandTitle}>PayFlow</span>
-        <button
-          type="button"
-          onClick={toggleTheme}
-          className={styles.themeToggleIcon}
-          aria-label={theme === 'dark' ? 'ღია თემაზე გადართვა' : 'მუქ თემაზე გადართვა'}
-          title={theme === 'dark' ? 'ღია რეჟიმი' : 'მუქი რეჟიმი'}
-        >
-          {theme === 'dark' ? '☀️' : '🌙'}
-        </button>
+        <ThemeToggleSwitch theme={theme} onToggle={toggleTheme} className={styles.mobileThemeSwitch} />
       </div>
 
       {/* 📱 მობილურზე Sidebar-ის მიღმა მუქი overlay, დახურვისთვის */}
@@ -293,15 +286,7 @@ function App() {
               <span className={styles.brandDot} />
               <span className={styles.brandTitle}>PayFlow</span>
             </span>
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className={styles.themeToggleIcon}
-              aria-label={theme === 'dark' ? 'ღია თემაზე გადართვა' : 'მუქ თემაზე გადართვა'}
-              title={theme === 'dark' ? 'ღია რეჟიმი' : 'მუქი რეჟიმი'}
-            >
-              {theme === 'dark' ? '☀️' : '🌙'}
-            </button>
+            <ThemeToggleSwitch theme={theme} onToggle={toggleTheme} />
           </div>
           <p className={styles.userMeta}>
             {currentUser?.username} · {userRole}

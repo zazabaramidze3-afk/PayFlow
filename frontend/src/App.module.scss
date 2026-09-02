@@ -66,31 +66,7 @@
 // brand-ხაზი დესკტოპზე, mobileTopbar მობილურზე), არა position: fixed
 // float — რომ არასდროს არ დაემთხვეს გვერდის საკუთარ header-ის ღილაკებს
 // (მაგ. Products გვერდის Import/Excel/PDF ღილაკები, feedback 02.09.2026).
-.themeToggleIcon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 30px;
-  height: 30px;
-  border-radius: v.$radius-pill;
-  border: 1px solid v.$color-border;
-  background: v.$color-bg-page;
-  color: v.$color-text-primary;
-  font-size: 15px;
-  line-height: 1;
-  cursor: pointer;
-  transition: v.$transition-fast;
-
-  &:hover {
-    background: v.$color-bg-subtle;
-    border-color: v.$color-border-strong;
-  }
-
-  &:active {
-    transform: scale(0.94);
-  }
-}
+// თავად switch-ის სტილი (ტრეკი/thumb) — components/ThemeToggleSwitch.module.scss.
 
 .brandTitle {
   font-size: 1.05rem;
@@ -193,7 +169,7 @@
   }
 
   // მობილურ ზოლში toggle მარჯვენა კიდეზე — hamburger + brand მარცხნივ რჩება
-  .themeToggleIcon {
+  .mobileThemeSwitch {
     margin-left: auto;
   }
 }
