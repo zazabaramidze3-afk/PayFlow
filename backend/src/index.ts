@@ -127,6 +127,16 @@ app.use('/api', organizationsRoutes);
 app.use('/api', platformAdminRoutes);
 
 // ==========================================
+//  🧪 TEMP DEBUG ROUTE — Sentry ingestion-ის ხელით შემოწმებისთვის
+//  (Render migration-ის მონიტორინგის ეტაპი, 02.09.2026). წაშლილია
+//  ცალკე commit-ით, დადასტურების შემდეგ — production-ში დარჩენა
+//  არ არის განზრახული.
+// ==========================================
+app.get('/api/debug/sentry-test', () => {
+  throw new Error('Manual Sentry verification test - ' + new Date().toISOString());
+});
+
+// ==========================================
 //  🛰️ Sentry Error Handler (Roadmap STEP 0 / ცვლილება #7)
 // ==========================================
 // უნდა დარჩეს ყველა route/controller-ის შემდეგ და ნებისმიერი
