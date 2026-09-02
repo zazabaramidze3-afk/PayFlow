@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 // შემოგვაქვს მზა PostgreSQL პული ძირითადი ფაილიდან
 import { db } from '../index';
 import { authenticateToken, CustomRequest } from './auth';
+import { formatTbilisiTimestamp } from '../utils/formatTbilisiTimestamp';
 
 const router = Router();
 
@@ -99,7 +100,7 @@ router.get('/audit-logs/export', authenticateToken, async (req: CustomRequest, r
         log.id,
         escape(userCell),
         escape(actionLabel(log.action)),
-        escape(log.created_at ?? ''),
+        escape(formatTbilisiTimestamp(log.created_at)),
         escape(detailsLabel(log.action, log.new_value)),
       ].join(',');
     });

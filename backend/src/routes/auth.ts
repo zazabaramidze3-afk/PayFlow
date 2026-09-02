@@ -13,6 +13,7 @@ import { withOrgContext } from '../db';
 import { User } from '../types';
 import { checkRateLimit, registerFailedAttempt, clearAttempts, getRateLimitKey } from '../middleware/managerPinRateLimit';
 import { signManagerOverrideToken } from '../middleware/managerOverride';
+import { formatTbilisiTimestamp } from '../utils/formatTbilisiTimestamp';
 
 const router = Router();
 
@@ -658,7 +659,14 @@ router.get('/audit-logs', authenticateToken, async (req: CustomRequest, res: Res
        LIMIT 50`,
       [req.user?.organizationId]
     );
-    res.json(result.rows);
+    // FIX: created_at TEXT-ია, UTC-ში დაწერილი zone-marker გარეშე (იხ.
+    // formatTbilisiTimestamp-ის კომენტარი) — აქ ვაკონვერტირებთ Tbilisi
+    // საათზე, სანამ frontend-ს გაეგზავნება.
+    const rows = result.rows.map((row) => ({
+      ...row,
+      created_at: formatTbilisiTimestamp(row.created_at),
+    }));
+    res.json(rows);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
