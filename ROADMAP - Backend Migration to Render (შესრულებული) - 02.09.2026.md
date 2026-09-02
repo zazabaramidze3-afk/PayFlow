@@ -72,6 +72,18 @@
 ### 3. Sentry ingestion — end-to-end ვერიფიკაცია
 `SENTRY_DSN` Render-ის env var-შია, `Sentry.setupExpressErrorHandler(app)` კოდში სწორადაა ჩართული — დადასტურდა დროებითი `/api/debug/sentry-test` route-ით (commit `8255098`), წარმატებით დაიჭირა production-ზე (issue `PAYFLOW-BACKEND-3`), შემდეგ route წაშლილია (commit `4743311`).
 
+### 4. Payments PDF/Excel export — ძველ Vercel ბექენდზე მიდიოდა
+**მიზეზი:** `Dashboard.tsx`-ის `handleExport` ფუნქცია `window.open('/api/payments/export/...', '_blank')`-ს რელატიური URL-ით იძახებდა — `App.tsx`-ის `axios.defaults.baseURL` override მხოლოდ axios-ის request-ებზე მოქმედებს, `window.open`-ზე გავლენა არ აქვს. ბრაუზერი ამ path-ს მიმდინარე origin-თან (`pay-flow-zet3.vercel.app`) ხსნიდა — რადგან ძველი Vercel serverless ბექენდი `vercel.json`-ის მოუცილებელი backend build-ის გამო ჯერ კიდევ ცოცხალია, request სწორედ იქ მიდიოდა, სხვა (ძველი) `JWT_SECRET`-ით → 403 `"ტოკენი არავალიდურია!"`.
+
+**ფიქსი (commit `3e4d5ef`):** `window.open`-ს `import.meta.env.VITE_API_URL` დაემატა, იმავე pattern-ით რასაც `App.tsx`/`platformAdminApi.ts` იყენებს. `Products.tsx`-ის export (`axios.get(..., { responseType: 'blob' })`) ეს პრობლემა არ შეხებია — უკვე axios-ს იყენებდა.
+
+**⚠️ ამ bug-ის მნიშვნელობა:** ეს ცოცხალი დადასტურებაა, რომ VI.-ში ჩამოთვლილი `vercel.json`-ის cleanup-ის დარჩენა რეალურ რისკს წარმოადგენს — ნებისმიერი მომავალი კოდის ადგილი, სადაც შემთხვევით რელატიური `/api/...` დარჩება (axios baseURL-ის გარეშე), ჩუმად ძველ ბექენდზე გავარდება.
+
+### 5. PDF export-ის "გენერირების თარიღი" — არასწორი timezone
+**მიზეზი:** `sales.ts`-ის (Sales Report) და `products.ts`-ის (Products/Low Stock Report) PDF გენერაციაში `new Date().toLocaleString('ka-GE')` timezone-ის მითითების გარეშე გამოიყენებოდა — Render-ის Docker container-ის default TZ (UTC-ის მახლობელი) Tbilisi-ს (UTC+4) რეალურ დროსთან ~4-საათიან offset-ს იძლეოდა. ცხრილის row-ების `created_at` თარიღები (DB-დან პირდაპირ) სწორი იყო — მხოლოდ ეს ერთი "current time" ხაზი იყო დაზარალებული.
+
+**ფიქსი (commit `f7e15e7`):** ორივე ადგილას `{ timeZone: 'Asia/Tbilisi' }` დაემატა, `sales.ts:287`-ის (Z-Report `closedAt`) უკვე არსებული სწორი pattern-ის მიხედვით. სხვა timezone-ს მოკლებული `toLocaleString` აღარსად დარჩა backend-ში (გადამოწმებულია `grep`-ით).
+
 ---
 
 ## 📋 VI. დარჩენილი ამოცანები
@@ -91,6 +103,9 @@
 | `69272a0` | backend Render.com + Docker migration-ის მომზადება (Dockerfile, tsconfig, package.json) |
 | `7699b9b` | register-token 403 → სრული logout-ის ბაგის ფიქსი |
 | `8255098` → `4743311` | Sentry ingestion-ის დროებითი ვერიფიკაცია (route დამატება/წაშლა) |
+| `c2e392c` | ეს roadmap დოკუმენტი (პირველი ვერსია) |
+| `3e4d5ef` | payments PDF/Excel export — stale Vercel ბექენდის ფიქსი |
+| `f7e15e7` | PDF export-ის "გენერირების თარიღი" — Asia/Tbilisi timezone ფიქსი |
 
 ---
 
