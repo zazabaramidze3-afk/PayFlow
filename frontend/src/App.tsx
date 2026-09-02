@@ -259,6 +259,19 @@ function App() {
       {/* 2. ჩავსვით ტოსტერის კომპონენტი, რომელიც ეკრანზე ზედა ცენტრში გამოაჩენს შეტყობინებებს */}
       <Toaster position="top-center" reverseOrder={false} />
 
+      {/* 🎨 Dark/Light toggle — მარჯვენა ზედა კუთხეში, ფიქსირებული პოზიციით,
+          ყველა გვერდზე ერთნაირად ხილული (sidebar-ის ნაცვლად, რომელშიც
+          არასასურველ ადგილას იკავებდა სივრცეს). */}
+      <button
+        type="button"
+        onClick={toggleTheme}
+        className={styles.themeToggleFab}
+        aria-label={theme === 'dark' ? 'ღია თემაზე გადართვა' : 'მუქ თემაზე გადართვა'}
+        title={theme === 'dark' ? 'ღია რეჟიმი' : 'მუქი რეჟიმი'}
+      >
+        {theme === 'dark' ? '☀️' : '🌙'}
+      </button>
+
       {/* 📱 მობილური ზედა ზოლი — ჰამბურგერ ღილაკით */}
       <div className={styles.mobileTopbar}>
         <button
@@ -321,14 +334,6 @@ function App() {
             )}
           </ul>
         </div>
-        <button
-          type="button"
-          onClick={toggleTheme}
-          className={styles.themeToggleBtn}
-          aria-label={theme === 'dark' ? 'ღია თემაზე გადართვა' : 'მუქ თემაზე გადართვა'}
-        >
-          {theme === 'dark' ? '☀️ ღია რეჟიმი' : '🌙 მუქი რეჟიმი'}
-        </button>
         <button onClick={handleLogout} className={styles.logoutBtn}>🚪 სისტემიდან გამოსვლა</button>
       </div>
 
