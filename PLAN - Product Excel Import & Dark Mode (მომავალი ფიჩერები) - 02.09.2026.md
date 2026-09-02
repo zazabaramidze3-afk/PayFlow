@@ -1,5 +1,5 @@
 # მომავალი ფიჩერები — Product Excel Import & Dark/Light Mode
-**სტატუსი:** 📋 დაგეგმილი, **არ არის საჭირო დღეისთვის**
+**სტატუსი:** ✅ ორივე ფიჩერი დასრულებული და production-ზე დეპლოილია (02.09.2026)
 **თარიღი:** 02.09.2026
 **კონტექსტი:** Render migration-ის (`ROADMAP - Backend Migration to Render (შესრულებული) - 02.09.2026.md`) დასრულების შემდეგ მოთხოვნილი — ორივე ფიჩერი დაისვენებს, სანამ დაწყებას არ გადავწყვეტთ.
 
@@ -60,6 +60,37 @@ frontend/src/styles/global.scss (@use './theme' დამატება), front
 ასაცილებელი inline script), frontend/src/hooks/useTheme.ts (თემის მართვის hook), frontend/src/App.tsx
 + App.module.scss (toggle ღილაკი sidebar-ში). ვერიფიცირებულია: tsc --noEmit სუფთაა, ყველა 11
 .module.scss ფაილი კომპილირდება წარმატებით, ტოკენები სწორად გადადის var(--...)-ის სახით.
+
+### შემდგომი დახვეწა — production feedback-ის შემდეგ (02.09.2026)
+
+საწყისი დეპლოის შემდეგ, რეალურ production screenshot-ებზე დაფუძნებული feedback-ით, დამატებით
+გასწორდა:
+
+- **Autofill-ის კონტრასტი** — Chrome/Edge-ის ავტომატური ფონი (email/password ველებზე) CSS-ს
+  არ ემორჩილებოდა, dark mode-ში თეთრ „ლაქებად" გამოჩნდებოდა → `input-base`-ს დაემატა
+  `-webkit-autofill` inset box-shadow override.
+- **Toggle-ის მდებარეობა** — თავიდან sidebar-ის ბოლოში იყო (არასასურველი სივრცე), შემდეგ
+  fixed top-right (ედებოდა Products-ის Import/Excel/PDF ღილაკებს) → საბოლოოდ გადავიდა
+  app-chrome-ში (sidebar-ის brand-ხაზი დესკტოპზე, mobile topbar მობილურზე), position: fixed
+  float-ის გარეშე, არასდროს არ ეჯახება გვერდის საკუთარ header-ს.
+- **Toggle-ის დიზაინი** — მარტივი icon-ღილაკის ნაცვლად sun/moon pill/switch კომპონენტი
+  (`components/ThemeToggleSwitch.tsx`), ერთი გაზიარებული იმპლემენტაცია ორივე ადგილას.
+- **გლუვი გადასვლა** — თემის toggle-ზე მკვეთრი "ციმციმის" ნაცვლად smooth transition
+  (`global.scss`: `*, *::before, *::after` — background-color/border-color/color/box-shadow,
+  0.25s ease, დაბალი სპეციფიკურობით, არსებული component-level transition-ების გარეშე).
+- **სამი კონტრასტის ბაგი** — native `<input type="date">`-ის calendar ხატულა (Chrome-ში მუდამ
+  შავი SVG, dark ფონზე უჩინარი) → `--date-icon-filter` token; Recharts-ის chart tooltip-ის
+  label-ი (`ExecutiveDashboard.tsx`) `--color-text-primary`-ს (თითქმის თეთრი dark-ზე) იმემკვიდრებდა
+  თეთრ tooltip-ის ფონზე → ცალსახა `labelStyle`/`contentStyle`; Products-ის "ყურადღება" ბანერის
+  ტექსტი hardcoded `#92400E` იყო (მხოლოდ light-ისთვის) → `--color-warning-text` /
+  `--color-warning-banner-bg` token-ები.
+- **Dark პალიტრის დაბალანსება** — ფონი (`bg-page`/`bg-card`/`bg-subtle`) დამუქდა შავთან უფრო
+  ახლოს (`#0F1115` → `#060607`), აქცენტის ფერები (danger/warning/success/info) ოდნავ
+  დაბალსატურირდა, რომ status ღილაკები/badge-ები ნაკლებად "იყვირონ". MANAGER/CASHIER
+  role-badge-ების ტექსტიც (`#854D0E`/`#166534`) იგივე hardcoded-text ბაგს იზიარებდა —
+  `--color-role-manager-text` / `--color-role-cashier-text` token-ებით გასწორდა.
+
+სულ 7 commit (`900ad25`-დან `4d56516`-მდე), ყველა push-ილი და production-ზე დეპლოილი.
 
 ---
 
