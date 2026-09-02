@@ -512,7 +512,8 @@ export default function ExecutiveDashboard() {
                 <Tooltip
                   labelFormatter={(label) => formatDayFull(String(label))}
                   formatter={(value) => [`${Number(value).toFixed(2)} ₾`, 'შემოსავალი']}
-                  contentStyle={{ borderRadius: 10, border: '1px solid #E9ECEF', boxShadow: '0 10px 20px rgba(17,17,17,0.08)' }}
+                  contentStyle={{ backgroundColor: '#FFFFFF', borderRadius: 10, border: '1px solid #E9ECEF', boxShadow: '0 10px 20px rgba(17,17,17,0.08)' }}
+                  labelStyle={{ color: '#111111', fontWeight: 600, marginBottom: 4 }}
                 />
                 <Legend formatter={() => 'შემოსავალი (₾)'} />
                 <Line type="monotone" dataKey="revenue" name="revenue" stroke="#2563EB" strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} />
@@ -534,7 +535,8 @@ export default function ExecutiveDashboard() {
                 <YAxis type="category" dataKey="name" width={110} stroke="#9CA3AF" fontSize={12} tickLine={false} axisLine={false} />
                 <Tooltip
                   formatter={(value) => [`${Number(value)} ცალი`, 'რაოდენობა']}
-                  contentStyle={{ borderRadius: 10, border: '1px solid #E9ECEF', boxShadow: '0 10px 20px rgba(17,17,17,0.08)' }}
+                  contentStyle={{ backgroundColor: '#FFFFFF', borderRadius: 10, border: '1px solid #E9ECEF', boxShadow: '0 10px 20px rgba(17,17,17,0.08)' }}
+                  labelStyle={{ color: '#111111', fontWeight: 600, marginBottom: 4 }}
                   cursor={{ fill: 'rgba(37, 99, 235, 0.05)' }}
                 />
                 {/* isAnimationActive={false} — Recharts-ის ჩაშენებული ერთდროული
@@ -563,7 +565,8 @@ export default function ExecutiveDashboard() {
                 <Tooltip
                   labelFormatter={(label) => formatHourFull(Number(label))}
                   formatter={(value) => [`${Number(value)} ჩეკი`, 'ჩეკების რაოდენობა']}
-                  contentStyle={{ borderRadius: 10, border: '1px solid #E9ECEF', boxShadow: '0 10px 20px rgba(17,17,17,0.08)' }}
+                  contentStyle={{ backgroundColor: '#FFFFFF', borderRadius: 10, border: '1px solid #E9ECEF', boxShadow: '0 10px 20px rgba(17,17,17,0.08)' }}
+                  labelStyle={{ color: '#111111', fontWeight: 600, marginBottom: 4 }}
                   cursor={{ fill: 'rgba(37, 99, 235, 0.05)' }}
                 />
                 <Bar dataKey="receiptCount" name="ჩეკები" fill="#FBBF24" radius={[6, 6, 0, 0]} />

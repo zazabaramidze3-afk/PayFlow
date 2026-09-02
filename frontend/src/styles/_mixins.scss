@@ -48,6 +48,14 @@
     opacity: 0.7;
   }
 
+  // 🗓️ native date/time picker-ის calendar ხატულა (Chrome) — მუდამ შავი
+  // SVG-ია, CSS color-ს არ ემორჩილება, dark mode-ში ბნელ ფონზე უჩინარდება.
+  // --date-icon-filter theme-ის მიხედვით (none / invert) _theme.scss-შია.
+  &::-webkit-calendar-picker-indicator {
+    filter: var(--date-icon-filter, none);
+    cursor: pointer;
+  }
+
   // 🎨 ბრაუზერის autofill (Chrome/Edge) თავისით აყენებს ფონს (ჩვეულებრივ
   // ყვითელს/თეთრს), რომელიც CSS background-ის მიუხედავად ჩნდება და
   // Dark Mode-ში თეთრი "ლაქებივით" გამოიყურება — ინსეტ box-shadow-ის

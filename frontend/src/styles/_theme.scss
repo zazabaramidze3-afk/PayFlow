@@ -42,6 +42,16 @@
 
   --color-info: #8B5CF6;
   --color-info-soft: rgba(139, 92, 246, 0.1);
+
+  // 🗓️ native <input type="date">-ის calendar ხატულა Chrome-ში მუდამ
+  // შავია (SVG), CSS color-ს არ ემორჩილება — light-ზე უცვლელი, dark-ზე
+  // filter-ით ვაინვერტებთ (იხ. mixins.scss-ის input-base).
+  --date-icon-filter: none;
+
+  // ⚠️ .warningBanner-ის ტექსტისა და ფონის ფერები (Products.module.scss)
+  // ცალკეა warning-soft-ისგან, რომ badge-ებზე გავლენა არ იქონიოს.
+  --color-warning-text: #92400E;
+  --color-warning-banner-bg: rgba(245, 158, 11, 0.1);
 }
 
 :root[data-theme='dark'] {
@@ -75,4 +85,11 @@
 
   --color-info: #A78BFA;
   --color-info-soft: rgba(167, 139, 250, 0.15);
+
+  --date-icon-filter: invert(0.85) brightness(1.3);
+  --color-warning-text: #FDE68A;
+  // dark-ზე უფრო "დამუქებული"/მკვრივი ფონი — მომხმარებლის feedback
+  // (02.09.2026): warning-soft-ის სუსტი tint ბნელ გვერდზე თითქმის
+  // ეშლებოდა, ამიტომ ცალკე, უფრო მუქი/მკვრივი ვერსია ბანერისთვის.
+  --color-warning-banner-bg: rgba(120, 72, 4, 0.35);
 }

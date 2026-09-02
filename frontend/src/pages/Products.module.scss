@@ -95,8 +95,8 @@
 }
 
 .warningBanner {
-  background: v.$color-warning-soft;
-  color: #92400E;
+  background: var(--color-warning-banner-bg);
+  color: var(--color-warning-text);
   padding: 14px 20px;
   border-radius: v.$radius-md;
   margin-bottom: 20px;
