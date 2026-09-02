@@ -1,0 +1,78 @@
+// ==========================================
+// 🎨 თემის (Dark/Light Mode) CSS Custom Properties
+// ==========================================
+// აქ განსაზღვრულია ყველა ფერის token ორივე თემისთვის.
+// `_variables.scss`-ში SCSS ცვლადები ($color-*) მიუთითებენ
+// ამ CSS custom property-ებზე (var(--...)), რის შედეგადაც ყველა
+// არსებული .module.scss ავტომატურად რეაგირებს თემის ცვლილებაზე,
+// დამატებითი per-file რედაქტირების გარეშე.
+//
+// თემის გადართვა ხდება <html data-theme="dark"> ატრიბუტით
+// (იხ. index.html-ის inline script და hooks/useTheme.ts).
+// ==========================================
+
+:root {
+  // 🌞 Light თემა (დეფოლტი — ემთხვევა არსებულ _variables.scss პალიტრას)
+  --color-bg-page: #F8F9FA;
+  --color-bg-card: #FFFFFF;
+  --color-bg-subtle: #F1F3F5;
+
+  --color-text-primary: #111111;
+  --color-text-secondary: #6B7280;
+  --color-text-muted: #9CA3AF;
+  --color-text-inverse: #FFFFFF;
+
+  --color-border: #E9ECEF;
+  --color-border-strong: #DDE1E6;
+
+  --color-primary: #2563EB;
+  --color-primary-hover: #1D4ED8;
+  --color-primary-soft: rgba(37, 99, 235, 0.08);
+
+  --color-danger: #DC2626;
+  --color-danger-hover: #B91C1C;
+  --color-danger-soft: rgba(220, 38, 38, 0.08);
+
+  --color-warning: #F59E0B;
+  --color-warning-soft: rgba(245, 158, 11, 0.1);
+
+  --color-success: #10B981;
+  --color-success-hover: #059669;
+  --color-success-soft: rgba(16, 185, 129, 0.1);
+
+  --color-info: #8B5CF6;
+  --color-info-soft: rgba(139, 92, 246, 0.1);
+}
+
+:root[data-theme='dark'] {
+  // 🌚 Dark თემა
+  --color-bg-page: #0F1115;
+  --color-bg-card: #1A1D23;
+  --color-bg-subtle: #23262E;
+
+  --color-text-primary: #F3F4F6;
+  --color-text-secondary: #A1A8B5;
+  --color-text-muted: #6B7280;
+  --color-text-inverse: #FFFFFF;
+
+  --color-border: #2A2E37;
+  --color-border-strong: #3A3F4A;
+
+  --color-primary: #3B82F6;
+  --color-primary-hover: #60A5FA;
+  --color-primary-soft: rgba(59, 130, 246, 0.15);
+
+  --color-danger: #EF4444;
+  --color-danger-hover: #F87171;
+  --color-danger-soft: rgba(239, 68, 68, 0.15);
+
+  --color-warning: #FBBF24;
+  --color-warning-soft: rgba(251, 191, 36, 0.15);
+
+  --color-success: #34D399;
+  --color-success-hover: #6EE7B7;
+  --color-success-soft: rgba(52, 211, 153, 0.15);
+
+  --color-info: #A78BFA;
+  --color-info-soft: rgba(167, 139, 250, 0.15);
+}

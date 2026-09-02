@@ -123,6 +123,20 @@
   &.active { color: v.$color-warning; background: v.$color-warning-soft; }
 }
 
+.themeToggleBtn {
+  @include m.btn-ghost;
+  width: 100%;
+  border: 1px solid v.$color-border;
+  color: v.$color-text-secondary;
+  justify-content: center;
+  margin-bottom: v.$space-2;
+
+  &:hover:not(:disabled) {
+    background: v.$color-bg-subtle;
+    border-color: v.$color-border-strong;
+  }
+}
+
 .logoutBtn {
   @include m.btn-ghost;
   width: 100%;

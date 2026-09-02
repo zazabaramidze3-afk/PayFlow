@@ -18,6 +18,7 @@ import { Toaster } from 'react-hot-toast';
 // პრაქტიკაში cashier როლს მხოლოდ Sales გვერდი აქვს — მომავალში როლების
 // გაფართოებაზეც კი ეს ადგილი სწორი რჩება).
 import { useNetworkStatus } from './hooks/useNetworkStatus';
+import { useTheme } from './hooks/useTheme';
 import { useBackgroundSyncEngine } from './sync/backgroundSync';
 import styles from './App.module.scss';
 
@@ -159,6 +160,7 @@ function App() {
   // sync-ის გაშვებას აღარ ბლოკავს, თუ ეს ცალკე heartbeat request ჩავარდა.
   useNetworkStatus();
   useBackgroundSyncEngine();
+  const { theme, toggleTheme } = useTheme();
 
   // ავტორიზაცია ბეკენდის SQL ბაზის მეშვეობით
   // 🏢 Multi-Tenant SaaS — `users.name` per-org unique გახდა (migration 016,
@@ -319,6 +321,14 @@ function App() {
             )}
           </ul>
         </div>
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className={styles.themeToggleBtn}
+          aria-label={theme === 'dark' ? 'ღია თემაზე გადართვა' : 'მუქ თემაზე გადართვა'}
+        >
+          {theme === 'dark' ? '☀️ ღია რეჟიმი' : '🌙 მუქი რეჟიმი'}
+        </button>
         <button onClick={handleLogout} className={styles.logoutBtn}>🚪 სისტემიდან გამოსვლა</button>
       </div>
 

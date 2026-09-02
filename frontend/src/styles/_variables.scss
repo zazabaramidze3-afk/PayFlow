@@ -4,38 +4,38 @@
 // შენიშვნა: Dart Sass-ის თანამედროვე მოდულური სისტემა (@use), არა @import.
 
 // ---- ფონები ----
-$color-bg-page: #F8F9FA;      // გვერდის საერთო ფონი
-$color-bg-card: #FFFFFF;      // კონტენტის ბარათები
-$color-bg-subtle: #F1F3F5;    // ჰოვერი/ზონები ბარათებში
+$color-bg-page: var(--color-bg-page);      // გვერდის საერთო ფონი
+$color-bg-card: var(--color-bg-card);      // კონტენტის ბარათები
+$color-bg-subtle: var(--color-bg-subtle);    // ჰოვერი/ზონები ბარათებში
 
 // ---- ტექსტი ----
-$color-text-primary: #111111;   // მუქი ნახშირისფერი/შავი
-$color-text-secondary: #6B7280; // მეორადი, ღია ნაცრისფერი
-$color-text-muted: #9CA3AF;
-$color-text-inverse: #FFFFFF;
+$color-text-primary: var(--color-text-primary);   // მუქი ნახშირისფერი/შავი
+$color-text-secondary: var(--color-text-secondary); // მეორადი, ღია ნაცრისფერი
+$color-text-muted: var(--color-text-muted);
+$color-text-inverse: var(--color-text-inverse);
 
 // ---- ბორდერები ----
-$color-border: #E9ECEF;
-$color-border-strong: #DDE1E6;
+$color-border: var(--color-border);
+$color-border-strong: var(--color-border-strong);
 
 // ---- აქცენტის ფერები (მხოლოდ ინტერაქციული/სემანტიკური ელემენტებისთვის) ----
-$color-primary: #2563EB;        // Slate/Electric Blue — ძირითადი მოქმედება
-$color-primary-hover: #1D4ED8;
-$color-primary-soft: rgba(37, 99, 235, 0.08);
+$color-primary: var(--color-primary);        // Slate/Electric Blue — ძირითადი მოქმედება
+$color-primary-hover: var(--color-primary-hover);
+$color-primary-soft: var(--color-primary-soft);
 
-$color-danger: #DC2626;         // კრიტიკული/დახურვის ღილაკები
-$color-danger-hover: #B91C1C;
-$color-danger-soft: rgba(220, 38, 38, 0.08);
+$color-danger: var(--color-danger);         // კრიტიკული/დახურვის ღილაკები
+$color-danger-hover: var(--color-danger-hover);
+$color-danger-soft: var(--color-danger-soft);
 
-$color-warning: #F59E0B;        // გაფრთხილებები
-$color-warning-soft: rgba(245, 158, 11, 0.1);
+$color-warning: var(--color-warning);        // გაფრთხილებები
+$color-warning-soft: var(--color-warning-soft);
 
-$color-success: #10B981;        // წარმატებული სტატუსები
-$color-success-hover: #059669;
-$color-success-soft: rgba(16, 185, 129, 0.1);
+$color-success: var(--color-success);        // წარმატებული სტატუსები
+$color-success-hover: var(--color-success-hover);
+$color-success-soft: var(--color-success-soft);
 
-$color-info: #8B5CF6;
-$color-info-soft: rgba(139, 92, 246, 0.1);
+$color-info: var(--color-info);
+$color-info-soft: var(--color-info-soft);
 
 // ---- რადიუსი ----
 $radius-sm: 8px;
