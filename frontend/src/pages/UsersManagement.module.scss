@@ -229,8 +229,8 @@
 .username { font-weight: 700; color: v.$color-text-primary; }
 
 .roleBadgeAdmin { @include m.badge(v.$color-danger-soft, v.$color-danger); }
-.roleBadgeManager { @include m.badge(v.$color-warning-soft, #854D0E); }
-.roleBadgeCashier { @include m.badge(v.$color-success-soft, #166534); }
+.roleBadgeManager { @include m.badge(v.$color-warning-soft, var(--color-role-manager-text)); }
+.roleBadgeCashier { @include m.badge(v.$color-success-soft, var(--color-role-cashier-text)); }
 
 .roleSelect {
   @include m.input-base;
