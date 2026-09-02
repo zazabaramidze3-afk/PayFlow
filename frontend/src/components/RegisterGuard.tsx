@@ -141,6 +141,24 @@ export default function RegisterGuard({ children }: RegisterGuardProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stopPolling]);
 
+  // 🔧 FIX (02.09.2026, Render migration) — App.tsx-ის response interceptor-ი
+  // 403 "სალაროს ტოკენი არავალიდურია!"-ზე (მაგ. JWT_SECRET rotation-ის
+  // შემდეგ ძველი register-pairing token-ი) აღარ ასუფთავებს user-ის
+  // session-ს, არამედ მხოლოდ payflow_register_id/-token-ს შლის და ამ
+  // event-ს აგზავნის — ეს ხელახლა აჩვენებს pairing UI-ს (ახალი Activation
+  // Code-ით) logout-ის გარეშე.
+  useEffect(() => {
+    const handlePairingRequired = () => {
+      stopPolling();
+      setCode(null);
+      setErrorMsg(null);
+      setIsPaired(false);
+    };
+    window.addEventListener('register:pairing-required', handlePairingRequired);
+    return () => window.removeEventListener('register:pairing-required', handlePairingRequired);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     isMountedRef.current = true;
     if (!isPaired) {

@@ -76,7 +76,18 @@ axios.interceptors.response.use(
   (error) => {
     const status = error.response?.status;
     const message: string = error.response?.data?.error || '';
-    if (status === 401 || (status === 403 && message.includes('ტოკენი'))) {
+    // 🔧 FIX (02.09.2026, Render migration — JWT_SECRET rotation-ის შემდეგ
+    // აღმოჩენილი ხარვეზი) — "სალაროს ტოკენი" (register-pairing token,
+    // registerAuth.ts-ის requireRegister) ცალკე უნდა დამუშავდეს user-ის
+    // auth token-ისგან. ორივე error message შეიცავს სიტყვას "ტოკენი",
+    // მაგრამ სალაროს pairing-ის ვადაგასვლა/rotation არ ნიშნავს, რომ
+    // user-ის session-იც არავალიდურია — საჭიროა მხოლოდ ამ კონკრეტული
+    // მოწყობილობის ხელახალი დაწყვილება, არა სრული logout.
+    if (status === 403 && message.includes('სალაროს ტოკენი')) {
+      localStorage.removeItem('payflow_register_id');
+      localStorage.removeItem('payflow_register_token');
+      window.dispatchEvent(new Event('register:pairing-required'));
+    } else if (status === 401 || (status === 403 && message.includes('ტოკენი'))) {
       localStorage.removeItem('token');
       window.dispatchEvent(new Event('auth:session-expired'));
     }
