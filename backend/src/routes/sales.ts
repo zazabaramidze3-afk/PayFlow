@@ -1666,7 +1666,7 @@ router.get('/payments/export/pdf', async (req: any, res: any) => {
     const boldFont = georgianFontAvailable ? 'Georgian' : 'Helvetica-Bold';
 
     doc.font(boldFont).fontSize(20).text('Sales Report', { align: 'center' });
-    doc.font(regularFont).fontSize(10).text(`გენერირების თარიღი: ${new Date().toLocaleString('ka-GE')}`, { align: 'center' });
+    doc.font(regularFont).fontSize(10).text(`გენერირების თარიღი: ${new Date().toLocaleString('ka-GE', { timeZone: 'Asia/Tbilisi' })}`, { align: 'center' });
     doc.moveDown(2);
 
     const tableTop = 150;

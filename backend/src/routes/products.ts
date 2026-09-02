@@ -344,7 +344,7 @@ router.get('/products/export/pdf', authenticateToken, async (req: CustomRequest,
       { align: 'center' }
     );
     doc.font(regularFont).fontSize(10).text(
-      `გენერირების თარიღი: ${new Date().toLocaleString('ka-GE')}`,
+      `გენერირების თარიღი: ${new Date().toLocaleString('ka-GE', { timeZone: 'Asia/Tbilisi' })}`,
       { align: 'center' }
     );
     doc.moveDown(2);
