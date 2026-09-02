@@ -184,7 +184,15 @@ export default function Dashboard() {
     if (paymentMethod) params.set('paymentMethod', paymentMethod);
     if (status) params.set('status', status);
     if (discount) params.set('discount', discount);
-    window.open(`/api/payments/export/${type}?${params.toString()}`, '_blank');
+    // 🔧 FIX (02.09.2026, Render migration) — window.open-ს ადრე რელატიური
+    // '/api/...' გადაეცემოდა, რაც ბრაუზერს ამჟამინდელი გვერდის origin-თან
+    // (Vercel frontend) აახსნევინებდა — არა axios-თან, სადაც App.tsx-ის
+    // baseURL override უკვე მუშაობს. ეს ძველ, ჯერ კიდევ ცოცხალ Vercel
+    // serverless ბექენდს კრავდა (განსხვავებული JWT_SECRET-ით → 403).
+    // ახლა იგივე VITE_API_URL ემატება, რასაც App.tsx/platformAdminApi.ts
+    // იყენებს.
+    const apiBase = import.meta.env.VITE_API_URL || '';
+    window.open(`${apiBase}/api/payments/export/${type}?${params.toString()}`, '_blank');
   };
 
   const toggleRow = (id: string) => {
