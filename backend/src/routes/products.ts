@@ -1,8 +1,10 @@
-import { Router, Response } from 'express';
+import { Router, Response, NextFunction } from 'express';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import path from 'path';
+import multer from 'multer';
 import { authenticateToken, CustomRequest } from './auth';
+import { requireAnyRole } from '../middleware/requireRole';
 // შემოგვაქვს მზა PostgreSQL პული ძირითადი ფაილიდან (ერთადერთი, საერთო pool)
 import { db } from '../index';
 // 🔒 Roadmap STEP 2.2 (RLS Full Rollout, "28.08.2026") — products.ts, ბლოკი 2.
@@ -11,6 +13,17 @@ import { db } from '../index';
 // უერთდება, route-level `WHERE/AND organization_id` scoping-ის დამატებით
 // შრედ.
 import { withOrgContext } from '../db';
+// 📥 Product Excel Import (PLAN - Product Excel Import & Dark Mode -
+// 02.09.2026.md) — parsing/ვალიდაციის წმინდა ფენა, DB-სგან
+// დამოუკიდებელი.
+import {
+  parseProductImportWorkbook,
+  buildProductImportTemplate,
+  ProductImportStructureError,
+  ProductImportSkippedRow,
+  ProductRow,
+  PRODUCT_IMPORT_MAX_ROWS,
+} from '../services/productImportService';
 
 const router = Router();
 
@@ -251,6 +264,149 @@ router.delete('/products/:id', authenticateToken, async (req: CustomRequest, res
     res.status(500).json({ error: err.message });
   }
 });
+
+// ==========================================
+// 📥 EXCEL IMPORT (პროდუქტების მასობრივი დამატება)
+// ==========================================
+// PLAN - Product Excel Import & Dark Mode (მომავალი ფიჩერები) -
+// 02.09.2026.md-ის გადაწყვეტილებები: max 1000 row ერთ ფაილში,
+// row-level partial import (ვალიდური row-ები აიტვირთება, დანარჩენები
+// report-ში ბრუნდება), duplicate barcode/name — skip + report
+// (არასდროს არ იქმნება ორი პროდუქტი ერთი ბარკოდით/დასახელებით — DB-level
+// uq_products_org_barcode/uq_products_org_name constraint-ია საბოლოო
+// გადამწყვეტი, SAVEPOINT-ის ფარგლებში დაჭერილი, sales.ts-ის
+// syncSingleOfflineReceipt-ის იგივე pattern-ით), წვდომა — მხოლოდ
+// manager/admin (requireAnyRole).
+// ==========================================
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (_req, file, cb) => {
+    const isXlsx =
+      file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+      file.originalname.toLowerCase().endsWith('.xlsx');
+    if (!isXlsx) {
+      cb(new Error('მხოლოდ .xlsx ფაილებია დაშვებული'));
+      return;
+    }
+    cb(null, true);
+  },
+});
+
+// 🔌 multer-ის ხელით გამოძახება (router.post-ის middleware-ჯაჭვის
+// ნაწილად), რომ multer-ის შეცდომებიც (მაგ. LIMIT_FILE_SIZE) სუფთა
+// JSON პასუხით დაბრუნდეს, Express-ის დეფოლტ HTML error page-ის
+// ნაცვლად (index.ts-ში გლობალური error-handling middleware არ
+// არსებობს).
+function handleXlsxUpload(req: CustomRequest, res: Response, next: NextFunction): void {
+  upload.single('file')(req, res, (err) => {
+    if (!err) {
+      next();
+      return;
+    }
+    const isSizeError =
+      typeof err === 'object' && err !== null && 'code' in err && (err as { code?: string }).code === 'LIMIT_FILE_SIZE';
+    const message = err instanceof Error ? err.message : 'ფაილის ატვირთვა ვერ მოხერხდა';
+    res.status(400).json({
+      error: isSizeError ? 'ფაილის ზომა აღემატება 5MB-ს (მაქსიმალური ზღვარი)' : message,
+    });
+  });
+}
+
+// 📄 ნიმუშის (template) ჩამოტვირთვა — ოთხი სვეტი (barcode/name/price/stock),
+// რომ იმპორტის ფორმატი მომხმარებლისთვის ცხადი იყოს.
+router.get(
+  '/products/import/template',
+  authenticateToken,
+  requireAnyRole('admin', 'manager'),
+  (_req: CustomRequest, res: Response) => {
+    const workbook = buildProductImportTemplate();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=product_import_template.xlsx');
+    workbook.xlsx.write(res).then(() => res.end());
+  }
+);
+
+// 📥 Excel-იდან პროდუქტების მასობრივი დამატება — partial import
+// (ვალიდური და უნიკალური row-ები იტვირთება, დანარჩენები აისახება
+// report-ში, ერთი ცუდი row მთელ batch-ს არ აჩერებს).
+router.post(
+  '/products/import',
+  authenticateToken,
+  requireAnyRole('admin', 'manager'),
+  handleXlsxUpload,
+  async (req: CustomRequest, res: Response) => {
+    if (!req.file) {
+      return res.status(400).json({ error: '.xlsx ფაილი სავალდებულოა' });
+    }
+
+    let parsed;
+    try {
+      parsed = await parseProductImportWorkbook(req.file.buffer);
+    } catch (err) {
+      if (err instanceof ProductImportStructureError) {
+        return res.status(400).json({ error: err.message });
+      }
+      return res.status(400).json({ error: 'ფაილის დამუშავება ვერ მოხერხდა' });
+    }
+
+    if (parsed.candidates.length === 0 && parsed.skipped.length === 0) {
+      return res.status(400).json({ error: 'ფაილი ცარიელია — პროდუქტები ვერ მოიძებნა' });
+    }
+
+    const totalRows = parsed.candidates.length + parsed.skipped.length;
+    if (totalRows > PRODUCT_IMPORT_MAX_ROWS) {
+      return res.status(400).json({
+        error: `ერთ ფაილში მაქსიმუმ ${PRODUCT_IMPORT_MAX_ROWS} პროდუქტის ატვირთვაა დაშვებული (ეს ფაილი შეიცავს ${totalRows}-ს)`,
+      });
+    }
+
+    const skipped: ProductImportSkippedRow[] = [...parsed.skipped];
+    const imported: ProductRow[] = [];
+
+    try {
+      await withOrgContext(req.user?.organizationId, async (client) => {
+        for (const candidate of parsed.candidates) {
+          const savepoint = `sp_import_row_${candidate.rowNumber}`;
+          try {
+            await client.query(`SAVEPOINT ${savepoint}`);
+            const result = await client.query<ProductRow>(
+              `INSERT INTO products (name, price, stock, barcode, organization_id) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+              [candidate.name, candidate.price, candidate.stock, candidate.barcode, req.user?.organizationId]
+            );
+            await client.query(`RELEASE SAVEPOINT ${savepoint}`);
+            imported.push(result.rows[0]);
+          } catch (rowErr) {
+            await client.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+            await client.query(`RELEASE SAVEPOINT ${savepoint}`);
+            const isDuplicate =
+              typeof rowErr === 'object' && rowErr !== null && 'code' in rowErr && (rowErr as { code?: string }).code === '23505';
+            skipped.push({
+              rowNumber: candidate.rowNumber,
+              reason: isDuplicate
+                ? 'ეს სახელი ან ბარკოდი უკვე დაკავებულია ბაზაში'
+                : rowErr instanceof Error
+                ? rowErr.message
+                : 'უცნობი შეცდომა ჩასმის დროს',
+            });
+          }
+        }
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'უცნობი სერვერის შეცდომა';
+      return res.status(500).json({ error: message });
+    }
+
+    skipped.sort((a, b) => a.rowNumber - b.rowNumber);
+
+    res.status(201).json({
+      importedCount: imported.length,
+      skippedCount: skipped.length,
+      imported,
+      skipped,
+    });
+  }
+);
 
 // ==========================================
 // 📊 EXCEL ექსპორტი (პროდუქტები)

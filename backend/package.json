@@ -22,6 +22,7 @@
     "exceljs": "^3.4.0",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.3",
+    "multer": "^1.4.5-lts.1",
     "pdfkit": "^0.15.2",
     "pg": "^8.22.0"
   },
@@ -30,17 +31,21 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^1.4.13",
     "@types/node": "^25.9.1",
     "@types/pdfkit": "^0.17.6",
     "@types/pg": "^8.20.0",
+    "@types/supertest": "^7.2.1",
+    "supertest": "^7.2.2",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.11",
-    "supertest": "^7.2.2",
-    "@types/supertest": "^7.2.1"
+    "vitest": "^4.1.11"
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "overrides": {
+    "@types/node": "^25.9.1"
   }
 }

@@ -12,6 +12,18 @@ interface Product {
   stock: number;
 }
 
+// 📥 POST /api/products/import-ის პასუხის ფორმა (backend/src/routes/products.ts)
+interface ProductImportSkippedRow {
+  rowNumber: number;
+  reason: string;
+}
+
+interface ProductImportResult {
+  importedCount: number;
+  skippedCount: number;
+  skipped: ProductImportSkippedRow[];
+}
+
 export default function Products() {
   // ძირითადი სტეიტები (State)
   const [products, setProducts] = useState<Product[]>([]);
@@ -34,6 +46,12 @@ export default function Products() {
   const [showOnlyLowStock, setShowOnlyLowStock] = useState(false);
   const [lowStockCount, setLowStockCount] = useState(0);
   const barcodeBufferRef = useRef<string>('');
+
+  // 📥 Excel Import-ის სტეიტები
+  const [importing, setImporting] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importResult, setImportResult] = useState<ProductImportResult | null>(null);
+  const importFileInputRef = useRef<HTMLInputElement>(null);
 
   // ⚠️ Confirm მოდალი (window.confirm()-ის ჩანაცვლება)
   const [confirmModal, setConfirmModal] = useState<{ show: boolean; message: string; onConfirm: (() => void) | null }>({
@@ -233,6 +251,64 @@ export default function Products() {
     setStock(product.stock.toString());
   };
 
+  // 📥 Excel Import — ფაილის input-ის (დამალული) გახსნა ღილაკზე დაჭერით
+  const handleImportClick = () => {
+    importFileInputRef.current?.click();
+  };
+
+  // 📥 Excel Import — არჩეული .xlsx ფაილის ატვირთვა backend-ზე
+  // (POST /products/import — PLAN - Product Excel Import & Dark Mode -
+  // 02.09.2026.md-ის partial-import მიდგომა: importedCount/skippedCount
+  // report-ის ჩვენება, დამატებულების სიის fetchProducts-ით განახლება).
+  const handleImportFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // იგივე ფაილის ხელახლა არჩევის დაშვება
+    if (!file) return;
+
+    setImporting(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await axios.post<ProductImportResult>('/api/products/import', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      setImportResult(response.data);
+      setImportModalOpen(true);
+
+      if (response.data.importedCount > 0) {
+        toast.success(`${response.data.importedCount} პროდუქტი წარმატებით აიტვირთა!`);
+        fetchProducts();
+      } else if (response.data.skippedCount > 0) {
+        toast.error('არცერთი პროდუქტი ვერ აიტვირთა — იხილეთ დეტალები');
+      }
+    } catch (error: any) {
+      const message = error?.response?.data?.error || 'Import ვერ მოხერხდა';
+      toast.error(message);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const closeImportModal = () => {
+    setImportModalOpen(false);
+    setImportResult(null);
+  };
+
+  // 📥 Excel Import — ცარიელი ნიმუშის (template) ჩამოტვირთვა
+  const downloadImportTemplate = async () => {
+    try {
+      const response = await axios.get('/api/products/import/template', { responseType: 'blob' });
+      const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const link = document.createElement('a');
+      link.href = window.URL.createObjectURL(blob);
+      link.download = 'product_import_template.xlsx';
+      link.click();
+    } catch (error) {
+      toast.error('ნიმუშის ჩამოტვირთვა ვერ მოხერხდა!');
+    }
+  };
+
   // რეპორტების ექსპორტი (Excel / PDF)
   const exportToExcel = async () => {
     try {
@@ -275,6 +351,17 @@ export default function Products() {
       <div className={styles.header}>
         <h2 className={styles.heading}>📦 პროდუქტების მართვა</h2>
         <div className={styles.headerActions}>
+          <button type="button" onClick={downloadImportTemplate} className={styles.importTemplateLink}>ნიმუშის ჩამოტვირთვა</button>
+          <button type="button" onClick={handleImportClick} className={styles.importBtn} disabled={importing}>
+            {importing ? 'იტვირთება...' : '📥 Import'}
+          </button>
+          <input
+            type="file"
+            ref={importFileInputRef}
+            onChange={handleImportFileChange}
+            accept=".xlsx"
+            style={{ display: 'none' }}
+          />
           <button type="button" onClick={exportToExcel} className={styles.exportExcel}>Excel ექსპორტი</button>
           <button type="button" onClick={exportToPDF} className={styles.exportPdf}>PDF ექსპორტი</button>
           <label className={`${styles.lowStockToggle} ${showOnlyLowStock ? styles.active : ''}`}>
@@ -339,7 +426,7 @@ export default function Products() {
                     {product.stock === 0 ? (
                       <span className={`${styles.stockTag} ${styles.stockTagOut}`}>ამოიწურა</span>
                     ) : product.stock <= 5 ? (
-                      <span className={`${styles.stockTag} ${styles.stockTagLow}`}>იცურება</span>
+                      <span className={`${styles.stockTag} ${styles.stockTagLow}`}>იწურება</span>
                     ) : null}
                   </td>
                   <td>
@@ -412,6 +499,33 @@ export default function Products() {
                 დიახ, წაშლა
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 📥 Excel Import-ის შედეგის მოდალი */}
+      {importModalOpen && importResult && (
+        <div className={styles.overlay}>
+          <div className={styles.modal}>
+            <h3 className={styles.modalTitle}>📥 Import შედეგი</h3>
+            <button onClick={closeImportModal} className={styles.modalCloseBtn} aria-label="დახურვა">&times;</button>
+
+            <p className={styles.modalText}>
+              ✅ დაემატა: <strong>{importResult.importedCount}</strong>
+              {' '}&nbsp;|&nbsp;{' '}
+              ⚠️ გამოტოვებულია: <strong>{importResult.skippedCount}</strong>
+            </p>
+
+            {importResult.skipped.length > 0 && (
+              <div className={styles.importSkippedList}>
+                {importResult.skipped.map((row) => (
+                  <div key={row.rowNumber} className={styles.importSkippedRow}>
+                    <span className={styles.importSkippedRowNumber}>Row {row.rowNumber}</span>
+                    <span>{row.reason}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

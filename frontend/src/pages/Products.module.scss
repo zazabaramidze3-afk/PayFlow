@@ -32,6 +32,45 @@
 .exportExcel { @include m.btn-success; font-size: 13px; padding: 8px 14px; height: 38px; }
 .exportPdf { @include m.btn-danger; font-size: 13px; padding: 8px 14px; height: 38px; }
 
+// 📥 Excel Import — ღილაკი და შედეგის მოდალის სია
+.importBtn { @include m.btn-primary; font-size: 13px; padding: 8px 14px; height: 38px; }
+.importTemplateLink {
+  @include m.btn-ghost;
+  font-size: 12.5px;
+  padding: 8px 10px;
+  height: 38px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.importSkippedList {
+  margin-top: 14px;
+  max-height: 260px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.importSkippedRow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 13px;
+  color: v.$color-text-secondary;
+  background: v.$color-warning-soft;
+  border: 1px solid v.$color-warning;
+  border-radius: v.$radius-sm;
+  padding: 8px 12px;
+}
+
+.importSkippedRowNumber {
+  flex-shrink: 0;
+  font-weight: 700;
+  color: v.$color-warning;
+}
+
+
 .lowStockToggle {
   display: flex;
   align-items: center;

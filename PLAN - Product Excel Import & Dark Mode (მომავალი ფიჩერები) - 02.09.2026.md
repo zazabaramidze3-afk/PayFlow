@@ -21,10 +21,17 @@
 - **Transaction handling** — `pool` client-ით `BEGIN`/`COMMIT` (bulk insert, all-or-nothing ან partial-success mode — გადასაწყვეტია)
 - **Frontend:** file input + progress/result UI (`Products.tsx`-ში, Excel/PDF ღილაკების გვერდით)
 
-### გადასაწყვეტი კითხვები (დაწყებამდე)
-- [ ] დუბლირებული barcode: **skip**, **overwrite**, თუ **reject მთელი ფაილი**?
-- [ ] წარუმატებელი row-ების დამუშავება: **partial import** (რაც გავიდა გავიდა) თუ **all-or-nothing**?
-- [ ] წვდომის შეზღუდვა: მხოლოდ **manager/admin**, თუ **cashier**-საც შეეძლოს?
+### გადასაწყვეტი კითხვები — ✅ გადაწყვეტილია (02.09.2026, Cowork session)
+- [x] დუბლირებული barcode: **skip + report** (row-level, existing DB-ბარკოდზეც და ერთსა და იმავე ფაილში დუბლირებაზეც — ორ პროდუქტს ერთი barcode არასდროს ექნება, scanner ambiguity გამორიცხულია).
+- [x] წარუმატებელი row-ების დამუშავება: **partial import** — ვალიდური row-ები აიტვირთება, დანარჩენები row-level report-ში ბრუნდება (SAVEPOINT-ის pattern, sales.ts-ის syncSingleOfflineReceipt-ის ანალოგიით).
+- [x] წვდომის შეზღუდვა: **მხოლოდ manager/admin** (requireAnyRole) — Products.tsx გვერდი ისედაც isAdminOrManager-ზეა დაცული App.tsx-ში.
+- [x] მაქსიმალური row-ების რაოდენობა: **1000** row ერთ ფაილში.
+- [x] ცარიელი ფაილი: reject-დება (400), ისევე როგორც სავალდებულო სვეტის (name/price) არქონა.
+
+**იმპლემენტაცია დასრულებულია:** backend/src/services/productImportService.ts (parsing/validation),
+backend/src/routes/products.ts (GET /products/import/template, POST /products/import),
+frontend/src/pages/Products.tsx + Products.module.scss (Import ღილაკი, ნიმუშის ჩამოტვირთვა,
+შედეგის მოდალი).
 
 ---
 
