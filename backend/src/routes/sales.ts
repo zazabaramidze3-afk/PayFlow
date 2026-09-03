@@ -362,8 +362,16 @@ router.get('/shifts/history', authenticateToken, async (req: CustomRequest, res:
 // 🖥️ Roadmap STEP 2.1 — requireRegister დაემატა checkActiveShift-ის წინ,
 // რომ register_id-იც ხელმისაწვდომი იყოს ჩეკის შესანახად (STEP 1.3).
 router.post('/payments', authenticateToken, requireRegister, checkActiveShift, async (req: CustomRequest, res: any) => {
-  const { items, discount, paymentMethod: paymentMethodInput, splits, cashReceived, createdAt } = req.body;
+  // 🍽️ HoReCa Module STEP 1 (Roadmap "03.09.2026") — არასავალდებულო `orderId`.
+  // Retail checkout-ს (frontend არასდროს გზავნის ამ ველს) ეს დამატება
+  // ნულოვან გავლენას ახდენს — ქვემოთ, ტრანზაქციის ბოლოს, მხოლოდ მაშინ
+  // მოქმედებს, თუ ცხადადაა გადმოცემული.
+  const { items, discount, paymentMethod: paymentMethodInput, splits, cashReceived, createdAt, orderId } = req.body;
   if (!items || items.length === 0) return res.status(400).json({ error: 'კალათა ცარიელია!' });
+
+  if (orderId !== undefined && orderId !== null && typeof orderId !== 'string') {
+    return res.status(400).json({ error: 'orderId არავალიდურია' });
+  }
 
   // ==========================================
   // 🕐 Roadmap STEP 1.4 — Client-Side Timestamp Audit
@@ -589,6 +597,33 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
 
         if (updateStockResult.rowCount === 0) {
           throw new Error(`არ არის საკმარისი მარაგი პროდუქტზე ID: ${pId}`);
+        }
+      }
+
+      // 🍽️ HoReCa Module STEP 1 (Roadmap "03.09.2026") — თუ checkout მაგიდის
+      // ღია შეკვეთიდან მოდის (orderId გადმოცემულია), აქვე ვხურავთ შეკვეთას
+      // (status='closed', closed_payment_id) და ვათავისუფლებთ მაგიდას
+      // ('free') — იმავე ატომურ ტრანზაქციაში, რაც payment-ის შექმნა/
+      // stock-decrement. Retail checkout-ზე (orderId არასდროს იგზავნება)
+      // ეს ბლოკი საერთოდ არ სრულდება — ნულოვანი გავლენა. თუ orderId
+      // მითითებულია, მაგრამ აღარ არსებობს/უკვე დახურულია, მთელი
+      // ტრანზაქცია (payment-ის ჩათვლით) უკან ბრუნდება (ROLLBACK) და
+      // მოლარეს 400 უბრუნდება.
+      if (orderId) {
+        const orderCloseResult = await client.query(
+          `UPDATE orders SET status = 'closed', closed_at = CURRENT_TIMESTAMP, closed_payment_id = $1
+           WHERE id = $2 AND organization_id = $3 AND status = 'open'
+           RETURNING table_id`,
+          [newPaymentId, orderId, req.user?.organizationId]
+        );
+
+        if (orderCloseResult.rowCount === 0) {
+          throw new Error('მითითებული შეკვეთა ვერ მოიძებნა ან უკვე დახურილია');
+        }
+
+        const closedTableId = orderCloseResult.rows[0].table_id;
+        if (closedTableId) {
+          await client.query(`UPDATE tables SET status = 'free' WHERE id = $1`, [closedTableId]);
         }
       }
 

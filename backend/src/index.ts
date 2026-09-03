@@ -31,6 +31,11 @@ import organizationsRoutes from './routes/organizations';
 // 🛡️ Multi-Tenant SaaS STEP 8 (Roadmap "24.08.2026") — Superadmin Panel
 // (ორგანიზაციების platform-wide მართვა, ცალკე auth-მექანიზმით).
 import platformAdminRoutes from './routes/platformAdmin';
+// 🍽️ HoReCa Module STEP 1 (Roadmap "03.09.2026", migration 019) — Tables +
+// Orders. ორივე route-ფაილი `requireBusinessType('horeca')`-ს უკან დგას,
+// ამიტომ Retail org-ებზე ეს მონტაჟი ეფექტს არ ახდენს.
+import tablesRoutes from './routes/tables';
+import ordersRoutes from './routes/orders';
 
 dotenv.config();
 
@@ -125,6 +130,8 @@ app.use('/api', registersRoutes);
 app.use('/api', notificationsRoutes);
 app.use('/api', organizationsRoutes);
 app.use('/api', platformAdminRoutes);
+app.use('/api', tablesRoutes);
+app.use('/api', ordersRoutes);
 
 // ==========================================
 //  🛰️ Sentry Error Handler (Roadmap STEP 0 / ცვლილება #7)

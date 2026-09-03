@@ -66,6 +66,13 @@ export interface User {
 // `organization_id` FK-ები ყველა აქ მიუთითებს.
 export type OrganizationStatus = 'trial' | 'active' | 'suspended' | 'cancelled';
 
+// 🍽️ HoReCa Module STEP 1 (Roadmap "03.09.2026", migration 019) — ერთი
+// კოდბაზა/ერთი DB, ორივე ბიზნეს-ტიპისთვის. ნაგულისხმევი 'retail' —
+// ყველა არსებული org უცვლელი რჩება. განსაზღვრავს, ხედავს თუ არა
+// frontend-ის ნავიგაცია Tables/Orders/KDS გვერდებს (`requireBusinessType`
+// middleware ბექენდზეც ამავე ველზეა აგებული).
+export type BusinessType = 'retail' | 'horeca';
+
 export interface Organization {
   id: string;
   name: string;
@@ -78,6 +85,8 @@ export interface Organization {
   plan: string;
   trial_ends_at: string | null;
   created_at: string;
+  // 🍽️ HoReCa Module STEP 1 (migration 019) — NOT NULL, DEFAULT 'retail'.
+  business_type: BusinessType;
 }
 
 // PIN-ის ვერიფიკაციისთვის საკმარისი მინიმალური ველების ქვესიმრავლე —
@@ -266,4 +275,64 @@ export interface ShiftAmendmentNotification {
   created_at: string;
   // 🏢 Multi-Tenant SaaS STEP 1 (migration 013) — NOT NULL, ბექფილილი.
   organization_id: string;
+}
+// ==========================================
+// 🍽️ HoReCa Module STEP 1 — public.tables / public.orders / public.order_items
+// (Roadmap "03.09.2026", migration 019)
+// ==========================================
+// `organization_id === 'retail'` org-ებს ამ ცხრილებში არასდროს ექნებათ
+// row-ები (routes/tables.ts, routes/orders.ts ორივე `requireBusinessType
+// ('horeca')`-ს უკან დგას) — მაგრამ ტიპები ორივე ბიზნეს-ტიპისთვის ერთი
+// წყაროა, `business_type`-ზე პირობითი ხელმისაწვდომობის გარეშე.
+
+export type TableStatus = 'free' | 'occupied' | 'reserved' | 'dirty';
+
+export interface RestaurantTable {
+  id: string;
+  organization_id: string;
+  name: string;
+  section: string | null;
+  capacity: number | null;
+  status: TableStatus;
+  created_at: string;
+}
+
+export type OrderStatus = 'open' | 'closed' | 'voided';
+
+export interface Order {
+  id: string;
+  organization_id: string;
+  table_id: string | null;
+  register_id: string;
+  shift_id: string;
+  opened_by: string;
+  guest_count: number | null;
+  status: OrderStatus;
+  opened_at: string;
+  closed_at: string | null;
+  closed_payment_id: string | null;
+}
+
+// 🍳 KDS routing (STEP 2) — 'pending' ჯერ ერთადერთი რეალურად
+// გამოყენებადი მნიშვნელობაა STEP 1-ში ('sent'-ზე ზემოთ გადასვლა
+// STEP 2-ის "გაგზავნა სამზარეულოში" ნაკადს ელოდება).
+export type KitchenStatus = 'pending' | 'sent' | 'preparing' | 'ready' | 'served' | 'voided';
+
+export interface OrderItem {
+  id: string;
+  order_id: string;
+  product_id: number;
+  quantity: number;
+  // შეკვეთაში დამატების მომენტში დაფიქსირებული ფასი (products.price-ის
+  // შემდგომი ცვლილება უკვე დამატებულ item-ს აღარ ეხება).
+  unit_price: number;
+  seat_number: number | null;   // STEP 4 (ჩეკის გაყოფა)
+  course_number: number;
+  kitchen_status: KitchenStatus;
+  station: 'kitchen' | 'bar' | null;   // STEP 2-მდე ყოველთვის null
+  notes: string | null;
+  sent_to_kitchen_at: string | null;
+  created_at: string;
+  voided_by: string | null;
+  void_reason: string | null;
 }
