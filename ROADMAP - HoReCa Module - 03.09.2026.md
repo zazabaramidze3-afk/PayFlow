@@ -259,6 +259,12 @@ Manager PIN Override, cash/card/split checkout, ჩეკის ბეჭდვ�
 
 **ვერიფიცირებულია:** `npx tsc --noEmit` — 0 შეცდომა (backend + frontend).
 
+**Git/Deploy სტატუსი (04.09.2026):** commit `b070f2e` შესრულებულია
+ლოკალურად. Push/Render auto-deploy — მოლოდინშია (device_bash-ის
+იზოლირებული გარემოს GitHub credential-ებთან წვდომა არ აქვს, ამიტომ
+push მომხმარებელმა თავად უნდა შეასრულოს საკუთარი ტერმინალიდან:
+`git push origin main`).
+
 ### 1.5 API + Frontend (მიმოხილვა, უცვლელი)
 
 - `routes/tables.ts`: `GET/POST/PUT/DELETE /tables`, `PATCH /tables/:id/status`
@@ -402,6 +408,21 @@ sync). **`orders`/`order_items` v1-ში ამ დონეს არ იღ�
   pooled (გუნდზე გადანაწილება)?
 - [ ] **STEP 2:** Realtime latency — polling მისაღებია, თუ საწყისშივე
   WebSocket გვჭირდება?
+- [ ] **Retail POS (გვერდითი ეფექტი, 04.09.2026 ტესტირებიდან):**
+  `App.tsx`-ის გლობალური 403-interceptor მხოლოდ "სალაროს ტოკენი"-ს
+  შემცველ შეტყობინებებზე რთავს ავტომატურ re-pair UI-ს — Register-ის
+  cross-org mismatch-ის შეტყობინება ("ეს სალარო თქვენს ორგანიზაციას
+  არ ეკუთვნის!") ამ პატერნს არ ემთხვევა, ამიტომ მომხმარებელს ხელით
+  სჭირდება localStorage-ის გასუფთავება. გამოსწორება მარტივია, მაგრამ
+  Retail POS-ის არსებულ, production-ში მომუშავე კოდს ეხება —
+  საჭიროა მომხმარებლის მკაფიო დადასტურება, სანამ შეეხება.
+- [ ] **Housekeeping:** repo-ში ~29 ფაილშია line-ending (CRLF/LF)
+  noise (`.gitignore`-ები, `README.md`, რამდენიმე ROADMAP/დოკუმენტაცია,
+  backend/frontend config ფაილები) — `git diff --stat` ყველგან
+  insertions == deletions, ანუ რეალური კონტენტი უცვლელია. HoReCa
+  commit-ს (`b070f2e`) განზრახ არ შეხებია; ცალკე მოსაგვარებელია
+  (`core.autocrlf`/`.gitattributes`), რომ `git status` კვლავ სუფთა
+  დარჩეს.
 
 ---
 
