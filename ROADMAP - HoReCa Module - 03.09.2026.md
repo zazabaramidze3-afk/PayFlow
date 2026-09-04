@@ -1,6 +1,6 @@
 # HoReCa მოდულის დანერგვა — Roadmap
 
-**სტატუსი:** 🟡 STEP 1 (Tables + Orders) — backend (migration + API) დასრულებულია, ველოდებით production migration-ის გაშვებას (pgAdmin) + frontend
+**სტატუსი:** 🟢 STEP 1 (Tables + Orders) — სრულად დასრულებულია, Backend-იც და Frontend-იც (migration + API + UI + Git push + Render deploy + production DB migration). მზადაა STEP 2 (KDS)-ის დასაწყებად.
 **თარიღი:** 03.09.2026
 **კონტექსტი:** PayFlow ამჟამად მთლიანად Retail (მარკეტი/საცალო) სეგმენტზეა
 აგებული. მოთხოვნაა იმავე კოდბაზაში/DB-ში HoReCa-ს (რესტორანი, კაფე-ბარი
@@ -160,8 +160,11 @@ Void აქ **item-დონეზეა** (არა მხოლოდ მთ�
 
 - `backend/migrations/019_add_horeca_core.sql` — `organizations.business_type`,
   `tables`, `orders`, `order_items`, RLS policy-ები (migration 017/018-ის
-  იდენტური fail-open pattern). **წაუშვია production/dev DB-ზე ჯერ არ არის**
-  — pgAdmin-ით ხელით გასაშვები (მომხმარებლის გადაწყვეტილებით).
+  იდენტური fail-open pattern). ✅ გაშვებულია ლოკალურ (`payflow_db`) და
+  **production (Neon)** ბაზებზეც — pgAdmin-ით, 04.09.2026. დამოწმებულია:
+  `business_type` სვეტი დამატებულია, ორივე production org (`PayFlow —
+  Default Organization`, `testmarket`) დარჩა `'retail'`-ად (0 გავლენა
+  არსებულ მონაცემებზე).
 - `backend/src/middleware/requireBusinessType.ts` — ახალი გუარდი,
   ფრეშ DB-ჩანაწერიდან ამოწმებს `organizations.business_type`-ს
   (`can_use_discount`-ის იდენტური "არა JWT" პატერნით).
@@ -178,10 +181,83 @@ Void აქ **item-დონეზეა** (არა მხოლოდ მთ�
 - `backend/src/index.ts` — ორივე router დარეგისტრირებულია.
 - `backend/src/types.ts` — `BusinessType`, `RestaurantTable`, `Order`,
   `OrderItem`, `TableStatus`, `OrderStatus`, `KitchenStatus`.
-- ვერიფიცირებულია: `npx tsc --noEmit` სუფთაა (0 შეცდომა).
-- **დარჩენილია STEP 1-დან:** migration-ის გაშვება production/dev DB-ზე
-  (მომხმარებელი, pgAdmin-ით) + frontend (`Tables.tsx`, `OrderScreen.tsx`,
-  `App.tsx`-ის ნავიგაცია).
+- ვერიფიცირებულია: `npx tsc --noEmit` სუფთაა (0 შეცდომა), ლოკალური
+  end-to-end ტესტი (`test-horeca-step1-manual.js`, 21/21 assertion ✅).
+- Git commit `d785116` → push → Render auto-deploy: **Live**
+  (`payflow-backend`, 03.09.2026 22:00, commit `d785116`).
+- **STEP 1 სრულადაა დასრულებული** — frontend-იც (`Tables.tsx`,
+  `OrderScreen.tsx`, `App.tsx`-ის ნავიგაცია) დაემატა და გატესტდა,
+  იხ. 1.6 ქვემოთ.
+
+### 1.6 ✅ Frontend — დასრულებულია და გატესტილია (04.09.2026)
+
+**ახალი ფაილები:**
+- `frontend/src/lib/horecaTypes.ts` — გაზიარებული ტიპები (`RestaurantTable`,
+  `Order`, `OrderItem`, `OrderWithItems`, სტატუსების union-ები) Tables.tsx-სა
+  და OrderScreen.tsx-ს შორის.
+- `frontend/src/pages/Tables.tsx` (+ `.module.scss`) — ვიზუალური floor
+  plan: მაგიდების ბადე, სტატუს-ბეჯები, quick-status ღილაკები, admin/
+  manager-ის CRUD (შექმნა/რედაქტირება/წაშლა), მაგიდაზე კლიკი → OrderScreen.
+- `frontend/src/pages/OrderScreen.tsx` (+ `.module.scss`) — კონკრეტული
+  მაგიდის ეკრანი: შეკვეთის გახსნა, item-ების დამატება/გაუქმება, checkout
+  **სრული პარიტეტით Sales.tsx-თან** (ფასდაკლება + Manager PIN Override +
+  cash/card/split გადახდა + ჩეკის ბეჭდვა), ცალკე თვითკმარი იმპლემენტაცია
+  Retail POS-ის კოდის შეხების გარეშე (0 რისკი Sales.tsx-ზე).
+- `frontend/src/components/ConfirmModal.tsx` (+ `.module.scss`) —
+  გაზიარებული დადასტურების მოდალი (Sales.tsx-ის „confirmModal" პატერნის
+  ანალოგიით), ცვლის ნატიურ `window.confirm()`-ს Tables.tsx-სა და
+  OrderScreen.tsx-ში.
+
+**შეცვლილი ფაილები:**
+- `frontend/src/App.tsx` — `businessType` fetch (`GET /organizations/me`),
+  „🍽️ მაგიდები" ნავიგაცია (cashier + admin/manager, RegisterGuard მხოლოდ
+  cashier-ისთვის — admin/manager back-office წვდომით, დაუწყვილებელი
+  მოწყობილობიდანაც).
+- `backend/src/routes/organizations.ts` — `GET /organizations/me`
+  (`businessType` წამოსაღებად) + `POST /organizations/register`-ს
+  დაემატა `businessType` პარამეტრი.
+- `frontend/src/pages/Register.tsx` (+ `.module.scss`) — თვით-რეგისტრაციის
+  ფორმას დაემატა Retail/HoReCa ტიპის ამომრჩევი (მომხმარებლის დამატებითი
+  მოთხოვნა ამ სესიაში).
+
+**ტესტირებისას აღმოჩენილი და გასწორებული ბაგები:**
+1. `getErrorMessage()` მხოლოდ `response.data.error`-ს კითხულობდა —
+   ზოგიერთი middleware (`checkShift.ts`) `response.data.message`-ს
+   იყენებს, ამიტომ რეალური მიზეზი (მაგ. „ცვლის გახსნა აუცილებელია")
+   toast-ში არ ჩანდა. ორივე ველი აქეთ.
+2. Admin/Manager-ს ფიზიკურად არასდროს აქვს ღია ცვლა (`POST /shifts/open`
+   მკაცრად `role === 'cashier'`-ზეა) — "შეკვეთის გახსნის" ფორმა მათთვის
+   ჩანაცვლდა განმარტებით (Retail-ის იდენტური შეზღუდვის პარიტეტში).
+3. `POST /orders`-ს დაემატა მაგიდის სტატუსის შემოწმება — აქამდე
+   „დაჯავშნილ"/„დასალაგებელ" მაგიდაზეც თავისუფლად იხსნებოდა ახალი
+   შეკვეთა.
+4. ჩეკის დახურვისას (`sales.ts`, `orderId`-იანი checkout) მაგიდა
+   პირდაპირ `free`-ს ნაცვლად `dirty`-ზე გადადის — სტუმრები წავიდნენ,
+   მაგრამ მაგიდა ჯერ ლაგდება, „თავისუფალი" მხოლოდ ხელით დადასტურების
+   შემდეგ.
+5. იგივე ლოგიკა გავრცელდა `POST /orders/:id/void`-ზეც (best-practice
+   გადაწყვეტილება, 04.09.2026 სესია): მაგიდის სტატუსი მისი ფიზიკური
+   მდგომარეობის ანარეკლია, არა ფინანსური შედეგისა.
+6. Split გადახდაზე "ნაღდი"/"ბარათის" ველების ავტომატური ურთიერთბალანსი
+   (`handleSplitCashChange`/`handleSplitCardChange`, Sales.tsx-ის
+   იდენტური თეთრებში-დამრგვალების ლოგიკით) თავდაპირველ იმპლემენტაციაში
+   გამოტოვებული იყო — დამატდა.
+7. `window.confirm()` (ბრაუზერის ნატიური popup) ჩანაცვლდა სტილიზებული
+   `ConfirmModal`-ით სამივე ადგილას (item void, order void, table
+   delete).
+8. CSS: მოდალის არასწორი პოზიციონირება (`fadeInUp` keyframe-ის
+   `transform`-მა ახალი containing block შექმნა `position: fixed`
+   overlay-სთვის) — `transform` მოცილდა keyframe-იდან ორივე ახალ
+   `.module.scss`-ში.
+
+**გატესტილია** (cashier + admin + manager როლებით): მაგიდის CRUD,
+სტატუსის სრული ციკლი (თავისუფალი → დაკავებული → დასალაგებელი →
+თავისუფალი), შეკვეთის გახსნა/item-ების დამატება/გაუქმება, ფასდაკლება +
+Manager PIN Override, cash/card/split checkout, ჩეკის ბეჭდვა, მთელი
+შეკვეთის გაუქმება, ჩეკის (payment) გაუქმება — ყველა Dashboard-ის
+რეპორტინგშიც სწორად აისახება.
+
+**ვერიფიცირებულია:** `npx tsc --noEmit` — 0 შეცდომა (backend + frontend).
 
 ### 1.5 API + Frontend (მიმოხილვა, უცვლელი)
 

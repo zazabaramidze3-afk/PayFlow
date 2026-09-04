@@ -1,0 +1,106 @@
+/* OrderScreen.module.scss */
+@use '../styles/variables' as v;
+@use '../styles/mixins' as m;
+
+.orderContainer {
+  animation: fadeInUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.topPanel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  background: v.$color-bg-card;
+  padding: 18px 20px;
+  border-radius: v.$radius-md;
+  border: 1px solid v.$color-border;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  h2 { margin: 0; color: v.$color-text-primary; }
+}
+
+.btn { @include m.btn-base; }
+.btnPrimary { @include m.btn-primary; }
+.btnSecondary { @include m.btn-secondary; }
+.btnDanger { @include m.btn-danger; }
+.btnSuccess { @include m.btn-success; }
+.btnGhost { @include m.btn-ghost; }
+
+.card {
+  @include m.card;
+  padding: 20px;
+}
+
+.openOrderCard {
+  @include m.card;
+  padding: 40px;
+  max-width: 420px;
+  margin: 40px auto;
+  text-align: center;
+
+  h3 { margin-top: 0; color: v.$color-text-primary; }
+  p { color: v.$color-text-secondary; }
+}
+
+.mainGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+
+  @include m.tablet {
+    grid-template-columns: 1fr;
+  }
+}
+
+.formGroup {
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  label { font-size: 13px; font-weight: 600; color: v.$color-text-secondary; }
+}
+
+.inputField { @include m.input-base; width: 100%; }
+
+.itemsTableWrapper {
+  overflow-x: auto;
+  margin-bottom: 14px;
+}
+
+.itemsTable {
+  @include m.table-base;
+}
+
+.nowrapCell { white-space: nowrap; }
+
+.kitchenBadgePending { @include m.badge(v.$color-info-soft, v.$color-info); }
+.kitchenBadgeVoided { @include m.badge(v.$color-danger-soft, v.$color-danger); }
+.kitchenBadgeOther { @include m.badge(v.$color-bg-subtle, v.$color-text-muted); }
+
+.totalSection {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 10px;
+  border-top: 1px solid v.$color-border;
+}
+
+.totalLabel { font-weight: 700; color: v.$color-text-primary; font-size: 16px; }
+.totalValue { font-weight: 700; color: v.$color-primary; font-size: 20px; }
+
+.modalOverlay { @include m.modal-overlay; z-index: 10050; }
+.modalBody { @include m.modal-body; max-width: 420px; }
+
+// ⚠️ FIX: `transform: translateY(...)` აქ განზრახ აღარ გვაქვს (მხოლოდ
+// opacity) — top-level container-ზე (.tablesContainer/.orderContainer)
+// ნებისმიერი, თუნდაც `translateY(0)`-ის ტოლი, `transform` ქმნის ახალ
+// containing block-ს CSS-ის მიხედვით, რაც ამ container-ის შიგნით
+// ჩადგმულ `position: fixed` მოდალებს (`.modalOverlay`) ამრჩევს viewport-ის
+// ნაცვლად container-ის კუთხეებთან — ეს იყო მაგიდის დამატების პოპაპის
+// არასწორად (ეკრანის თავზე მიკრული) გამოჩენის რეალური მიზეზი.
+@keyframes fadeInUp {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

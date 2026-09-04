@@ -1,0 +1,146 @@
+/* Tables.module.scss */
+@use '../styles/variables' as v;
+@use '../styles/mixins' as m;
+
+.tablesContainer {
+  animation: fadeInUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.topPanel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  background: v.$color-bg-card;
+  padding: 18px 20px;
+  border-radius: v.$radius-md;
+  border: 1px solid v.$color-border;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  h2 { margin: 0; color: v.$color-text-primary; }
+}
+
+.btn { @include m.btn-base; }
+.btnPrimary { @include m.btn-primary; }
+.btnSecondary { @include m.btn-secondary; }
+.btnDanger { @include m.btn-danger; }
+.btnGhost { @include m.btn-ghost; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.emptyState {
+  @include m.card;
+  padding: 40px;
+  text-align: center;
+  color: v.$color-text-secondary;
+}
+
+.tableCard {
+  @include m.card;
+  @include m.card-hover;
+  padding: 16px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  &.statusFree { border-left: 4px solid v.$color-success; }
+  &.statusOccupied { border-left: 4px solid v.$color-danger; }
+  &.statusReserved { border-left: 4px solid v.$color-warning; }
+  &.statusDirty { border-left: 4px solid v.$color-text-muted; }
+}
+
+.cardMain {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tableName {
+  font-size: 17px;
+  font-weight: 700;
+  color: v.$color-text-primary;
+}
+
+.tableMeta {
+  font-size: 12px;
+  color: v.$color-text-secondary;
+}
+
+.statusBadgeFree { @include m.badge(v.$color-success-soft, v.$color-success); }
+.statusBadgeOccupied { @include m.badge(v.$color-danger-soft, v.$color-danger); }
+.statusBadgeReserved { @include m.badge(v.$color-warning-soft, v.$color-warning); }
+.statusBadgeDirty { @include m.badge(v.$color-bg-subtle, v.$color-text-muted); }
+
+.cardActions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 4px;
+}
+
+.iconBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px;
+  border-radius: v.$radius-sm;
+  color: v.$color-text-secondary;
+  &:hover { background: v.$color-bg-subtle; }
+}
+
+.quickStatusRow {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.quickStatusBtn {
+  @include m.btn-base;
+  padding: 4px 8px;
+  min-height: unset;
+  font-size: 11px;
+  background: v.$color-bg-subtle;
+  color: v.$color-text-secondary;
+  border: 1px solid v.$color-border;
+
+  &.active {
+    background: v.$color-primary-soft;
+    color: v.$color-primary;
+    border-color: v.$color-primary;
+  }
+}
+
+.modalOverlay { @include m.modal-overlay; }
+.modalBody { @include m.modal-body; max-width: 420px; }
+
+.formGroup {
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  label { font-size: 13px; font-weight: 600; color: v.$color-text-secondary; }
+}
+
+.inputField { @include m.input-base; width: 100%; }
+
+// ⚠️ FIX: `transform: translateY(...)` აქ განზრახ აღარ გვაქვს (მხოლოდ
+// opacity) — top-level container-ზე (.tablesContainer/.orderContainer)
+// ნებისმიერი, თუნდაც `translateY(0)`-ის ტოლი, `transform` ქმნის ახალ
+// containing block-ს CSS-ის მიხედვით, რაც ამ container-ის შიგნით
+// ჩადგმულ `position: fixed` მოდალებს (`.modalOverlay`) ამრჩევს viewport-ის
+// ნაცვლად container-ის კუთხეებთან — ეს იყო მაგიდის დამატების პოპაპის
+// არასწორად (ეკრანის თავზე მიკრული) გამოჩენის რეალური მიზეზი.
+@keyframes fadeInUp {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

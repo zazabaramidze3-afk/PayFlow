@@ -55,6 +55,11 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Products = lazy(() => import('./pages/Products'));
 const Sales = lazy(() => import('./pages/Sales'));
 const UsersManagement = lazy(() => import('./pages/UsersManagement'));
+// 🍽️ HoReCa Module STEP 1 (Roadmap "03.09.2026") — Tables.tsx (floor plan
+// + OrderScreen.tsx შიგნით) იმავე lazy-chunk პატერნით, რაც დანარჩენ
+// გვერდებს აქვს. Retail org-ისთვის ეს chunk საერთოდ არასდროს იტვირთება
+// (ნავიგაციაშიც არ ჩანს — იხ. businessType-ის შემოწმება ქვემოთ).
+const Tables = lazy(() => import('./pages/Tables'));
 
 // =======================================================
 // 🛡️ AXIOS INTERCEPTOR — ავტომატური ტოკენის მიბმა
@@ -143,12 +148,42 @@ function App() {
   const [showRegister, setShowRegister] = useState(false);
   // 📱 მობილურზე Sidebar ნაგულისხმევად დამალულია — ჰამბურგერ ღილაკით იხსნება.
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  // 🍽️ HoReCa Module STEP 1 (Roadmap "03.09.2026") — მიმდინარე
+  // ორგანიზაციის business_type (`GET /organizations/me`-დან, ფრეშად,
+  // არა JWT-დან — `requireBusinessType`-ის/`can_use_discount`-ის იგივე
+  // "არა JWT" პრინციპი). null მანამ, სანამ პასუხი არ მოვა (ან logout-ზე) —
+  // "🍽️ მაგიდები" ნავიგაცია მანამდე უბრალოდ არ ჩანს, false-positive-ის
+  // ნაცვლად.
+  const [businessType, setBusinessType] = useState<'retail' | 'horeca' | null>(null);
 
   useEffect(() => {
     const handleSessionExpired = () => setCurrentUser(null);
     window.addEventListener('auth:session-expired', handleSessionExpired);
     return () => window.removeEventListener('auth:session-expired', handleSessionExpired);
   }, []);
+
+  // 🍽️ HoReCa Module STEP 1 — ყოველ ლოგინზე/session-restore-ზე (გვერდის
+  // reload-ის ჩათვლით, JWT-ს business_type არ აქვს) ვითხოვთ ფრეშ
+  // მნიშვნელობას. Logout-ზე null-ზე ვბრუნდებით, რომ შემდეგი (სხვა
+  // ორგანიზაციის) login-ისას ძველი მნიშვნელობა არ "გაჟონოს".
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setBusinessType(null);
+      return;
+    }
+    let cancelled = false;
+    axios
+      .get('/api/organizations/me')
+      .then(response => {
+        if (!cancelled) setBusinessType(response.data?.businessType ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setBusinessType(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoggedIn]);
 
   // ==========================================
   // 📴 Roadmap STEP 5 — Background Sync Engine
@@ -316,6 +351,18 @@ function App() {
                 🛒 Sales (POS)
               </li>
             )}
+            {/* 🍽️ HoReCa Module STEP 1 — ყველა როლისთვის, ვინც Sales-საც
+                ხედავს (cashier + admin/manager), ოღონდ მხოლოდ HoReCa
+                ორგანიზაციაში (Retail-ზე businessType !== 'horeca', ეს
+                პუნქტი საერთოდ არ ჩანს). */}
+            {businessType === 'horeca' && (
+              <li
+                onClick={() => navigateTo('tables')}
+                className={`${styles.navItem} ${currentPage === 'tables' ? styles.active : ''}`}
+              >
+                🍽️ მაგიდები
+              </li>
+            )}
             {isAdminOrManager && (
               <li
                 onClick={() => navigateTo('users_control')}
@@ -347,6 +394,21 @@ function App() {
             <RegisterGuard>
               <Sales />
             </RegisterGuard>
+          )}
+          {/* 🍽️ HoReCa Module STEP 1 — cashier-ს (ფიზიკურ POS ტერმინალზე)
+              Sales-ის იდენტურად სჭირდება RegisterGuard (POST /orders-საც
+              register-headers სჭირდება). admin/manager back-office-დანაც
+              შედის, დაუწყვილებელი მოწყობილობიდანაც — RegisterGuard-ის
+              გარეშე (მხოლოდ Tables CRUD-ისთვის; ორდერის რეალურად
+              გახსნა/checkout მაინც სცადებდა register-ს, თუ დაპეირებული
+              არაა — ბექენდი თავად დაბლოკავს ცხად შეცდომით). */}
+          {currentPage === 'tables' && businessType === 'horeca' && userRole === 'cashier' && (
+            <RegisterGuard>
+              <Tables canManage={false} />
+            </RegisterGuard>
+          )}
+          {currentPage === 'tables' && businessType === 'horeca' && isAdminOrManager && (
+            <Tables canManage={true} />
           )}
           {currentPage === 'users_control' && isAdminOrManager && <UsersManagement currentUserRole={userRole} />}
         </Suspense>

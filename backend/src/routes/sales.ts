@@ -602,13 +602,18 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
 
       // 🍽️ HoReCa Module STEP 1 (Roadmap "03.09.2026") — თუ checkout მაგიდის
       // ღია შეკვეთიდან მოდის (orderId გადმოცემულია), აქვე ვხურავთ შეკვეთას
-      // (status='closed', closed_payment_id) და ვათავისუფლებთ მაგიდას
-      // ('free') — იმავე ატომურ ტრანზაქციაში, რაც payment-ის შექმნა/
-      // stock-decrement. Retail checkout-ზე (orderId არასდროს იგზავნება)
-      // ეს ბლოკი საერთოდ არ სრულდება — ნულოვანი გავლენა. თუ orderId
-      // მითითებულია, მაგრამ აღარ არსებობს/უკვე დახურულია, მთელი
-      // ტრანზაქცია (payment-ის ჩათვლით) უკან ბრუნდება (ROLLBACK) და
-      // მოლარეს 400 უბრუნდება.
+      // (status='closed', closed_payment_id) იმავე ატომურ ტრანზაქციაში,
+      // რაც payment-ის შექმნა/stock-decrement. Retail checkout-ზე (orderId
+      // არასდროს იგზავნება) ეს ბლოკი საერთოდ არ სრულდება — ნულოვანი
+      // გავლენა. თუ orderId მითითებულია, მაგრამ აღარ არსებობს/უკვე
+      // დახურულია, მთელი ტრანზაქცია (payment-ის ჩათვლით) უკან ბრუნდება
+      // (ROLLBACK) და მოლარეს 400 უბრუნდება.
+      //
+      // 🩹 FIX (04.09.2026) — მაგიდას ანგარიშწორების შემდეგ პირდაპირ
+      // 'free'-ზე კი არა, 'dirty'-ზე ("დასალაგებელი") ვაბრუნებთ: სტუმრები
+      // წავიდნენ, მაგრამ მაგიდა ჯერ ლაგდება (ჭურჭელი/სუფრა) — მხოლოდ
+      // ხელით (POS/tables.ts-ის PATCH /tables/:id/status) დალაგების
+      // დადასტურების შემდეგ უნდა გახდეს ისევ 'free' შემდეგი სტუმრებისთვის.
       if (orderId) {
         const orderCloseResult = await client.query(
           `UPDATE orders SET status = 'closed', closed_at = CURRENT_TIMESTAMP, closed_payment_id = $1
@@ -623,7 +628,7 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
 
         const closedTableId = orderCloseResult.rows[0].table_id;
         if (closedTableId) {
-          await client.query(`UPDATE tables SET status = 'free' WHERE id = $1`, [closedTableId]);
+          await client.query(`UPDATE tables SET status = 'dirty' WHERE id = $1`, [closedTableId]);
         }
       }
 

@@ -1,0 +1,44 @@
+/* ConfirmModal.module.scss */
+@use '../styles/variables' as v;
+@use '../styles/mixins' as m;
+
+// 🩹 z-index 10060 — თამამად ზემოთ ნებისმიერ სხვა ჩვენთვის ცნობილ overlay-ზე
+// (OrderScreen.module.scss-ის .modalOverlay 10050-ზეა), რომ დადასტურების
+// მოდალი ყოველთვის ყველაფერს ედოს თავზე, თუნდაც სხვა მოდალის შიგნიდან
+// გამოიძახეს.
+.modalOverlay {
+  @include m.modal-overlay;
+  z-index: 10060;
+}
+
+.modalBody {
+  @include m.modal-body;
+  max-width: 420px;
+
+  h3 {
+    margin-top: 0;
+    color: v.$color-text-primary;
+  }
+
+  p {
+    color: v.$color-text-secondary;
+    line-height: 1.5;
+    margin: 0 0 20px 0;
+  }
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  @include m.btn-base;
+  flex: 1;
+  min-width: 120px;
+}
+
+.btnPrimary { @include m.btn-primary; }
+.btnSecondary { @include m.btn-secondary; }
+.btnDanger { @include m.btn-danger; }

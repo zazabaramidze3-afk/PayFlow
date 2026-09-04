@@ -13,6 +13,9 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { db } from '../index';
+import { withOrgContext } from '../db';
+import { authenticateToken, CustomRequest } from './auth';
+import { BusinessType } from '../types';
 import {
   getRegistrationRateLimitKey,
   checkRegistrationRateLimit,
@@ -62,12 +65,18 @@ router.post('/organizations/register', async (req: Request, res: Response) => {
   }
   registerRegistrationAttempt(rateLimitKey);
 
-  const { companyName, slug: slugInput, adminName, email, password } = req.body;
+  const { companyName, slug: slugInput, adminName, email, password, businessType: businessTypeInput } = req.body;
 
   // 1. ვალიდაცია
   if (!companyName || !slugInput || !adminName || !email || !password) {
     return res.status(400).json({ error: 'ყველა ველი სავალდებულოა!' });
   }
+
+  // 🍽️ HoReCa Module STEP 1 (Roadmap "03.09.2026") — თვითრეგისტრაციაზეც
+  // შესაძლებელია ბიზნესის ტიპის არჩევა (Register.tsx-ის ახალი toggle).
+  // არასავალდებულოა — თუ არ მოვიდა (ან რამე მოულოდნელი მნიშვნელობა),
+  // migration 019-ის DB DEFAULT-ის იდენტურად 'retail'-ად ითვლება.
+  const businessType: BusinessType = businessTypeInput === 'horeca' ? 'horeca' : 'retail';
 
   const trimmedCompanyName = String(companyName).trim();
   if (trimmedCompanyName.length < 2) {
@@ -127,10 +136,10 @@ router.post('/organizations/register', async (req: Request, res: Response) => {
     await client.query('BEGIN');
 
     const orgResult = await client.query<{ id: string }>(
-      `INSERT INTO organizations (name, slug, status, trial_ends_at)
-       VALUES ($1, $2, 'trial', NOW() + INTERVAL '14 days')
+      `INSERT INTO organizations (name, slug, status, trial_ends_at, business_type)
+       VALUES ($1, $2, 'trial', NOW() + INTERVAL '14 days', $3)
        RETURNING id`,
-      [trimmedCompanyName, slug]
+      [trimmedCompanyName, slug, businessType]
     );
     const organizationId = orgResult.rows[0].id;
 
@@ -164,7 +173,7 @@ router.post('/organizations/register', async (req: Request, res: Response) => {
         can_view_history: true,
         requires_password_reset: false,
       },
-      organization: { id: organizationId, name: trimmedCompanyName, slug },
+      organization: { id: organizationId, name: trimmedCompanyName, slug, businessType },
     });
   } catch (err: unknown) {
     await client.query('ROLLBACK').catch(() => undefined);
@@ -227,6 +236,41 @@ router.get('/organizations/resolve/:slug', async (req: Request, res: Response) =
     res.json(result.rows[0]);
   } catch (err: unknown) {
     res.status(500).json({ error: 'სერვერის შეცდომა: ' + getErrorMessage(err) });
+  }
+});
+
+// ==========================================
+// 🍽️ GET /organizations/me — HoReCa Module STEP 1 (Roadmap "03.09.2026")
+// ==========================================
+// მსუბუქი, ავტორიზებული (ნებისმიერი როლი) ენდპოინტი — frontend-ს (App.tsx)
+// სჭირდება იცოდეს მიმდინარე ორგანიზაციის `business_type`, რომ გადაწყვიტოს,
+// გამოაჩინოს თუ არა "🍽️ მაგიდები" ნავიგაციის პუნქტი. ისევე როგორც
+// `requireBusinessType` middleware (და `can_use_discount`-ის ორიგინალი
+// პატერნი), ფრეშად კითხულობს ბაზიდან — არა JWT-დან — რომ ორგანიზაციის
+// ტიპის (თეორიულ) ცვლილებას დაუყოვნებელი ეფექტი ჰქონდეს, გვერდის
+// ხელახალი ჩატვირთვის გარეშეც (App.tsx-ის session-restore-ზეც გამოიძახება).
+router.get('/organizations/me', authenticateToken, async (req: CustomRequest, res: Response) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    return res.status(401).json({ error: 'ავტორიზაცია აუცილებელია' });
+  }
+
+  try {
+    const businessType = await withOrgContext(organizationId, async (client) => {
+      const result = await client.query<{ business_type: BusinessType }>(
+        'SELECT business_type FROM organizations WHERE id = $1',
+        [organizationId]
+      );
+      return result.rows[0]?.business_type ?? null;
+    });
+
+    if (!businessType) {
+      return res.status(404).json({ error: 'ორგანიზაცია ვერ მოიძებნა' });
+    }
+
+    res.json({ businessType });
+  } catch (err: unknown) {
+    res.status(500).json({ error: getErrorMessage(err) });
   }
 });
 

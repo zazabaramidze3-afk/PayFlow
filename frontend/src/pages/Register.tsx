@@ -52,6 +52,11 @@ export default function Register({ onRegisterSuccess, onNavigateToLogin }: Regis
   // companyName-თან.
   const [slugTouched, setSlugTouched] = useState(false);
   const [adminName, setAdminName] = useState('');
+  // 🍽️ HoReCa Module STEP 1 (Roadmap "03.09.2026") — თვითრეგისტრაციაზე
+  // ბიზნესის ტიპის არჩევა. Retail default-ია (migration 019-ის DB
+  // DEFAULT-ის იდენტურად) — არსებული registration flow-ისთვის
+  // ვიზუალურადაც და ქცევითაც უცვლელი, ვინც ამ ველს არ შეეხება.
+  const [businessType, setBusinessType] = useState<'retail' | 'horeca'>('retail');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -138,6 +143,7 @@ export default function Register({ onRegisterSuccess, onNavigateToLogin }: Regis
         adminName: trimmedAdminName,
         email: trimmedEmail,
         password,
+        businessType,
       });
       const { token, user } = response.data;
       onRegisterSuccess(token, user);
@@ -165,6 +171,35 @@ export default function Register({ onRegisterSuccess, onNavigateToLogin }: Regis
               className={styles.input}
               autoFocus
             />
+          </div>
+
+          <div className={styles.field} data-gsap-field>
+            <label className={styles.label}>საქმიანობის ტიპი</label>
+            <div className={styles.segmentedGroup} role="radiogroup" aria-label="საქმიანობის ტიპი">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={businessType === 'retail'}
+                onClick={() => setBusinessType('retail')}
+                className={`${styles.segmentedBtn} ${businessType === 'retail' ? styles.segmentedBtnActive : ''}`}
+              >
+                🏪 Retail (მარკეტი/საცალო)
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={businessType === 'horeca'}
+                onClick={() => setBusinessType('horeca')}
+                className={`${styles.segmentedBtn} ${businessType === 'horeca' ? styles.segmentedBtnActive : ''}`}
+              >
+                🍽️ HoReCa (რესტორანი/კაფე/ბარი)
+              </button>
+            </div>
+            <p className={styles.hint}>
+              {businessType === 'horeca'
+                ? 'მაგიდები, ღია შეკვეთები და სამზარეულოს routing ჩაირთვება.'
+                : 'შეგიძლიათ მოგვიანებით მიგვმართოთ HoReCa-ზე გადასართველად.'}
+            </p>
           </div>
 
           <div className={styles.field} data-gsap-field>

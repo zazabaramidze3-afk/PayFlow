@@ -57,12 +57,28 @@ router.post(
     try {
       const order = await withOrgContext(req.user?.organizationId, async (client) => {
         if (tableIdValue) {
-          const tableCheck = await client.query('SELECT id FROM tables WHERE id = $1 AND organization_id = $2', [
-            tableIdValue,
-            req.user?.organizationId,
-          ]);
+          const tableCheck = await client.query<{ status: string }>(
+            'SELECT status FROM tables WHERE id = $1 AND organization_id = $2',
+            [tableIdValue, req.user?.organizationId]
+          );
           if (tableCheck.rows.length === 0) {
             throw new Error('მაგიდა ვერ მოიძებნა');
+          }
+          // 🩹 FIX (04.09.2026) — აქამდე მაგიდის სტატუსი საერთოდ არ
+          // მოწმდებოდა: "occupied" ბუნებრივად იბლოკებოდა მხოლოდ
+          // `orders`-ის unique constraint-ით (ქვემოთ, isUniqueViolation),
+          // მაგრამ "reserved" (დაჯავშნილი) და "dirty" (დასალაგებელი)
+          // მაგიდაზეც თავისუფლად იხსნებოდა ახალი შეკვეთა — რაც არასწორია:
+          // დასალაგებელი მაგიდა ჯერ ხელით უნდა მოინიშნოს "თავისუფლად"
+          // (დალაგების შემდეგ), დაჯავშნილიც კი მოსვლისას.
+          if (tableCheck.rows[0].status !== 'free') {
+            const statusLabels: Record<string, string> = {
+              occupied: 'დაკავებული',
+              reserved: 'დაჯავშნილი',
+              dirty: 'დასალაგებელი',
+            };
+            const label = statusLabels[tableCheck.rows[0].status] ?? tableCheck.rows[0].status;
+            throw new Error(`მაგიდა "${label}"-ია — ახალი შეკვეთის გახსნამდე დააყენეთ სტატუსი "თავისუფალი"`);
           }
         }
 
@@ -422,8 +438,17 @@ router.post(
         }
 
         const order = result.rows[0];
+        // 🩹 FIX (04.09.2026) — მაგიდის სტატუსი მაგიდის ფიზიკურ (და არა
+        // ფინანსურ) მდგომარეობას უნდა ასახავდეს: სტუმარი უკვე იჯდა ამ
+        // მაგიდასთან (ჭიქა, სკამი გადაადგილებული და ა.შ.), მიუხედავად
+        // იმისა, გადაიხადა თუ შეკვეთა გაუქმდა. ამიტომ void-იც
+        // ('checkout'-ის იდენტურად, sales.ts-ში) მაგიდას პირდაპირ
+        // 'free'-ს ნაცვლად 'dirty'-ზე აბრუნებს — safety-first
+        // floor-management პრაქტიკა: სჯობს ერთხელ ზედმეტად შემოწმდეს
+        // მაგიდა, ვიდრე უსწორო/დაუზუსტებელი მაგიდა პირდაპირ ახალ
+        // სტუმარს "თავისუფლად" შერჩეს.
         if (order.table_id) {
-          await client.query(`UPDATE tables SET status = 'free' WHERE id = $1`, [order.table_id]);
+          await client.query(`UPDATE tables SET status = 'dirty' WHERE id = $1`, [order.table_id]);
         }
 
         return order;
