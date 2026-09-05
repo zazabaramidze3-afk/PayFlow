@@ -351,6 +351,7 @@ export type Station = 'kitchen' | 'bar';
 export interface ProductStationLookup {
   price: number;
   station: Station | null;
+  is_recipe_based: boolean;
 }
 
 // GET /kitchen/tickets-ის ერთი row — order_items + JOIN (products.name,

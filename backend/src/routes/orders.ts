@@ -284,7 +284,7 @@ router.post(
         }
 
         const productCheck = await client.query<ProductStationLookup>(
-          'SELECT price, station FROM products WHERE id = $1 AND organization_id = $2',
+          'SELECT price, station, is_recipe_based FROM products WHERE id = $1 AND organization_id = $2',
           [parsedProductId, req.user?.organizationId]
         );
 
@@ -293,6 +293,36 @@ router.post(
         }
 
         const stationValue = productCheck.rows[0].station;
+
+        // 🍲 HoReCa STEP 3.2-ის შესწორება (BOM, migration 022) —
+        // მომხმარებლის ნაცნობი შენიშვნა: მარაგის ნაკლებობა აქამდე მხოლოდ
+        // საბოლოო გადახდის (checkout) მომენტში ვლინდებოდა (sales.ts),
+        // მაშინ როცა item უკვე 'sent'-ზეა და სამზარეულოც ხედავს KDS-ზე.
+        // ახლა item-ის დამატებისთანავე (სანამ 'sent'/'pending'-ზე მინიჭდება
+        // და სამზარეულომდე საერთოდ მიდის) მოწმდება საკმარისი მარაგია თუ
+        // არა — თუ არა, item საერთოდ არ insert-დება (400 შეცდომა).
+        // ცნობილი შეზღუდვა (v1, შეგნებულად გამარტივებული): ეს მხოლოდ
+        // ვალიდაციაა, არა "დაჯავშნა" — მარაგი აქ არ იკლებს (ის კვლავ
+        // checkout-ის მომენტში იკლებს, sales.ts-ში), ასე რომ თეორიულად
+        // ორმა ოფიციანტმა ერთდროულად რომ დაამატოს იგივე ბოლო ულუფა,
+        // ორივემ შეიძლება გაიაროს ეს შემოწმება — საბოლოო, ატომური გარანტია
+        // კვლავ checkout-ის `WHERE stock >= $1` update-ზეა დამოკიდებული.
+        const isRecipeBased = productCheck.rows[0].is_recipe_based === true;
+        if (isRecipeBased) {
+          const recipeItems = await client.query<{ ingredient_id: string; quantity_required: number; stock: number; name: string }>(
+            `SELECT ri.ingredient_id, ri.quantity_required, ing.stock, ing.name
+             FROM recipe_items ri JOIN ingredients ing ON ing.id = ri.ingredient_id
+             WHERE ri.product_id = $1`,
+            [parsedProductId]
+          );
+
+          for (const ri of recipeItems.rows) {
+            const needed = ri.quantity_required * parsedQuantity;
+            if (ri.stock < needed) {
+              throw new Error(`INSUFFICIENT_STOCK:${ri.name}`);
+            }
+          }
+        }
 
         // 🧩 STEP 3.1 (მოდიფაიერები) — ამ პროდუქტზე მიბმული ყველა
         // ჯგუფი წინასწარ იტვირთება (თუნდაც კლიენტმა საერთოდ არაფერი
@@ -421,6 +451,10 @@ router.post(
       }
       if (err instanceof Error && err.message === 'PRODUCT_NOT_FOUND') {
         return res.status(404).json({ error: 'პროდუქტი ვერ მოიძებნა' });
+      }
+      if (err instanceof Error && err.message.startsWith('INSUFFICIENT_STOCK:')) {
+        const ingredientName = err.message.slice('INSUFFICIENT_STOCK:'.length);
+        return res.status(400).json({ error: `არ არის საკმარისი მარაგი ინგრედიენტზე: ${ingredientName}` });
       }
       res.status(500).json({ error: getErrorMessage(err) });
     }
