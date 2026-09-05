@@ -1,6 +1,6 @@
 # HoReCa მოდულის დანერგვა — Roadmap
 
-**სტატუსი:** 🟢 STEP 1 (Tables + Orders) — სრულად დასრულებულია (production-ზე ცოცხლადაა, screenshot-ით დადასტურებული). 🟡 STEP 2 (KDS) — Backend+Frontend დაწერილია, `tsc --noEmit` სუფთაა, **ჯერ არ გატარებულა migration და არ ტესტირებულა** (STEP 2-ის "2.1" ქვეთავი).
+**სტატუსი:** 🟢 STEP 1 (Tables + Orders) — სრულად დასრულებულია (production-ზე ცოცხლადაა, screenshot-ით დადასტურებული). 🟢 STEP 2 (KDS) — **ტესტირებულია და მზადაა production-ისთვის** (ლოკალურად სრული manual QA ჩატარებულია, screenshot-ებით დადასტურებული; production migration + `git push` — STEP 2-ის "2.1" ქვეთავში, "Git/Deploy სტატუსი").
 **თარიღი:** 03.09.2026 (STEP 2-ის დამატება: 05.09.2026)
 **კონტექსტი:** PayFlow ამჟამად მთლიანად Retail (მარკეტი/საცალო) სეგმენტზეა
 აგებული. მოთხოვნაა იმავე კოდბაზაში/DB-ში HoReCa-ს (რესტორანი, კაფე-ბარი
@@ -306,7 +306,7 @@ infra-გადაწყვეტილებაა — თუ latency პრო
 - `KitchenDisplay.tsx` — station-ით გაფილტრული ტიკეტების სია, touch-friendly
   `pending → preparing → ready` ღილაკები
 
-### 2.1 ✅ დაწერილია, `tsc --noEmit` სუფთაა (05.09.2026) — ჯერ არ ტესტირებულა
+### 2.1 ✅ დაწერილია და ტესტირებულია (05.09.2026)
 
 **გადაწყვეტილი ღია საკითხები (v1):**
 - **`product_categories`/`products.category_id` შემცირდა scope-იდან** —
@@ -358,17 +358,28 @@ infra-გადაწყვეტილებაა — თუ latency პრო
 **ვერიფიცირებულია:** `npx tsc --noEmit` — 0 შეცდომა (backend + frontend),
 `npx sass` — SCSS კომპილირდება უშეცდომოდ.
 
-**⚠️ ჯერ არ ტესტირებულა:** ამ session-ს (device_bash-ის იზოლირებულ
-გარემოს) არც ლოკალურ Postgres-თან (`localhost:5432`, `ECONNREFUSED`),
-არც production-თან პირდაპირი წვდომა არ აქვს — STEP 1-ის საპირწონედ,
-რეალური migration/manual QA მომხმარებელმა თავად უნდა შეასრულოს:
-1. `cd backend && npm run migrate` (ლოკალურ `payflow_db`-ზე).
-2. Products გვერდზე რამდენიმე პროდუქტს მიენიჭოს station.
-3. `npm run start` (ორივე — backend/frontend) და KDS-ის ხელით ტესტი:
-   მაგიდაზე item-ის დამატება → სამზარეულო/ბარის ეკრანზე გამოჩენა →
-   status-ის წინსვლა.
-4. Production migration (pgAdmin, Neon) STEP 1-ის იდენტური პროცედურით.
-5. `git push origin main` (ამ session-საც GitHub credentials არ აქვს).
+**✅ ლოკალურად გატესტილია (05.09.2026, cashier + manager როლებით):**
+1. `020_add_kds_station.sql` წარმატებით გაეშვა ლოკალურ `payflow_db`-ზე
+   (`npm run migrate`).
+2. Products გვერდზე პროდუქტებს მიენიჭა `station` (kitchen/bar).
+3. სრული pipeline დადასტურდა screenshot-ებით: item-ის დამატება →
+   ავტომატურად ჩნდება KDS-ზე (`sent`) → `preparing → ready → served`
+   წინსვლა → `served`-ზე ქრება ეკრანიდან. გატესტილია ორივე station
+   (🍳 სამზარეულო, 🍹 ბარი) ცალ-ცალკე, რამდენიმე მაგიდის paralel-ურად
+   (multi-table stress test), voided-then-re-added item-ის ქეისიც.
+4. `npm run start` (backend+frontend) ლოკალურად სტაბილურად მუშაობს.
+
+**⚠️ დარჩენილია production-ზე (STEP 1-ის იდენტური პროცედურა):**
+1. **Production migration** — `020_add_kds_station.sql`, pgAdmin-ით
+   Neon-ზე (ეს session-იც ვერ უკავშირდება Neon-ს პირდაპირ — production
+   `DATABASE_URL` ლოკალურ `.env`-ში არ ინახება, უსაფრთხოების მოსაზრებით).
+2. **`git push origin main`** commit `b64ffe4`-ისთვის — ამ session-საც
+   (device_bash-იც) GitHub credentials არ აქვს (`could not read Username
+   for 'https://github.com'`), მომხმარებელმა თავად უნდა გაუშვას საკუთარი
+   ტერმინალიდან.
+3. Push + migration-ის შემდეგ Render (backend) და Vercel (frontend)
+   ავტომატურად დეპლოირდება — production-ზე დადასტურება იმავე screenshot
+   პროცედურით, რაც STEP 1-ს ჰქონდა (1.6 ქვეთავი).
 
 ---
 
@@ -477,8 +488,9 @@ sync). **`orders`/`order_items` v1-ში ამ დონეს არ იღ�
 - [ ] **STEP 4:** Tips-ის განაწილება — ერთ waiter-ს მთლიანად, თუ
   pooled (გუნდზე გადანაწილება)?
 - [ ] **STEP 2:** Realtime latency — v1 დაწერილია 4წმ polling-ით
-  (`KitchenDisplay.tsx`); კვლავ ღიაა, გახდება თუ არა WebSocket საჭირო
-  რეალურ დატვირთვაზე ტესტირების შემდეგ.
+  (`KitchenDisplay.tsx`); ლოკალურ ტესტირებაზე საკმარისად სწრაფი იყო,
+  მაგრამ production-ის რეალურ დატვირთვაზე (რამდენიმე ერთდროული device)
+  ჯერ არ შემოწმებულა — ღიად რჩება, გახდება თუ არა WebSocket საჭირო.
 - [ ] **Retail POS (გვერდითი ეფექტი, 04.09.2026 ტესტირებიდან):**
   `App.tsx`-ის გლობალური 403-interceptor მხოლოდ "სალაროს ტოკენი"-ს
   შემცველ შეტყობინებებზე რთავს ავტომატურ re-pair UI-ს — Register-ის
