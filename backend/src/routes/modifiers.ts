@@ -198,9 +198,15 @@ router.post(
     if (!nameValue) {
       return res.status(400).json({ error: 'name სავალდებულოა' });
     }
+    // 🩹 FIX (05.09.2026, production QA-ზე აღმოჩენილი) — price_delta
+    // შეგნებულად შემოვსაზღვრეთ არაუარყოფითად: მოდიფაიერი ("+ ყველი",
+    // "Medium") მენიუს ფასს მხოლოდ ზრდის ან უცვლელად ტოვებს (0), არასდროს
+    // ამცირებს — ფასდაკლების ინსტრუმენტი ცალკეა (OrderScreen.tsx-ის
+    // discount + Manager PIN Override), აქ არაუარყოფითობა თავიდან
+    // აგვაცილებს "ნეგატიური მოდიფაიერით" შემთხვევით ფასის ჩამოწევას.
     const priceDeltaValue = priceDelta === undefined || priceDelta === null || priceDelta === '' ? 0 : Number(priceDelta);
-    if (!Number.isFinite(priceDeltaValue)) {
-      return res.status(400).json({ error: 'priceDelta არავალიდურია' });
+    if (!Number.isFinite(priceDeltaValue) || priceDeltaValue < 0) {
+      return res.status(400).json({ error: 'priceDelta არ შეიძლება იყოს უარყოფითი' });
     }
 
     try {
@@ -248,9 +254,10 @@ router.put(
     if (!nameValue) {
       return res.status(400).json({ error: 'name სავალდებულოა' });
     }
+    // 🩹 FIX (05.09.2026) — POST-ის იგივე არაუარყოფითობის წესი (ზემოთ).
     const priceDeltaValue = priceDelta === undefined || priceDelta === null || priceDelta === '' ? 0 : Number(priceDelta);
-    if (!Number.isFinite(priceDeltaValue)) {
-      return res.status(400).json({ error: 'priceDelta არავალიდურია' });
+    if (!Number.isFinite(priceDeltaValue) || priceDeltaValue < 0) {
+      return res.status(400).json({ error: 'priceDelta არ შეიძლება იყოს უარყოფითი' });
     }
 
     try {

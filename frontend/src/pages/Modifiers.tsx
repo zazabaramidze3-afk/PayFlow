@@ -184,12 +184,20 @@ export default function Modifiers() {
       showToast('ოფციის სახელი სავალდებულოა', 'error');
       return;
     }
+    // 🩹 FIX (05.09.2026, production QA-ზე აღმოჩენილი) — price_delta
+    // არაუარყოფითია (backend-ის იგივე წესი, routes/modifiers.ts): მოდიფაიერი
+    // მენიუს ფასს მხოლოდ ზრდის ან უცვლელად ტოვებს, არასდროს ამცირებს.
+    const parsedPriceDelta = optionPriceDelta.trim() === '' ? 0 : Number(optionPriceDelta);
+    if (!Number.isFinite(parsedPriceDelta) || parsedPriceDelta < 0) {
+      showToast('ფასის ცვლილება არ შეიძლება იყოს უარყოფითი', 'error');
+      return;
+    }
 
     setOptionSaving(true);
     try {
       await axios.post(`/api/modifiers/groups/${groupId}/options`, {
         name: optionName.trim(),
-        priceDelta: optionPriceDelta.trim() === '' ? 0 : Number(optionPriceDelta),
+        priceDelta: parsedPriceDelta,
       });
       showToast('ოფცია დაემატა', 'success');
       closeAddOption();
@@ -221,12 +229,18 @@ export default function Modifiers() {
       showToast('ოფციის სახელი სავალდებულოა', 'error');
       return;
     }
+    // 🩹 FIX (05.09.2026) — POST-ის იგივე არაუარყოფითობის წესი (ზემოთ).
+    const parsedEditPriceDelta = editOptionPriceDelta.trim() === '' ? 0 : Number(editOptionPriceDelta);
+    if (!Number.isFinite(parsedEditPriceDelta) || parsedEditPriceDelta < 0) {
+      showToast('ფასის ცვლილება არ შეიძლება იყოს უარყოფითი', 'error');
+      return;
+    }
 
     setOptionSaving(true);
     try {
       await axios.put(`/api/modifiers/options/${editingOption.id}`, {
         name: editOptionName.trim(),
-        priceDelta: editOptionPriceDelta.trim() === '' ? 0 : Number(editOptionPriceDelta),
+        priceDelta: parsedEditPriceDelta,
       });
       showToast('ოფცია განახლდა', 'success');
       cancelEditOption();
@@ -313,8 +327,9 @@ export default function Modifiers() {
                         <input
                           type="number"
                           step="0.01"
+                          min="0"
                           value={editOptionPriceDelta}
-                          onChange={e => setEditOptionPriceDelta(e.target.value)}
+                          onChange={e => { const v = Number(e.target.value); if (v >= 0 || e.target.value === '') setEditOptionPriceDelta(e.target.value); }}
                           className={styles.inputField}
                           style={{ flex: 1 }}
                           placeholder="0.00"
@@ -355,8 +370,9 @@ export default function Modifiers() {
                   <input
                     type="number"
                     step="0.01"
+                    min="0"
                     value={optionPriceDelta}
-                    onChange={e => setOptionPriceDelta(e.target.value)}
+                    onChange={e => { const v = Number(e.target.value); if (v >= 0 || e.target.value === '') setOptionPriceDelta(e.target.value); }}
                     className={styles.inputField}
                     style={{ flex: 1 }}
                     placeholder="ფასის ცვლილება (₾)"
