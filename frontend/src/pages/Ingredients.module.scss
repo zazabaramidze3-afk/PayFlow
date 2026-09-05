@@ -1,0 +1,125 @@
+/* Ingredients.module.scss */
+@use '../styles/variables' as v;
+@use '../styles/mixins' as m;
+
+.container {
+  animation: fadeInUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.topPanel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  background: v.$color-bg-card;
+  padding: 18px 20px;
+  border-radius: v.$radius-md;
+  border: 1px solid v.$color-border;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  h2 { margin: 0; color: v.$color-text-primary; }
+  small { color: v.$color-text-secondary; }
+}
+
+.btn { @include m.btn-base; }
+.btnPrimary { @include m.btn-primary; }
+.btnSecondary { @include m.btn-secondary; }
+.btnDanger { @include m.btn-danger; }
+.btnGhost { @include m.btn-ghost; }
+
+.emptyState {
+  @include m.card;
+  padding: 40px;
+  text-align: center;
+  color: v.$color-text-secondary;
+}
+
+.ingredientList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ingredientCard {
+  @include m.card;
+  padding: 14px 16px;
+}
+
+.ingredientMain {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ingredientName {
+  font-size: 15px;
+  font-weight: 700;
+  color: v.$color-text-primary;
+}
+
+.unitBadge { @include m.badge(v.$color-bg-subtle, v.$color-text-secondary); }
+
+.stockOk { color: v.$color-text-secondary; font-size: 13px; }
+.stockLow { color: v.$color-danger; font-size: 13px; font-weight: 700; }
+
+.stockTag {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: v.$radius-sm;
+}
+.stockTagOut { background: v.$color-danger-soft; color: v.$color-danger; }
+.stockTagLow { background: v.$color-warning-soft; color: v.$color-warning; }
+
+.ingredientActions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.iconBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 6px;
+  border-radius: v.$radius-sm;
+  color: v.$color-text-secondary;
+  &:hover { background: v.$color-bg-subtle; }
+}
+
+.restockRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: v.$color-bg-subtle;
+  border-radius: v.$radius-sm;
+}
+
+.optionActions {
+  display: flex;
+  gap: 4px;
+}
+
+.modalOverlay { @include m.modal-overlay; }
+.modalBody { @include m.modal-body; max-width: 420px; }
+
+.formGroup {
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  label { font-size: 13px; font-weight: 600; color: v.$color-text-secondary; }
+}
+
+.inputField { @include m.input-base; width: 100%; }
+
+@keyframes fadeInUp {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

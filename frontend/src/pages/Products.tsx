@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import styles from './Products.module.scss';
-import { ModifierGroupWithOptions } from '../lib/horecaTypes';
+import { ModifierGroupWithOptions, Ingredient, ProductRecipe } from '../lib/horecaTypes';
 
 // 🍳 KDS routing (STEP 2, Roadmap "03.09.2026", migration 020) —
 // 'kitchen'|'bar'|null. Retail-ზეც ჩნდება ტიპის დონეზე (backend-ის
@@ -18,6 +18,11 @@ interface Product {
   price: number;
   stock: number;
   station: ProductStation;
+  // 🍲 HoReCa STEP 3.2 (BOM, migration 022) — Retail-ზეც ჩნდება
+  // ტიპის დონეზე (backend-ის SELECT * ყოველთვის აბრუნებს), მაგრამ
+  // UI-ში ჩანს/რედაქტირდება მხოლოდ businessType === 'horeca'-ზე,
+  // Modifiers-ის იგივე კონვენციით.
+  is_recipe_based: boolean;
 }
 
 interface ProductsProps {
@@ -101,6 +106,31 @@ export default function Products({ businessType }: ProductsProps) {
   useEffect(() => {
     if (businessType === 'horeca') fetchAllModifierGroups();
   }, [businessType, fetchAllModifierGroups]);
+
+  // 🍲 HoReCa Module STEP 3.2 (Roadmap "03.09.2026", migration 022) —
+  // რეცეპტის (BOM) მართვა კონკრეტულ პროდუქტზე. ინგრედიენტების CRUD-ი
+  // თავად Ingredients.tsx-ზეა (App.tsx-ის ცალკე ნავიგაცია) — აქ მხოლოდ
+  // "რა შედის ამ პროდუქტის რეცეპტში" რედაქტორია, Modifiers-ის attached-
+  // groups checklist-ის იგივე პრინციპით (მხოლოდ რედაქტირების რეჟიმში).
+  const [allIngredients, setAllIngredients] = useState<Ingredient[]>([]);
+  const [isRecipeBased, setIsRecipeBased] = useState(false);
+  const [recipeRows, setRecipeRows] = useState<{ ingredientId: string; quantityRequired: string }[]>([]);
+  const [recipeLoadingForProduct, setRecipeLoadingForProduct] = useState(false);
+  const [recipeSaving, setRecipeSaving] = useState(false);
+
+  const fetchAllIngredients = useCallback(async () => {
+    try {
+      const response = await axios.get<Ingredient[]>('/api/ingredients');
+      setAllIngredients(response.data);
+    } catch {
+      // 🩹 რეცეპტის რედაქტორი უბრალოდ ცარიელი დარჩება — Products-ის
+      // ძირითადი CRUD ფუნქციონალი ამაზე დამოკიდებული არაა.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (businessType === 'horeca') fetchAllIngredients();
+  }, [businessType, fetchAllIngredients]);
 
   // კლავიატურიდან შტრიხკოდის ავტომატური წაკითხვა
   useEffect(() => {
@@ -304,8 +334,29 @@ export default function Products({ businessType }: ProductsProps) {
         .then(response => setAttachedGroupIds(response.data.map(g => g.id)))
         .catch(() => setAttachedGroupIds([]))
         .finally(() => setModifiersLoadingForProduct(false));
+
+      // 🍲 STEP 3.2 — ამ პროდუქტის უკვე არსებული რეცეპტის წამოღება.
+      setRecipeLoadingForProduct(true);
+      axios
+        .get<ProductRecipe>(`/api/products/${product.id}/recipe`)
+        .then(response => {
+          setIsRecipeBased(response.data.isRecipeBased);
+          setRecipeRows(
+            response.data.items.map(item => ({
+              ingredientId: item.ingredient_id,
+              quantityRequired: String(item.quantity_required),
+            }))
+          );
+        })
+        .catch(() => {
+          setIsRecipeBased(false);
+          setRecipeRows([]);
+        })
+        .finally(() => setRecipeLoadingForProduct(false));
     } else {
       setAttachedGroupIds([]);
+      setIsRecipeBased(false);
+      setRecipeRows([]);
     }
   };
 
@@ -325,6 +376,53 @@ export default function Products({ businessType }: ProductsProps) {
       toast.error('მოდიფაიერების შენახვა ვერ მოხერხდა!');
     } finally {
       setModifiersSaving(false);
+    }
+  };
+
+  // 🍲 STEP 3.2 — რეცეპტის ხაზების რედაქტორი (Modifiers.tsx-ის
+  // ინლაინ ოფცია-ფორმის იგივე პრინციპი, ოღონდ ერთდროულად ბევრი ხაზი).
+  const addRecipeRow = () => {
+    setRecipeRows(prev => [...prev, { ingredientId: '', quantityRequired: '' }]);
+  };
+
+  const updateRecipeRow = (index: number, field: 'ingredientId' | 'quantityRequired', value: string) => {
+    setRecipeRows(prev => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
+  };
+
+  const removeRecipeRow = (index: number) => {
+    setRecipeRows(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSaveRecipe = async () => {
+    if (!editingId) return;
+
+    // 🩹 თითო ხაზს სჭირდება არჩეული ინგრედიენტი და დადებითი
+    // რაოდენობა — Modifiers.tsx-ის price_delta-ვალიდაციის იგივე
+    // "ცხადი toast, არა generic 400" პრინციპი.
+    if (isRecipeBased) {
+      for (const row of recipeRows) {
+        const qty = Number(row.quantityRequired);
+        if (!row.ingredientId || !Number.isFinite(qty) || qty <= 0) {
+          toast.error('ყოველ ხაზს სჭირდება არჩეული ინგრედიენტი და დადებითი რაოდენობა!');
+          return;
+        }
+      }
+    }
+
+    setRecipeSaving(true);
+    try {
+      await axios.put(`/api/products/${editingId}/recipe`, {
+        isRecipeBased,
+        items: isRecipeBased
+          ? recipeRows.map(row => ({ ingredientId: row.ingredientId, quantityRequired: Number(row.quantityRequired) }))
+          : [],
+      });
+      toast.success('რეცეპტი შენახულია!');
+      fetchProducts();
+    } catch (error) {
+      toast.error('რეცეპტის შენახვა ვერ მოხერხდა!');
+    } finally {
+      setRecipeSaving(false);
     }
   };
 
@@ -518,6 +616,75 @@ export default function Products({ businessType }: ProductsProps) {
               </button>
             </>
           )}
+        </div>
+      )}
+
+      {/* 🍲 STEP 3.2 (რეცეპტი/BOM, Roadmap "03.09.2026") — ეს პროდუქტი
+          ნედლეულისგან მზადდება თუ არა (მაგ. სტეიკი), და თუ კი — რომელი
+          ინგრედიენტი რა რაოდენობით სჭირდება. false-ზე products.stock
+          ძველებურად მუშაობს (მაგ. სასმელი). ინგრედიენტების CRUD
+          "🍲 ინგრედიენტები" ცალკე გვერდზეა. */}
+      {businessType === 'horeca' && editingId && (
+        <div className={styles.modifierPanel}>
+          <h3 className={styles.modifierPanelTitle}>🍲 რეცეპტი (BOM)</h3>
+          <label className={styles.modifierCheckItem} style={{ marginBottom: '10px' }}>
+            <input
+              type="checkbox"
+              checked={isRecipeBased}
+              onChange={e => setIsRecipeBased(e.target.checked)}
+            />
+            ეს პროდუქტი რეცეპტზეა დამოკიდებული (ნედლეულისგან მზადდება — stock ცალკე ინგრედიენტების მარაგიდან გამოითვლება)
+          </label>
+
+          {isRecipeBased && (
+            recipeLoadingForProduct ? (
+              <p className={styles.emptyState}>იტვირთება...</p>
+            ) : allIngredients.length === 0 ? (
+              <p className={styles.emptyState}>
+                ჯერ არ არის შექმნილი ინგრედიენტი — შექმენით "🍲 ინგრედიენტები" გვერდზე.
+              </p>
+            ) : (
+              <>
+                {recipeRows.map((row, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+                    <select
+                      value={row.ingredientId}
+                      onChange={e => updateRecipeRow(index, 'ingredientId', e.target.value)}
+                      className={styles.input}
+                      style={{ flex: 2 }}
+                    >
+                      <option value="">— ინგრედიენტი —</option>
+                      {allIngredients.map(ingredient => (
+                        <option key={ingredient.id} value={ingredient.id}>
+                          {ingredient.name} ({ingredient.unit})
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      step="0.001"
+                      min="0"
+                      value={row.quantityRequired}
+                      onChange={e => { const v = Number(e.target.value); if (v >= 0 || e.target.value === '') updateRecipeRow(index, 'quantityRequired', e.target.value); }}
+                      className={styles.input}
+                      style={{ flex: 1 }}
+                      placeholder="რაოდენობა"
+                    />
+                    <button type="button" onClick={() => removeRecipeRow(index)} className={styles.deleteBtn}>✖️</button>
+                  </div>
+                ))}
+                <button type="button" onClick={addRecipeRow} className={styles.editBtn} style={{ marginBottom: '12px' }}>
+                  ➕ ინგრედიენტის დამატება
+                </button>
+              </>
+            )
+          )}
+
+          <div>
+            <button type="button" onClick={handleSaveRecipe} disabled={recipeSaving} className={styles.submitBtn} style={{ marginTop: '4px' }}>
+              {recipeSaving ? 'ინახება...' : 'რეცეპტის შენახვა'}
+            </button>
+          </div>
         </div>
       )}
 

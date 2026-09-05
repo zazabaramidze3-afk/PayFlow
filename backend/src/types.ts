@@ -414,3 +414,31 @@ export interface OrderItemModifierSummary {
   name: string;
   price_delta_snapshot: number;
 }
+
+// ==========================================
+// 🍲 HoReCa STEP 3.2 — რეცეპტი-საწყობი (BOM) (Roadmap "03.09.2026", migration 022)
+// ==========================================
+// მოდიფაიერებისგან (ზემოთ) სრულად დამოუკიდებელი — ეს ცალკე, STEP 3.2-ის
+// scope-ია (migration 022-ის header-კომენტარი).
+
+export interface Ingredient {
+  id: string;
+  organization_id: string;
+  name: string;
+  unit: string;
+  stock: number;
+  created_at: string;
+}
+
+export interface RecipeItem {
+  product_id: number;
+  ingredient_id: string;
+  quantity_required: number;
+}
+
+// GET /products/:productId/recipe-ის პასუხის ერთი ხაზი — ingredient-ის
+// name/unit ჩადგმული, რომ Products.tsx-ს ცალკე lookup არ დასჭირდეს.
+export interface RecipeItemWithIngredient extends RecipeItem {
+  ingredient_name: string;
+  ingredient_unit: string;
+}

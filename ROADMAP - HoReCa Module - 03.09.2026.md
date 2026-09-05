@@ -1,7 +1,7 @@
 # HoReCa მოდულის დანერგვა — Roadmap
 
-**სტატუსი:** 🟢 STEP 1 (Tables + Orders) — სრულად დასრულებულია (production-ზე ცოცხლადაა, screenshot-ით დადასტურებული). 🟢 STEP 2 (KDS) — სრულად დასრულებულია და production-ზეა (migration 020 + push დადასტურებული). 🟢 STEP 3.1 (მოდიფაიერები) — **სრულად დასრულებულია და production-ზეა** (migration 021 გაშვებულია Neon-ზე, backend/frontend live Render+Vercel-ზე commit `16c4fad`-ით, ლოკალურად სრული manual QA screenshot-ებით დადასტურებული). STEP 3.2 (BOM/რეცეპტი-საწყობი) — ჯერ არ დაწყებულა, ცალკე pass-ია (იხ. STEP 3.2 ქვემოთ).
-**თარიღი:** 03.09.2026 (STEP 2-ის დამატება: 05.09.2026, STEP 3.1-ის დამატება: 05.09.2026)
+**სტატუსი:** 🟢 STEP 1 (Tables + Orders) — სრულად დასრულებულია (production-ზე ცოცხლადაა, screenshot-ით დადასტურებული). 🟢 STEP 2 (KDS) — სრულად დასრულებულია და production-ზეა (migration 020 + push დადასტურებული). 🟢 STEP 3.1 (მოდიფაიერები) — **სრულად დასრულებულია და production-ზეა** (migration 021 გაშვებულია Neon-ზე, backend/frontend live Render+Vercel-ზე commit `16c4fad`-ით, ლოკალურად სრული manual QA screenshot-ებით დადასტურებული). 🟡 STEP 3.2 (BOM/რეცეპტი-საწყობი) — **დაწერილია, ლოკალურ manual QA-ს ელოდება** (migration 022 ჯერ არ არის გაშვებული production Neon-ზე, კოდი ჯერ არ არის push-ილი — იხ. STEP 3.2 ქვემოთ).
+**თარიღი:** 03.09.2026 (STEP 2-ის დამატება: 05.09.2026, STEP 3.1-ის დამატება: 05.09.2026, STEP 3.2-ის დამატება: 05.09.2026)
 **კონტექსტი:** PayFlow ამჟამად მთლიანად Retail (მარკეტი/საცალო) სეგმენტზეა
 აგებული. მოთხოვნაა იმავე კოდბაზაში/DB-ში HoReCa-ს (რესტორანი, კაფე-ბარი
 და მისთ.) მხარდაჭერის დამატება — მაგიდების მართვა, ღია შეკვეთა,
@@ -382,7 +382,7 @@ push-დებულია და Render/Vercel ორივემ დეპლ�
 ცალკე pass-ებად** (გადაწყვეტილება 05.09.2026 სესიაზე, `AskUserQuestion`-ით
 დადასტურებული) — BOM ეხება checkout-ის მყიფე stock-decrement ლოგიკას
 (`sales.ts`), ამიტომ ცალკე, ფრთხილად მოსატესტია. STEP 3.1 ქვემოთ
-სრულადაა დასრულებული და production-ზეა; STEP 3.2 ჯერ არ დაწყებულა.
+სრულადაა დასრულებული და production-ზეა; STEP 3.2 დაწერილია, production-ის QA-ს ელოდება.
 
 ### 3.1 მოდიფაიერები
 
@@ -472,29 +472,73 @@ origin/main-ზე, Render (backend) და Vercel (frontend) ორივემ
 successfully", ცხრილების რაოდენობა 13→17). **STEP 3.1 სრულადაა
 დასრულებული.**
 
-### 3.2 რეცეპტი-საწყობი (BOM) — ჯერ არ დაწყებულა
+### 3.2 🟡 დაწერილია, ლოკალურ manual QA-ს ელოდება (05.09.2026)
 
-გახლეჩა, რაც ახლა Products-ში არ არსებობს: **`ingredients`**
+მოტივაცია (მომხმარებლის დაკვირვება production QA-ზე, 05.09.2026):
+HoReCa-ში ამჟამად ყველა პროდუქტს ცალობაში აქვს `products.stock`
+მითითებული — სასმელისთვის (ბოთლი) ეს ლოგიკურია, კერძისთვის (სტეიკი,
+ბურგერი) კი არა, რადგან კერძს საკუთარი "მარაგი" არ აქვს, ის
+ნედლეულისგან მზადდება. STEP 3.2 ამ გახლეჩას შემოაქვს: **`ingredients`**
 (ნედლეული, საკუთარი `stock`-ით — არასდროს იყიდება პირდაპირ) vs
 **`products`** (მენიუს ერთეული — რეცეპტიან რეჟიმში აღარ ინახავს
 საკუთარ `stock`-ს).
 
-```sql
-CREATE TABLE public.recipe_items (
-  product_id INTEGER NOT NULL REFERENCES products(id),
-  ingredient_id UUID NOT NULL REFERENCES ingredients(id),
-  quantity_required NUMERIC(10,3) NOT NULL CHECK (quantity_required > 0),
-  PRIMARY KEY (product_id, ingredient_id)
-);
-```
+**გადაწყვეტილებები (მომხმარებელთან, 05.09.2026):**
+- ერთეულების კონვერტაცია — **v1-ში არ არის**: თითო ingredient-ს ერთი
+  საბაზისო ერთეული (`unit`, თავისუფალი ტექსტი, მაგ. "კგ"/"ლ"/"ცალი").
+- არასაკმარისი მარაგი checkout-ის დროს — **checkout იბლოკება**
+  (ტრანზაქცია მთლიანად უკან ბრუნდება), oversell/warning-რეჟიმის გარეშე.
+- UI მდებარეობა — ახალი "🍲 ინგრედიენტები" გვერდი (ნედლეულის CRUD +
+  restock) + Products.tsx-ის რედაქტირების ფორმაში "🍲 რეცეპტი (BOM)"
+  პანელი (is_recipe_based toggle + ingredient/quantity picker).
 
-`products`-ს ემატება `is_recipe_based BOOLEAN DEFAULT false`
-(Retail-ზე ყოველთვის `false` — backward-compatible). Checkout-ის
-stock-decrement ბლოკს (`sales.ts`) ემატება branch: `true`-ზე —
-`recipe_items`-ის მიხედვით ingredient-ების შემცირება (SAVEPOINT/
-partial-success პატერნით); `false`-ზე — ახლანდელი პირდაპირი ლოგიკა.
-**ეს ყველაზე რისკიანი ცვლილებაა არსებულ checkout-კოდში** — ცალკე,
-ფრთხილი refactor, `tests/isolation/`-ის დარღვევის გარეშე.
+**დაწერილია (migration 022, `backend/migrations/022_add_recipes.sql`):**
+- `ingredients` — `organization_id`, `name`, `unit`, `stock NUMERIC(10,3)
+  CHECK (stock >= 0)`, per-org unique name (`uq_ingredients_org_name`).
+- `recipe_items` — M:N (`product_id`, `ingredient_id`,
+  `quantity_required NUMERIC(10,3) CHECK (> 0)`). `product_id`-ს აქვს
+  `ON DELETE CASCADE` (პროდუქტის წაშლისას რეცეპტიც ლეგიტიმურად ქრება);
+  `ingredient_id`-ს **არ** აქვს (ინგრედიენტის წაშლა, სანამ რომელიმე
+  რეცეპტშია გამოყენებული, 409-ით იბლოკება — routes/ingredients.ts,
+  tables.ts/modifiers.ts-ის "დაკავშირებული კონფიგი" პატერნის ანალოგიით).
+- `products.is_recipe_based BOOLEAN DEFAULT false` — Retail-ზე
+  ყოველთვის `false`, backward-compatible.
+- RLS policy-ები, migration 021-ის იდენტური fail-open pattern-ით.
+
+**Backend (`routes/ingredients.ts`, ახალი ფაილი):**
+- `GET/POST/PUT/DELETE /ingredients` — ინგრედიენტების CRUD (admin/manager).
+- `PATCH /ingredients/:id/restock` — ატომური increment (products.ts-ის
+  restock-ის ანალოგიური).
+- `GET/PUT /products/:productId/recipe` — კონკრეტული პროდუქტის რეცეპტის
+  წაკითხვა/სრული ჩანაცვლება (delete-all + re-insert, modifiers.ts-ის
+  `PUT /modifiers/products/:id`-ის იგივე პატერნი).
+
+**Checkout-ის stock-decrement branch (`routes/sales.ts`, `POST /payments`
+და `POST /payments/:id/void`):** `is_recipe_based === true` პროდუქტზე
+`products.stock` აღარ იკლებს/ემატება — ნაცვლად `recipe_items`-ის
+მიხედვით `ingredients.stock`-ია (checkout-ზე პირობითი `WHERE stock >=
+$1` decrement, ისევე როგორც products.stock-ს ჰქონდა; ვოიდზე
+ატომური increment). `false`-ზე (Retail-ზეც ყოველთვის) ძველი ლოგიკა
+სიტყვასიტყვით უცვლელია — **ეს ყველაზე რისკიანი ცვლილება იყო არსებულ
+checkout-კოდში**, ამიტომ branch-ის დამატება მინიმალურია, არსებულ
+ბლოკს არაფერი წაშლილა.
+
+**Frontend:**
+- `pages/Ingredients.tsx` + `.module.scss` (ახალი) — Modifiers.tsx-ის
+  იგივე toast/ConfirmModal პატერნი, ინლაინ restock-ფორმა.
+- `App.tsx` — lazy import + "🍲 ინგრედიენტები" ნავიგაცია (admin/manager,
+  Modifiers-ის იგივე ხილვადობა).
+- `Products.tsx` — რედაქტირების ფორმაში "🍲 რეცეპტი (BOM)" პანელი
+  (`is_recipe_based` toggle + ingredient/quantity-row რედაქტორი, PUT
+  `/products/:id/recipe`).
+
+**Verification:** `npx tsc --noEmit` (backend + frontend) — 0 შეცდომა.
+
+**⚠️ ჯერ არ არის:** production-ზე გაშვებული (migration 022 Neon-ზე,
+push Render/Vercel-ზე) — ჯერ საჭიროა ლოკალური manual QA (ინგრედიენტის
+შექმნა → პროდუქტზე რეცეპტის მიბმა → checkout-ის stock-decrement-ის
+გადამოწმება → insufficient-stock ბლოკირების გადამოწმება → ვოიდის
+stock-restore-ის გადამოწმება).
 
 ---
 
@@ -535,8 +579,9 @@ sync). **`orders`/`order_items` v1-ში ამ დონეს არ იღ�
 - [x] **STEP 2:** Course-ის "გაგზავნის" UX — **გადაწყდა (05.09.2026):**
   ავტომატურად დამატებისთანავე (v1), batch-ღილაკის გარეშე. დეტალები —
   STEP 2-ის "2.1 ✅ დაწერილია" ქვეთავში.
-- [ ] **STEP 3:** `recipe_items`-ის ერთეულები (გრ/კგ/ლ/ცალი) —
-  კონვერტაციის ლოგიკა საჭიროა, თუ ერთი საბაზისო ერთეული საკმარისია?
+- [x] **STEP 3:** `recipe_items`-ის ერთეულები (გრ/კგ/ლ/ცალი) —
+  **გადაწყდა (05.09.2026):** ერთი საბაზისო ერთეული ingredient-ზე
+  (v1-ში კონვერტაცია არ არის). დეტალები — STEP 3.2-ის ქვეთავში.
 - [ ] **STEP 1/3:** Void-ის ავტორიზაცია item-დონეზე — cashier/waiter
   თავად, თუ manager PIN override (Discount-ის ანალოგიით)?
 - [ ] **STEP 4:** Tips-ის განაწილება — ერთ waiter-ს მთლიანად, თუ

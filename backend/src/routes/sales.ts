@@ -590,13 +590,44 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
           [newPaymentId, pId, item.quantity, item.price]
         );
 
-        const updateStockResult = await client.query(
-          `UPDATE products SET stock = stock - $1 WHERE id = $2 AND stock >= $1`,
-          [item.quantity, pId]
+        // 🍲 HoReCa STEP 3.2 (BOM, migration 022) — is_recipe_based
+        // პროდუქტზე products.stock აღარ იკლებს — ნაცვლად, recipe_items-ის
+        // მიხედვით ingredients.stock-ია. Retail-ზე is_recipe_based
+        // ყოველთვის false-ია (DEFAULT) — ნულოვანი გავლენა, ძველი
+        // branch უცვლელად სრულდება.
+        const productRow = await client.query<{ is_recipe_based: boolean }>(
+          'SELECT is_recipe_based FROM products WHERE id = $1',
+          [pId]
         );
+        const isRecipeBased = productRow.rows[0]?.is_recipe_based === true;
 
-        if (updateStockResult.rowCount === 0) {
-          throw new Error(`არ არის საკმარისი მარაგი პროდუქტზე ID: ${pId}`);
+        if (isRecipeBased) {
+          const recipeItems = await client.query<{ ingredient_id: string; quantity_required: number; name: string }>(
+            `SELECT ri.ingredient_id, ri.quantity_required, ing.name
+             FROM recipe_items ri JOIN ingredients ing ON ing.id = ri.ingredient_id
+             WHERE ri.product_id = $1`,
+            [pId]
+          );
+
+          for (const ri of recipeItems.rows) {
+            const needed = ri.quantity_required * item.quantity;
+            const updateIngredientResult = await client.query(
+              `UPDATE ingredients SET stock = stock - $1 WHERE id = $2 AND stock >= $1`,
+              [needed, ri.ingredient_id]
+            );
+            if (updateIngredientResult.rowCount === 0) {
+              throw new Error(`არ არის საკმარისი მარაგი ინგრედიენტზე: ${ri.name}`);
+            }
+          }
+        } else {
+          const updateStockResult = await client.query(
+            `UPDATE products SET stock = stock - $1 WHERE id = $2 AND stock >= $1`,
+            [item.quantity, pId]
+          );
+
+          if (updateStockResult.rowCount === 0) {
+            throw new Error(`არ არის საკმარისი მარაგი პროდუქტზე ID: ${pId}`);
+          }
         }
       }
 
@@ -751,13 +782,36 @@ router.post('/payments/:id/void', authenticateToken, async (req: CustomRequest, 
       );
 
       for (const item of itemsResult.rows) {
-        // best-effort restock — თუ პროდუქტი მას შემდეგ წაშლილა, rowCount 0-ია
-        // და მარაგის დაბრუნებაზე აზრი აღარ აქვს, მაგრამ ჩეკის გაუქმებას მაინც
-        // არ უნდა ვუშალოთ (payment_items.product_id-ს FK-შეზღუდვა არც აქვს).
-        await client.query(
-          'UPDATE products SET stock = stock + $1 WHERE id = $2',
-          [item.quantity, item.product_id]
+        // 🍲 HoReCa STEP 3.2 (BOM, migration 022) — is_recipe_based
+        // პროდუქტზე ვოიდიც ახლა ingredients.stock-ს აბრუნებს
+        // (products.stock-ის ნაცვლად), მიმდინარე რეცეპტის მიხედვით —
+        // ცნობილი შეზღუდვა products.stock-ის აქამდელი ქცევის ანალოგიურია
+        // (მიმდინარე პროდუქტ/რეცეპტ-კონფიგზეა დამოკიდებული, არა
+        // გაყიდვის მომენტის snapshot-ზე).
+        const productRow = await client.query<{ is_recipe_based: boolean }>(
+          'SELECT is_recipe_based FROM products WHERE id = $1',
+          [item.product_id]
         );
+        const isRecipeBased = productRow.rows.length > 0 && productRow.rows[0].is_recipe_based === true;
+
+        if (isRecipeBased) {
+          const recipeItems = await client.query<{ ingredient_id: string; quantity_required: number }>(
+            'SELECT ingredient_id, quantity_required FROM recipe_items WHERE product_id = $1',
+            [item.product_id]
+          );
+          for (const ri of recipeItems.rows) {
+            const restored = ri.quantity_required * item.quantity;
+            await client.query('UPDATE ingredients SET stock = stock + $1 WHERE id = $2', [restored, ri.ingredient_id]);
+          }
+        } else {
+          // best-effort restock — თუ პროდუქტი მას შემდეგ წაშლილა, rowCount 0-ია
+          // და მარაგის დაბრუნებაზე აზრი აღარ აქვს, მაგრამ ჩეკის გაუქმებას მაინც
+          // არ უნდა ვუშალოთ (payment_items.product_id-ს FK-შეზღუდვა არც აქვს).
+          await client.query(
+            'UPDATE products SET stock = stock + $1 WHERE id = $2',
+            [item.quantity, item.product_id]
+          );
+        }
       }
 
       // 🩹 FIX (16.08) — იგივე UTC-vs-Tbilisi ბაგი, რაც shifts.opened_at-ს

@@ -67,6 +67,10 @@ const KitchenDisplay = lazy(() => import('./pages/KitchenDisplay'));
 // პანელი. admin/manager-ონლი (Users Control-ის იგივე ხილვადობა), იმავე
 // lazy/businessType-გეითინგის პატერნით.
 const Modifiers = lazy(() => import('./pages/Modifiers'));
+// 🍲 HoReCa Module STEP 3.2 (Roadmap "03.09.2026") — ინგრედიენტების
+// (ნედლეულის) მართვის პანელი. Modifiers-ის იგივე admin/manager-ონლი
+// lazy/businessType-გეითინგის პატერნით.
+const Ingredients = lazy(() => import('./pages/Ingredients'));
 
 // =======================================================
 // 🛡️ AXIOS INTERCEPTOR — ავტომატური ტოკენის მიბმა
@@ -415,6 +419,18 @@ function App() {
                 🧩 მოდიფაიერები
               </li>
             )}
+            {/* 🍲 HoReCa Module STEP 3.2 — ინგრედიენტების მართვა
+                (ნედლეულის CRUD + მარაგის შევსება; რეცეპტის მიბმა
+                კონკრეტულ პროდუქტზე Products.tsx-იდან ხდება). Admin/manager-
+                ონლი, Modifiers-ის იგივე ხილვადობა. */}
+            {businessType === 'horeca' && isAdminOrManager && (
+              <li
+                onClick={() => navigateTo('ingredients')}
+                className={`${styles.navItem} ${currentPage === 'ingredients' ? styles.active : ''}`}
+              >
+                🍲 ინგრედიენტები
+              </li>
+            )}
             {isAdminOrManager && (
               <li
                 onClick={() => navigateTo('users_control')}
@@ -470,6 +486,9 @@ function App() {
           )}
           {currentPage === 'modifiers' && businessType === 'horeca' && isAdminOrManager && (
             <Modifiers />
+          )}
+          {currentPage === 'ingredients' && businessType === 'horeca' && isAdminOrManager && (
+            <Ingredients />
           )}
           {currentPage === 'users_control' && isAdminOrManager && <UsersManagement currentUserRole={userRole} />}
         </Suspense>

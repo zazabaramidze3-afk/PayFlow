@@ -40,6 +40,7 @@ import kitchenRoutes from './routes/kitchen';
 // 🧩 HoReCa Module STEP 3.1 (Roadmap "03.09.2026", migration 021) —
 // მოდიფაიერები. იგივე `requireBusinessType('horeca')` გუარდი.
 import modifiersRoutes from './routes/modifiers';
+import ingredientsRoutes from './routes/ingredients';
 
 dotenv.config();
 
@@ -138,6 +139,7 @@ app.use('/api', tablesRoutes);
 app.use('/api', ordersRoutes);
 app.use('/api', kitchenRoutes);
 app.use('/api', modifiersRoutes);
+app.use('/api', ingredientsRoutes);
 
 // ==========================================
 //  🛰️ Sentry Error Handler (Roadmap STEP 0 / ცვლილება #7)
