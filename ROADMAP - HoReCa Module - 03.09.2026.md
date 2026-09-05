@@ -259,11 +259,16 @@ Manager PIN Override, cash/card/split checkout, ჩეკის ბეჭდვ�
 
 **ვერიფიცირებულია:** `npx tsc --noEmit` — 0 შეცდომა (backend + frontend).
 
-**Git/Deploy სტატუსი (04.09.2026):** commit `b070f2e` შესრულებულია
-ლოკალურად. Push/Render auto-deploy — მოლოდინშია (device_bash-ის
-იზოლირებული გარემოს GitHub credential-ებთან წვდომა არ აქვს, ამიტომ
-push მომხმარებელმა თავად უნდა შეასრულოს საკუთარი ტერმინალიდან:
-`git push origin main`).
+**Git/Deploy სტატუსი (05.09.2026, განახლებული):** `b070f2e` და
+შემდგომი დოკუმენტაციის commit `7596aa0` **push-დებულია** origin/main-ზე
+(`git status` — "up to date with origin/main"; push მომხმარებელმა
+შეასრულა ხელით, როგორც ზემოთ იყო მითითებული). **Production live და
+დადასტურებულია** — Vercel (frontend, `pay-flow-zet3.vercel.app`) და
+Render (backend) ორივე დეპლოირებულია, screenshot-ით ვერიფიცირებული
+(05.09.2026): HORECA-MANAGER როლით შესვლისას „მაგიდები" გვერდი
+სწორად აჩვენებს რეალურ მაგიდებს (მაგიდა-1/2/3) მათი section-ებით
+(დარბაზი/კუპე/ტერასა), guest count-ითა და status-ბეჯებით
+(თავისუფალი/დაკავებული).
 
 ### 1.5 API + Frontend (მიმოხილვა, უცვლელი)
 
