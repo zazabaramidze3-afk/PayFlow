@@ -1,7 +1,7 @@
 # HoReCa მოდულის დანერგვა — Roadmap
 
-**სტატუსი:** 🟢 STEP 1 (Tables + Orders) — სრულად დასრულებულია (production-ზე ცოცხლადაა, screenshot-ით დადასტურებული). 🟢 STEP 2 (KDS) — სრულად დასრულებულია და production-ზეა (migration 020 + push დადასტურებული). 🟢 STEP 3.1 (მოდიფაიერები) — **სრულად დასრულებულია და production-ზეა** (migration 021 გაშვებულია Neon-ზე, backend/frontend live Render+Vercel-ზე commit `16c4fad`-ით, ლოკალურად სრული manual QA screenshot-ებით დადასტურებული). 🟡 STEP 3.2 (BOM/რეცეპტი-საწყობი) — **დაწერილია, ლოკალურ manual QA-ს ელოდება** (migration 022 ჯერ არ არის გაშვებული production Neon-ზე, კოდი ჯერ არ არის push-ილი — იხ. STEP 3.2 ქვემოთ).
-**თარიღი:** 03.09.2026 (STEP 2-ის დამატება: 05.09.2026, STEP 3.1-ის დამატება: 05.09.2026, STEP 3.2-ის დამატება: 05.09.2026)
+**სტატუსი:** 🟢 STEP 1 (Tables + Orders) — სრულად დასრულებულია (production-ზე ცოცხლადაა, screenshot-ით დადასტურებული). 🟢 STEP 2 (KDS) — სრულად დასრულებულია და production-ზეა (migration 020 + push დადასტურებული). 🟢 STEP 3.1 (მოდიფაიერები) — **სრულად დასრულებულია და production-ზეა** (migration 021 გაშვებულია Neon-ზე, backend/frontend live Render+Vercel-ზე commit `16c4fad`-ით, ლოკალურად სრული manual QA screenshot-ებით დადასტურებული). 🟢 STEP 3.2 (BOM/რეცეპტი-საწყობი, item-add-time stock-შემოწმების შესწორებითურთ) — **სრულად დასრულებულია და production-ზეა** (migration 022 გაშვებულია Neon-ზე `neondb`-ზე, COMMIT დადასტურებული; backend/frontend live Render+Vercel-ზე commit `d1d45f0`-ით, screenshot-ით დადასტურებული — Render "Live", Vercel "Ready"/Production; ლოკალურად სრული manual QA screenshot-ებით დადასტურებული — იხ. STEP 3.2 ქვემოთ).
+**თარიღი:** 03.09.2026 (STEP 2-ის დამატება: 05.09.2026, STEP 3.1-ის დამატება: 05.09.2026, STEP 3.2-ის დამატება: 05.09.2026, STEP 3.2-ის production-ზე გაშვება: 05.09.2026)
 **კონტექსტი:** PayFlow ამჟამად მთლიანად Retail (მარკეტი/საცალო) სეგმენტზეა
 აგებული. მოთხოვნაა იმავე კოდბაზაში/DB-ში HoReCa-ს (რესტორანი, კაფე-ბარი
 და მისთ.) მხარდაჭერის დამატება — მაგიდების მართვა, ღია შეკვეთა,
@@ -382,7 +382,7 @@ push-დებულია და Render/Vercel ორივემ დეპლ�
 ცალკე pass-ებად** (გადაწყვეტილება 05.09.2026 სესიაზე, `AskUserQuestion`-ით
 დადასტურებული) — BOM ეხება checkout-ის მყიფე stock-decrement ლოგიკას
 (`sales.ts`), ამიტომ ცალკე, ფრთხილად მოსატესტია. STEP 3.1 ქვემოთ
-სრულადაა დასრულებული და production-ზეა; STEP 3.2 დაწერილია, production-ის QA-ს ელოდება.
+სრულადაა დასრულებული და production-ზეა; STEP 3.2-იც უკვე სრულადაა დასრულებული და production-ზეა.
 
 ### 3.1 მოდიფაიერები
 
@@ -472,7 +472,7 @@ origin/main-ზე, Render (backend) და Vercel (frontend) ორივემ
 successfully", ცხრილების რაოდენობა 13→17). **STEP 3.1 სრულადაა
 დასრულებული.**
 
-### 3.2 🟡 დაწერილია, ლოკალურ manual QA-ს ელოდება (05.09.2026)
+### 3.2 🟢 დასრულებულია, production-ზეა (05.09.2026)
 
 მოტივაცია (მომხმარებლის დაკვირვება production QA-ზე, 05.09.2026):
 HoReCa-ში ამჟამად ყველა პროდუქტს ცალობაში აქვს `products.stock`
@@ -534,11 +534,15 @@ checkout-კოდში**, ამიტომ branch-ის დამატე�
 
 **Verification:** `npx tsc --noEmit` (backend + frontend) — 0 შეცდომა.
 
-**⚠️ ჯერ არ არის:** production-ზე გაშვებული (migration 022 Neon-ზე,
-push Render/Vercel-ზე) — ჯერ საჭიროა ლოკალური manual QA (ინგრედიენტის
-შექმნა → პროდუქტზე რეცეპტის მიბმა → checkout-ის stock-decrement-ის
-გადამოწმება → insufficient-stock ბლოკირების გადამოწმება → ვოიდის
-stock-restore-ის გადამოწმება).
+**✅ Production:** ლოკალური manual QA სრულად ჩატარდა და screenshot-ებით
+დადასტურდა — ინგრედიენტის შექმნა/restock, პროდუქტზე რეცეპტის მიბმა,
+checkout-ის stock-decrement (ორ სხვადასხვა პროდუქტზე/ინგრედიენტზე),
+ვოიდის stock-restore, checkout-ის insufficient-stock ბლოკირება. მერე
+migration 022 გაშვებულია production Neon-ზე (`neondb`, pgAdmin,
+"COMMIT" + "Query returned successfully"), კოდი push-ილია
+(`origin/main`, commit `d1d45f0`), Render (backend, "Live") და Vercel
+(frontend, "Ready"/Production) — ორივე screenshot-ით დადასტურებული,
+იმავე commit `d1d45f0`-ზე.
 
 **🩹 შესწორება (05.09.2026, ლოკალური manual QA-ს დროს ნაპოვნი UX-ხარვეზი):**
 მომხმარებელმა შენიშნა, რომ insufficient-stock ბლოკი მხოლოდ checkout-ის
