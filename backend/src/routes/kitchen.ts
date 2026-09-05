@@ -18,7 +18,7 @@ import { authenticateToken } from './auth';
 import { CustomRequest } from './checkShift';
 import { requireBusinessType } from '../middleware/requireBusinessType';
 import { withOrgContext } from '../db';
-import { KitchenStatus, KitchenTicket, Station } from '../types';
+import { KitchenStatus, KitchenTicket, Station, OrderItemModifierSummary } from '../types';
 
 const router = Router();
 
@@ -54,8 +54,8 @@ router.get(
     }
 
     try {
-      const result = await withOrgContext(req.user?.organizationId, (client) =>
-        client.query<KitchenTicket>(
+      const tickets = await withOrgContext(req.user?.organizationId, async (client) => {
+        const ticketsResult = await client.query<Omit<KitchenTicket, 'modifiers'>>(
           `SELECT oi.id, oi.order_id, o.table_id, t.name AS table_name,
                   oi.product_id, p.name AS product_name, oi.quantity,
                   oi.seat_number, oi.course_number, oi.kitchen_status,
@@ -70,9 +70,37 @@ router.get(
              AND oi.kitchen_status NOT IN ('served', 'voided')
            ORDER BY oi.created_at ASC`,
           [req.user?.organizationId, stationParam]
-        )
-      );
-      res.json(result.rows);
+        );
+
+        // 🧩 STEP 3.1 (მოდიფაიერები, migration 021) — სამზარეულომ/ბარმა
+        // "medium rare", "+ ყველი" და ა.შ. აქაც უნდა დაინახოს, არა
+        // მხოლოდ OrderScreen.tsx-ზე — routes/orders.ts-ის GET /orders/:id-ის
+        // იგივე N+1-ის-თავიდან-არიდების პატერნი.
+        const ticketIds = ticketsResult.rows.map((row) => row.id);
+        const modifiersByTicketId = new Map<string, OrderItemModifierSummary[]>();
+        if (ticketIds.length > 0) {
+          const modifiersResult = await client.query<{ order_item_id: string } & OrderItemModifierSummary>(
+            `SELECT oim.order_item_id, mo.id, mo.name, oim.price_delta_snapshot
+             FROM order_item_modifiers oim
+             JOIN modifier_options mo ON mo.id = oim.modifier_option_id
+             WHERE oim.order_item_id = ANY($1)`,
+            [ticketIds]
+          );
+          for (const row of modifiersResult.rows) {
+            const list = modifiersByTicketId.get(row.order_item_id) ?? [];
+            list.push({ id: row.id, name: row.name, price_delta_snapshot: row.price_delta_snapshot });
+            modifiersByTicketId.set(row.order_item_id, list);
+          }
+        }
+
+        const result: KitchenTicket[] = ticketsResult.rows.map((row) => ({
+          ...row,
+          modifiers: modifiersByTicketId.get(row.id) ?? [],
+        }));
+        return result;
+      });
+
+      res.json(tickets);
     } catch (err: unknown) {
       res.status(500).json({ error: getErrorMessage(err) });
     }

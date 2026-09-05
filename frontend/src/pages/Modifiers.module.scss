@@ -1,0 +1,160 @@
+/* Modifiers.module.scss */
+@use '../styles/variables' as v;
+@use '../styles/mixins' as m;
+
+.container {
+  animation: fadeInUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.topPanel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  background: v.$color-bg-card;
+  padding: 18px 20px;
+  border-radius: v.$radius-md;
+  border: 1px solid v.$color-border;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  h2 { margin: 0; color: v.$color-text-primary; }
+  small { color: v.$color-text-secondary; }
+}
+
+.btn { @include m.btn-base; }
+.btnPrimary { @include m.btn-primary; }
+.btnSecondary { @include m.btn-secondary; }
+.btnDanger { @include m.btn-danger; }
+.btnGhost { @include m.btn-ghost; }
+
+.emptyState {
+  @include m.card;
+  padding: 40px;
+  text-align: center;
+  color: v.$color-text-secondary;
+}
+
+.groupList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.groupCard {
+  @include m.card;
+  padding: 16px;
+}
+
+.groupHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.groupTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.groupName {
+  font-size: 16px;
+  font-weight: 700;
+  color: v.$color-text-primary;
+}
+
+.badgeSingle { @include m.badge(v.$color-primary-soft, v.$color-primary); }
+.badgeMultiple { @include m.badge(v.$color-bg-subtle, v.$color-text-secondary); }
+.badgeRequired { @include m.badge(v.$color-warning-soft, v.$color-warning); }
+
+.groupActions {
+  display: flex;
+  gap: 6px;
+}
+
+.iconBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 6px;
+  border-radius: v.$radius-sm;
+  color: v.$color-text-secondary;
+  &:hover { background: v.$color-bg-subtle; }
+}
+
+.optionsList {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.optionRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: v.$color-bg-subtle;
+  border-radius: v.$radius-sm;
+  font-size: 13px;
+}
+
+.optionName { color: v.$color-text-primary; font-weight: 600; }
+.optionDelta { color: v.$color-text-secondary; }
+
+.optionActions {
+  display: flex;
+  gap: 4px;
+}
+
+.noOptions {
+  color: v.$color-text-secondary;
+  font-size: 13px;
+  font-style: italic;
+  margin-top: 10px;
+}
+
+.addOptionBtn {
+  @include m.btn-base;
+  margin-top: 10px;
+  padding: 6px 12px;
+  min-height: unset;
+  font-size: 12px;
+  font-weight: 700;
+  background: v.$color-bg-subtle;
+  color: v.$color-primary;
+  border: 1px dashed v.$color-border;
+}
+
+.modalOverlay { @include m.modal-overlay; }
+.modalBody { @include m.modal-body; max-width: 420px; }
+
+.formGroup {
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  label { font-size: 13px; font-weight: 600; color: v.$color-text-secondary; }
+}
+
+.inputField { @include m.input-base; width: 100%; }
+
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: v.$color-text-secondary;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

@@ -178,6 +178,11 @@ export default function KitchenDisplay() {
                       <span className={styles.ticketProduct}>
                         {ticket.quantity} × {ticket.product_name}
                       </span>
+                      {/* 🧩 STEP 3.1 (მოდიფაიერები) — "medium rare", "+ ყველი"
+                          და ა.შ., notes-ის იგივე ვიზუალური წონით. */}
+                      {ticket.modifiers.length > 0 && (
+                        <span className={styles.ticketNotes}>🧩 {ticket.modifiers.map(m => m.name).join(', ')}</span>
+                      )}
                       {ticket.seat_number !== null && (
                         <span className={styles.ticketMeta}>💺 ადგილი {ticket.seat_number}</span>
                       )}

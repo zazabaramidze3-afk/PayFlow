@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import styles from './Products.module.scss';
+import { ModifierGroupWithOptions } from '../lib/horecaTypes';
 
 // 🍳 KDS routing (STEP 2, Roadmap "03.09.2026", migration 020) —
 // 'kitchen'|'bar'|null. Retail-ზეც ჩნდება ტიპის დონეზე (backend-ის
@@ -74,6 +75,32 @@ export default function Products({ businessType }: ProductsProps) {
     message: '',
     onConfirm: null,
   });
+
+  // 🧩 HoReCa Module STEP 3.1 (Roadmap "03.09.2026", migration 021) —
+  // მოდიფაიერების ჯგუფების მიბმა კონკრეტულ პროდუქტზე. ჯგუფების/ოფციების
+  // CRUD-ი თავად Modifiers.tsx-ზეა (App.tsx-ის ცალკე ნავიგაცია) — აქ
+  // მხოლოდ "რომელი ჯგუფებია მიბმული ამ პროდუქტზე" checklist-ია, ხილული
+  // მხოლოდ რედაქტირების რეჟიმში (`editingId`-ს სჭირდება — ახალი,
+  // ჯერ-არ-შენახული პროდუქტისთვის PUT /modifiers/products/:id-ს
+  // მოსამართებელი id არ არსებობს).
+  const [allModifierGroups, setAllModifierGroups] = useState<ModifierGroupWithOptions[]>([]);
+  const [attachedGroupIds, setAttachedGroupIds] = useState<string[]>([]);
+  const [modifiersLoadingForProduct, setModifiersLoadingForProduct] = useState(false);
+  const [modifiersSaving, setModifiersSaving] = useState(false);
+
+  const fetchAllModifierGroups = useCallback(async () => {
+    try {
+      const response = await axios.get<ModifierGroupWithOptions[]>('/api/modifiers/groups');
+      setAllModifierGroups(response.data);
+    } catch {
+      // 🩹 მოდიფაიერების checklist უბრალოდ ცარიელი დარჩება — Products-ის
+      // ძირითადი CRUD ფუნქციონალი ამაზე დამოკიდებული არაა.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (businessType === 'horeca') fetchAllModifierGroups();
+  }, [businessType, fetchAllModifierGroups]);
 
   // კლავიატურიდან შტრიხკოდის ავტომატური წაკითხვა
   useEffect(() => {
@@ -268,6 +295,37 @@ export default function Products({ businessType }: ProductsProps) {
     setPrice(product.price.toString());
     setStock(product.stock.toString());
     setStation(product.station);
+
+    // 🧩 STEP 3.1 — ამ პროდუქტზე უკვე მიბმული ჯგუფების წამოღება.
+    if (businessType === 'horeca') {
+      setModifiersLoadingForProduct(true);
+      axios
+        .get<ModifierGroupWithOptions[]>(`/api/modifiers/products/${product.id}`)
+        .then(response => setAttachedGroupIds(response.data.map(g => g.id)))
+        .catch(() => setAttachedGroupIds([]))
+        .finally(() => setModifiersLoadingForProduct(false));
+    } else {
+      setAttachedGroupIds([]);
+    }
+  };
+
+  // 🧩 STEP 3.1 — checklist-ის toggle + შენახვა (PUT /modifiers/products/:id,
+  // სრული ჩანაცვლების ენდპოინტი — modifiers.ts-ის კომენტარი).
+  const toggleModifierGroup = (groupId: string) => {
+    setAttachedGroupIds(prev => (prev.includes(groupId) ? prev.filter(id => id !== groupId) : [...prev, groupId]));
+  };
+
+  const handleSaveModifiers = async () => {
+    if (!editingId) return;
+    setModifiersSaving(true);
+    try {
+      await axios.put(`/api/modifiers/products/${editingId}`, { modifierGroupIds: attachedGroupIds });
+      toast.success('მოდიფაიერების მიბმა შენახულია!');
+    } catch (error) {
+      toast.error('მოდიფაიერების შენახვა ვერ მოხერხდა!');
+    } finally {
+      setModifiersSaving(false);
+    }
   };
 
   // 📥 Excel Import — ფაილის input-ის (დამალული) გახსნა ღილაკზე დაჭერით
@@ -426,6 +484,42 @@ export default function Products({ businessType }: ProductsProps) {
           {editingId ? 'განახლება' : 'დამატება'}
         </button>
       </form>
+
+      {/* 🧩 STEP 3.1 (მოდიფაიერები, Roadmap "03.09.2026") — რომელი
+          ჯგუფებია მიბმული ამ პროდუქტზე. მხოლოდ HoReCa-ზე და მხოლოდ
+          უკვე-არსებული (რედაქტირებადი) პროდუქტისთვის ჩანს — ჯგუფების
+          შექმნა/რედაქტირება "🧩 მოდიფაიერები" ცალკე გვერდზეა. */}
+      {businessType === 'horeca' && editingId && (
+        <div className={styles.modifierPanel}>
+          <h3 className={styles.modifierPanelTitle}>🧩 მიბმული მოდიფაიერების ჯგუფები</h3>
+          {allModifierGroups.length === 0 ? (
+            <p className={styles.emptyState}>
+              ჯერ არ არის შექმნილი ჯგუფი — შექმენით "🧩 მოდიფაიერები" გვერდზე.
+            </p>
+          ) : modifiersLoadingForProduct ? (
+            <p className={styles.emptyState}>იტვირთება...</p>
+          ) : (
+            <>
+              <div className={styles.modifierChecklist}>
+                {allModifierGroups.map(group => (
+                  <label key={group.id} className={styles.modifierCheckItem}>
+                    <input
+                      type="checkbox"
+                      checked={attachedGroupIds.includes(group.id)}
+                      onChange={() => toggleModifierGroup(group.id)}
+                    />
+                    {group.name}
+                    {group.is_required && <span className={styles.stockTag} style={{ background: '#FEF3C7', color: '#92400E' }}>სავალდებულო</span>}
+                  </label>
+                ))}
+              </div>
+              <button type="button" onClick={handleSaveModifiers} disabled={modifiersSaving} className={styles.submitBtn} style={{ marginTop: '12px' }}>
+                {modifiersSaving ? 'ინახება...' : 'მიბმის შენახვა'}
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {/* პროდუქტების ცხრილი */}
       <div className={styles.tableWrapper}>

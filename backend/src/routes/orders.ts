@@ -13,7 +13,14 @@ import { requireRegister } from '../middleware/registerAuth';
 import { requireAnyRole } from '../middleware/requireRole';
 import { requireBusinessType } from '../middleware/requireBusinessType';
 import { withOrgContext } from '../db';
-import { Order, OrderItem, OrderStatus, KitchenStatus, ProductStationLookup } from '../types';
+import {
+  Order,
+  OrderItem,
+  OrderStatus,
+  KitchenStatus,
+  ProductStationLookup,
+  OrderItemModifierSummary,
+} from '../types';
 
 const router = Router();
 
@@ -167,7 +174,32 @@ router.get(
           [req.params.id]
         );
 
-        return { order: orderResult.rows[0], items: itemsResult.rows };
+        // 🧩 STEP 3.1 (მოდიფაიერები, migration 021) — ამ შეკვეთის ყველა
+        // item-ზე არჩეული ოფციები, ერთი დამატებითი query-ით (N+1-ის
+        // ნაცვლად), მერე item-ის id-ის მიხედვით ჯგუფდება JS-ში.
+        const itemIds = itemsResult.rows.map((item) => item.id);
+        const modifiersByItemId = new Map<string, OrderItemModifierSummary[]>();
+        if (itemIds.length > 0) {
+          const modifiersResult = await client.query<{ order_item_id: string } & OrderItemModifierSummary>(
+            `SELECT oim.order_item_id, mo.id, mo.name, oim.price_delta_snapshot
+             FROM order_item_modifiers oim
+             JOIN modifier_options mo ON mo.id = oim.modifier_option_id
+             WHERE oim.order_item_id = ANY($1)`,
+            [itemIds]
+          );
+          for (const row of modifiersResult.rows) {
+            const list = modifiersByItemId.get(row.order_item_id) ?? [];
+            list.push({ id: row.id, name: row.name, price_delta_snapshot: row.price_delta_snapshot });
+            modifiersByItemId.set(row.order_item_id, list);
+          }
+        }
+
+        const items = itemsResult.rows.map((item) => ({
+          ...item,
+          modifiers: modifiersByItemId.get(item.id) ?? [],
+        }));
+
+        return { order: orderResult.rows[0], items };
       });
 
       res.json({ ...order, items });
@@ -188,12 +220,13 @@ router.post(
   authenticateToken,
   requireBusinessType('horeca'),
   async (req: CustomRequest, res: Response) => {
-    const { productId, quantity, notes, seatNumber, courseNumber } = req.body as {
+    const { productId, quantity, notes, seatNumber, courseNumber, modifierOptionIds } = req.body as {
       productId?: unknown;
       quantity?: unknown;
       notes?: unknown;
       seatNumber?: unknown;
       courseNumber?: unknown;
+      modifierOptionIds?: unknown;
     };
 
     const parsedProductId = Number(productId);
@@ -226,6 +259,16 @@ router.post(
 
     const notesValue = typeof notes === 'string' && notes.trim().length > 0 ? notes.trim() : null;
 
+    // 🧩 STEP 3.1 (მოდიფაიერები, Roadmap "03.09.2026", migration 021) —
+    // არასავალდებულო, არჩეული modifier_options-ის id-ების სია.
+    let modifierOptionIdsValue: string[] = [];
+    if (modifierOptionIds !== undefined) {
+      if (!Array.isArray(modifierOptionIds) || modifierOptionIds.some((id) => typeof id !== 'string')) {
+        return res.status(400).json({ error: 'modifierOptionIds უნდა იყოს string[]' });
+      }
+      modifierOptionIdsValue = modifierOptionIds as string[];
+    }
+
     try {
       const item = await withOrgContext(req.user?.organizationId, async (client) => {
         const orderCheck = await client.query<{ status: OrderStatus }>(
@@ -249,8 +292,58 @@ router.post(
           throw new Error('PRODUCT_NOT_FOUND');
         }
 
-        const unitPrice = productCheck.rows[0].price;
         const stationValue = productCheck.rows[0].station;
+
+        // 🧩 STEP 3.1 (მოდიფაიერები) — ამ პროდუქტზე მიბმული ყველა
+        // ჯგუფი წინასწარ იტვირთება (თუნდაც კლიენტმა საერთოდ არაფერი
+        // აირჩიოს) — წინააღმდეგ შემთხვევაში `is_required` ჯგუფის
+        // "არაფერი არჩეულია" ვერასდროს დაიჭერდა (ქვემოთ ციკლი უბრალოდ
+        // არ გაეშვებოდა, თუ `modifierOptionIdsValue` ცარიელია).
+        const groupsResult = await client.query<{ id: string; selection_type: 'single' | 'multiple'; is_required: boolean }>(
+          `SELECT mg.id, mg.selection_type, mg.is_required
+           FROM modifier_groups mg
+           JOIN product_modifier_groups pmg ON pmg.modifier_group_id = mg.id
+           WHERE pmg.product_id = $1`,
+          [parsedProductId]
+        );
+
+        let selectedOptionRows: { id: string; modifier_group_id: string; name: string; price_delta: number }[] = [];
+        if (modifierOptionIdsValue.length > 0) {
+          // JOIN product_modifier_groups-ზე ერთდროულად ორივეს ამოწმებს:
+          // ეს ოფცია ნამდვილად არსებობს (RLS-იც org-ს ფილტრავს) ᲓᲐ ეს
+          // ჯგუფი ნამდვილად მიბმულია ამ პროდუქტზე — სხვა პროდუქტის
+          // ოფციის ID-ს ვერ "შემოაპარებ".
+          const optionsResult = await client.query<{ id: string; modifier_group_id: string; name: string; price_delta: number }>(
+            `SELECT mo.id, mo.modifier_group_id, mo.name, mo.price_delta
+             FROM modifier_options mo
+             JOIN product_modifier_groups pmg ON pmg.modifier_group_id = mo.modifier_group_id
+             WHERE mo.id = ANY($1) AND pmg.product_id = $2`,
+            [modifierOptionIdsValue, parsedProductId]
+          );
+          if (optionsResult.rows.length !== modifierOptionIdsValue.length) {
+            throw new Error('INVALID_MODIFIER_OPTION');
+          }
+          selectedOptionRows = optionsResult.rows;
+        }
+
+        for (const group of groupsResult.rows) {
+          const selectedCountInGroup = selectedOptionRows.filter((row) => row.modifier_group_id === group.id).length;
+          if (group.is_required && selectedCountInGroup === 0) {
+            throw new Error('MODIFIER_REQUIRED');
+          }
+          if (group.selection_type === 'single' && selectedCountInGroup > 1) {
+            throw new Error('MODIFIER_SINGLE_VIOLATION');
+          }
+        }
+
+        const selectedOptions: OrderItemModifierSummary[] = selectedOptionRows.map((row) => ({
+          id: row.id,
+          name: row.name,
+          price_delta_snapshot: row.price_delta,
+        }));
+
+        const modifierPriceDelta = selectedOptions.reduce((sum, o) => sum + o.price_delta_snapshot, 0);
+        const unitPrice = productCheck.rows[0].price + modifierPriceDelta;
 
         // 🍳 KDS routing (STEP 2, Roadmap "03.09.2026") — "Course-ის
         // გაგზავნის UX" ღია საკითხი (roadmap-ის "ღია საკითხები") ამ
@@ -287,7 +380,26 @@ router.post(
           ]
         );
 
-        return insertResult.rows[0];
+        const newItem = insertResult.rows[0];
+
+        // 🧩 STEP 3.1 — არჩეული ოფციები ინახება ცალკე, price_delta-ის
+        // snapshot-ითურთ (ჯგუფის/ოფციის ფასი მერე რომ შეიცვალოს, ეს
+        // უკვე დამატებული item უცვლელი დარჩეს — `unit_price`-ის იგივე
+        // პრინციპი).
+        if (selectedOptions.length > 0) {
+          const values = selectedOptions.map((_, i) => `($1, $${i * 2 + 2}, $${i * 2 + 3})`).join(', ');
+          const params: Array<string | number> = [newItem.id];
+          for (const option of selectedOptions) {
+            params.push(option.id, option.price_delta_snapshot);
+          }
+          await client.query(
+            `INSERT INTO order_item_modifiers (order_item_id, modifier_option_id, price_delta_snapshot)
+             VALUES ${values}`,
+            params
+          );
+        }
+
+        return { ...newItem, modifiers: selectedOptions };
       });
 
       res.status(201).json(item);
@@ -297,6 +409,15 @@ router.post(
       }
       if (err instanceof Error && err.message === 'CLOSED') {
         return res.status(400).json({ error: 'შეკვეთა უკვე დახურულია' });
+      }
+      if (err instanceof Error && err.message === 'INVALID_MODIFIER_OPTION') {
+        return res.status(400).json({ error: 'არჩეული მოდიფაიერი არავალიდურია' });
+      }
+      if (err instanceof Error && err.message === 'MODIFIER_REQUIRED') {
+        return res.status(400).json({ error: 'სავალდებულო მოდიფაიერის ჯგუფიდან არჩევანი არ არის მითითებული' });
+      }
+      if (err instanceof Error && err.message === 'MODIFIER_SINGLE_VIOLATION') {
+        return res.status(400).json({ error: 'ამ ჯგუფიდან მხოლოდ ერთი ვარიანტის არჩევაა შესაძლებელი' });
       }
       if (err instanceof Error && err.message === 'PRODUCT_NOT_FOUND') {
         return res.status(404).json({ error: 'პროდუქტი ვერ მოიძებნა' });

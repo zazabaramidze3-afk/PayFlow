@@ -63,6 +63,10 @@ const Tables = lazy(() => import('./pages/Tables'));
 // 🍳 HoReCa Module STEP 2 (Roadmap "03.09.2026") — KDS ეკრანი, Tables.tsx-ის
 // იგივე lazy/businessType-გეითინგის პატერნით.
 const KitchenDisplay = lazy(() => import('./pages/KitchenDisplay'));
+// 🧩 HoReCa Module STEP 3.1 (Roadmap "03.09.2026") — მოდიფაიერების მართვის
+// პანელი. admin/manager-ონლი (Users Control-ის იგივე ხილვადობა), იმავე
+// lazy/businessType-გეითინგის პატერნით.
+const Modifiers = lazy(() => import('./pages/Modifiers'));
 
 // =======================================================
 // 🛡️ AXIOS INTERCEPTOR — ავტომატური ტოკენის მიბმა
@@ -400,6 +404,17 @@ function App() {
                 🍳 სამზარეულო
               </li>
             )}
+            {/* 🧩 HoReCa Module STEP 3.1 — მოდიფაიერების მართვა (ჯგუფები/
+                ოფციები + პროდუქტზე მიბმა Products.tsx-იდან). Admin/manager-
+                ონლი, ისევე როგორც Products/Dashboard. */}
+            {businessType === 'horeca' && isAdminOrManager && (
+              <li
+                onClick={() => navigateTo('modifiers')}
+                className={`${styles.navItem} ${currentPage === 'modifiers' ? styles.active : ''}`}
+              >
+                🧩 მოდიფაიერები
+              </li>
+            )}
             {isAdminOrManager && (
               <li
                 onClick={() => navigateTo('users_control')}
@@ -452,6 +467,9 @@ function App() {
               KDS მხოლოდ უკვე გახსნილი შეკვეთების item-ებს კითხულობს/ცვლის. */}
           {currentPage === 'kitchen' && businessType === 'horeca' && (
             <KitchenDisplay />
+          )}
+          {currentPage === 'modifiers' && businessType === 'horeca' && isAdminOrManager && (
+            <Modifiers />
           )}
           {currentPage === 'users_control' && isAdminOrManager && <UsersManagement currentUserRole={userRole} />}
         </Suspense>

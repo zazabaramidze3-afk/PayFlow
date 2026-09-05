@@ -130,6 +130,40 @@
 }
 
 // ==========================================================
+// 🧩 STEP 3.1 (მოდიფაიერები, Roadmap "03.09.2026") — მიბმული ჯგუფების
+// checklist რედაქტირების ფორმის ქვემოთ.
+// ==========================================================
+.modifierPanel {
+  @include m.card;
+  padding: 22px;
+  margin-bottom: 24px;
+}
+
+.modifierPanelTitle {
+  margin: 0 0 14px 0;
+  color: v.$color-text-primary;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.modifierChecklist {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modifierCheckItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: v.$color-text-primary;
+  cursor: pointer;
+
+  input { cursor: pointer; }
+}
+
+// ==========================================================
 // 📋 ცხრილი
 // ==========================================================
 .tableWrapper {

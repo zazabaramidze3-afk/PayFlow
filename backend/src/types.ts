@@ -370,4 +370,47 @@ export interface KitchenTicket {
   notes: string | null;
   sent_to_kitchen_at: string | null;
   created_at: string;
+  // 🧩 STEP 3.1 (მოდიფაიერები, migration 021) — ამ ტიკეტზე არჩეული
+  // ოფციები (მაგ. "medium rare", "+ ყველი"), რომ სამზარეულომაც დაინახოს.
+  modifiers: OrderItemModifierSummary[];
+}
+
+// ==========================================
+// 🧩 HoReCa STEP 3.1 — მოდიფაიერები (Roadmap "03.09.2026", migration 021)
+// ==========================================
+// BOM (რეცეპტი-საწყობი) ცალკეა, ჯერ არ დაწერილა — ეს მხოლოდ
+// მოდიფაიერების scope-ია (roadmap-ის STEP 3-ის გამიჯნული ნაწილი).
+
+export type ModifierSelectionType = 'single' | 'multiple';
+
+export interface ModifierGroup {
+  id: string;
+  organization_id: string;
+  name: string;
+  selection_type: ModifierSelectionType;
+  is_required: boolean;
+  created_at: string;
+}
+
+export interface ModifierOption {
+  id: string;
+  modifier_group_id: string;
+  name: string;
+  price_delta: number;
+  created_at: string;
+}
+
+// GET /modifiers/groups და GET /modifiers/products/:id-ის პასუხის
+// ფორმა — ჯგუფი, თავისი ოფციებით ერთად ჩადგმული.
+export interface ModifierGroupWithOptions extends ModifierGroup {
+  options: ModifierOption[];
+}
+
+// order_item-ზე უკვე არჩეული ოფცია, ფასის snapshot-ით — GET /orders/:id,
+// GET /kitchen/tickets და POST /orders/:id/items-ის პასუხებში
+// გამოიყენება (routes/orders.ts, routes/kitchen.ts).
+export interface OrderItemModifierSummary {
+  id: string;
+  name: string;
+  price_delta_snapshot: number;
 }

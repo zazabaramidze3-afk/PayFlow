@@ -23,7 +23,7 @@ import axios from 'axios';
 import styles from './OrderScreen.module.scss';
 import PrintableReceipt, { PrintableReceiptData } from '../components/PrintableReceipt';
 import ConfirmModal from '../components/ConfirmModal';
-import { RestaurantTable, OrderWithItems } from '../lib/horecaTypes';
+import { RestaurantTable, OrderWithItems, ModifierGroupWithOptions } from '../lib/horecaTypes';
 
 interface Product { id: number; name: string; price: number; stock: number; }
 
@@ -56,6 +56,14 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
   const [itemQuantity, setItemQuantity] = useState<string>('1');
   const [itemNotes, setItemNotes] = useState<string>('');
   const [addingItem, setAddingItem] = useState<boolean>(false);
+
+  // 🧩 STEP 3.1 (მოდიფაიერები, Roadmap "03.09.2026", migration 021) —
+  // არჩეული პროდუქტის მიბმული ჯგუფები (GET /modifiers/products/:id) და
+  // მათგან არჩეული option-ების id-ები. `single`-ისთვის radio (+ "არცერთი"
+  // ვარიანტი, თუ ჯგუფი არასავალდებულოა), `multiple`-ისთვის checkbox-ები.
+  const [productModifierGroups, setProductModifierGroups] = useState<ModifierGroupWithOptions[]>([]);
+  const [selectedModifierOptionIds, setSelectedModifierOptionIds] = useState<string[]>([]);
+  const [loadingModifiers, setLoadingModifiers] = useState<boolean>(false);
 
   // 🔐 ფასდაკლების უფლება — იგივე GET /api/me პატერნი, რაც Sales.tsx-შია.
   const [canUseDiscount, setCanUseDiscount] = useState<boolean>(false);
@@ -153,6 +161,33 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [table.id]);
 
+  // 🧩 STEP 3.1 — პროდუქტის არჩევისთანავე ვტვირთავთ მასზე მიბმულ
+  // მოდიფაიერების ჯგუფებს. პროდუქტის გადართვისას წინა არჩევანი ყოველთვის
+  // ცარიელდება — სხვა პროდუქტის option-ის id აქ აზრს კარგავს.
+  useEffect(() => {
+    setSelectedModifierOptionIds([]);
+    if (!selectedProductId) {
+      setProductModifierGroups([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingModifiers(true);
+    axios
+      .get<ModifierGroupWithOptions[]>(`/api/modifiers/products/${selectedProductId}`)
+      .then(response => {
+        if (!cancelled) setProductModifierGroups(response.data);
+      })
+      .catch(() => {
+        if (!cancelled) setProductModifierGroups([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingModifiers(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProductId]);
+
   useEffect(() => {
     if (!canUseDiscount) {
       setDiscountType('none');
@@ -196,6 +231,23 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
     }
   };
 
+  // 🧩 STEP 3.1 — `single` ჯგუფებში ერთდროულად მხოლოდ ერთი option ამ
+  // ჯგუფიდან შეიძლება იყოს არჩეული (ახალი არჩევანი ჯგუფის დანარჩენებს
+  // ცვლის); `multiple`-ში თავისუფლად ემატება/იშლება.
+  const toggleModifierOption = (group: ModifierGroupWithOptions, optionId: string) => {
+    setSelectedModifierOptionIds(prev => {
+      if (group.selection_type === 'single') {
+        const withoutGroup = prev.filter(id => !group.options.some(o => o.id === id));
+        return prev.includes(optionId) ? withoutGroup : [...withoutGroup, optionId];
+      }
+      return prev.includes(optionId) ? prev.filter(id => id !== optionId) : [...prev, optionId];
+    });
+  };
+
+  const missingRequiredModifierGroup = productModifierGroups.find(
+    group => group.is_required && !group.options.some(o => selectedModifierOptionIds.includes(o.id))
+  );
+
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!order) return;
@@ -205,6 +257,9 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
     if (!Number.isInteger(parsedQuantity) || parsedQuantity <= 0) {
       return showToast('რაოდენობა უნდა იყოს დადებითი მთელი რიცხვი', 'error');
     }
+    if (missingRequiredModifierGroup) {
+      return showToast(`აირჩიეთ "${missingRequiredModifierGroup.name}" — სავალდებულოა`, 'error');
+    }
 
     setAddingItem(true);
     try {
@@ -212,10 +267,12 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
         productId: Number(selectedProductId),
         quantity: parsedQuantity,
         notes: itemNotes.trim() || undefined,
+        modifierOptionIds: selectedModifierOptionIds.length > 0 ? selectedModifierOptionIds : undefined,
       });
       setSelectedProductId('');
       setItemQuantity('1');
       setItemNotes('');
+      setSelectedModifierOptionIds([]);
       await fetchOrderForTable();
     } catch (error: unknown) {
       showToast(getErrorMessage(error) || 'პროდუქტის დამატება ვერ მოხერხდა', 'error');
@@ -568,6 +625,52 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
                 <label>რაოდენობა</label>
                 <input type="number" min="1" value={itemQuantity} onChange={e => setItemQuantity(e.target.value)} className={styles.inputField} />
               </div>
+
+              {/* 🧩 STEP 3.1 (მოდიფაიერები) — მხოლოდ მაშინ ჩანს, თუ
+                  არჩეულ პროდუქტს აქვს მიბმული ჯგუფი. `single` → radio
+                  (+ "არცერთი", თუ არასავალდებულოა), `multiple` → checkbox. */}
+              {loadingModifiers ? (
+                <p style={{ color: '#94a3b8', fontSize: '13px' }}>მოდიფაიერები იტვირთება...</p>
+              ) : (
+                productModifierGroups.map(group => (
+                  <div key={group.id} className={styles.formGroup}>
+                    <label>
+                      {group.name}
+                      {group.is_required && <span style={{ color: '#ef4444' }}> *</span>}
+                    </label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {group.selection_type === 'single' && !group.is_required && (
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 400 }}>
+                          <input
+                            type="radio"
+                            name={`modifier-group-${group.id}`}
+                            checked={!group.options.some(o => selectedModifierOptionIds.includes(o.id))}
+                            onChange={() => setSelectedModifierOptionIds(prev => prev.filter(id => !group.options.some(o => o.id === id)))}
+                          />
+                          არცერთი
+                        </label>
+                      )}
+                      {group.options.map(option => (
+                        <label key={option.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 400 }}>
+                          <input
+                            type={group.selection_type === 'single' ? 'radio' : 'checkbox'}
+                            name={group.selection_type === 'single' ? `modifier-group-${group.id}` : undefined}
+                            checked={selectedModifierOptionIds.includes(option.id)}
+                            onChange={() => toggleModifierOption(group, option.id)}
+                          />
+                          {option.name}
+                          {option.price_delta !== 0 && (
+                            <span style={{ color: '#64748b' }}>
+                              ({option.price_delta > 0 ? '+' : ''}{option.price_delta.toFixed(2)} ₾)
+                            </span>
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+
               <div className={styles.formGroup}>
                 <label>შენიშვნა (არასავალდებულო)</label>
                 <input
@@ -578,7 +681,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
                   placeholder="medium rare, ცხარის გარეშე..."
                 />
               </div>
-              <button type="submit" disabled={addingItem} className={`${styles.btn} ${styles.btnPrimary}`} style={{ width: '100%' }}>
+              <button type="submit" disabled={addingItem || !!missingRequiredModifierGroup} className={`${styles.btn} ${styles.btnPrimary}`} style={{ width: '100%' }}>
                 {addingItem ? 'ემატება...' : 'დამატება'}
               </button>
             </form>
@@ -598,7 +701,15 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
                     <tbody>
                       {order.items.map(item => (
                         <tr key={item.id} style={item.kitchen_status === 'voided' ? { opacity: 0.5, textDecoration: 'line-through' } : undefined}>
-                          <td>{item.product_name}{item.notes && <div style={{ fontSize: '12px', color: '#94a3b8' }}>{item.notes}</div>}</td>
+                          <td>
+                            {item.product_name}
+                            {item.modifiers.length > 0 && (
+                              <div style={{ fontSize: '12px', color: '#64748b' }}>
+                                {item.modifiers.map(m => m.name).join(', ')}
+                              </div>
+                            )}
+                            {item.notes && <div style={{ fontSize: '12px', color: '#94a3b8' }}>{item.notes}</div>}
+                          </td>
                           <td className={styles.nowrapCell}>{item.quantity} ც.</td>
                           <td className={styles.nowrapCell}>{(item.unit_price * item.quantity).toFixed(2)} ₾</td>
                           <td className={styles.nowrapCell}><span className={kitchenStatusClass(item.kitchen_status)}>{item.kitchen_status}</span></td>
