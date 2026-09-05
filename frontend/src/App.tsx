@@ -93,7 +93,30 @@ axios.interceptors.response.use(
     // მაგრამ სალაროს pairing-ის ვადაგასვლა/rotation არ ნიშნავს, რომ
     // user-ის session-იც არავალიდურია — საჭიროა მხოლოდ ამ კონკრეტული
     // მოწყობილობის ხელახალი დაწყვილება, არა სრული logout.
-    if (status === 403 && message.includes('სალაროს ტოკენი')) {
+    //
+    // 🔧 FIX (05.09.2026, HoReCa STEP 2 ტესტირებისას აღმოჩენილი ხარვეზი) —
+    // registerAuth.ts-ის requireRegister-ს ამ "ტოკენი არავალიდურია"-ს
+    // გარდა კიდევ 3 შემთხვევა აქვს, სადაც ამ კონკრეტული მოწყობილობის
+    // register-pairing ისევე გაუქმებულია/არასწორია (cross-org mismatch —
+    // ბრაუზერში ძველი, სხვა org-ის register-ID დარჩა; დეაქტივირებული ან
+    // წაშლილი სალარო) — მაგრამ ტექსტურად ძველ ვიწრო match-ს ("სალაროს
+    // ტოკენი") არცერთი არ ემთხვეოდა, ამიტომ ეკრანზე "ბლოკირებული"
+    // შეცდომა რჩებოდა, ავტომატური re-pair-ის შეთავაზების გარეშე —
+    // მომხმარებელს ხელით სჭირდებოდა localStorage-ის გასუფთავება.
+    // ყველა ეს შემთხვევა იმავე root-ს იზიარებს (ამ მოწყობილობის
+    // register-pairing აღარ არის ვალიდური ამ org-ისთვის), ამიტომ ერთი
+    // საერთო შემოწმებით ვიჭერთ.
+    const REGISTER_PAIRING_INVALID_MESSAGES = [
+      'სალაროს ტოკენი',
+      'თქვენს ორგანიზაციას არ ეკუთვნის',
+      'დეაქტივირებულია',
+      'აღარ არსებობს ბაზაში',
+    ];
+    const isRegisterPairingInvalid =
+      (status === 403 || status === 404) &&
+      REGISTER_PAIRING_INVALID_MESSAGES.some((needle) => message.includes(needle));
+
+    if (isRegisterPairingInvalid) {
       localStorage.removeItem('payflow_register_id');
       localStorage.removeItem('payflow_register_token');
       window.dispatchEvent(new Event('register:pairing-required'));
