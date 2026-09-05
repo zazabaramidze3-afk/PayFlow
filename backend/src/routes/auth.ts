@@ -10,7 +10,7 @@ import { db } from '../index';
 // რჩება ყველგან (defense-in-depth-ის ორივე შრე ერთდროულად მუშაობს) —
 // RLS მხოლოდ დამატებითი, DB-level "safety net"-ია.
 import { withOrgContext } from '../db';
-import { User } from '../types';
+import { User, UserRole } from '../types';
 import { checkRateLimit, registerFailedAttempt, clearAttempts, getRateLimitKey } from '../middleware/managerPinRateLimit';
 import { signManagerOverrideToken } from '../middleware/managerOverride';
 import { formatTbilisiTimestamp } from '../utils/formatTbilisiTimestamp';
@@ -335,17 +335,36 @@ router.post('/auth/verify-manager-pin', authenticateToken, async (req: CustomReq
 });
 
 // ➕ ახალი მომხმარებლის რეგისტრაცია
-router.post('/users', authenticateToken, async (req: CustomRequest, res) => {
-  const { username, password, role, can_view_history } = req.body;
+const CREATABLE_ROLES: readonly UserRole[] = ['admin', 'manager', 'cashier'];
 
-  // 1. მიმდინარე მომხმარებლის როლის შემოწმება (მხოლოდ ადმინს შეუძლია იუზერის შექმნა)
-  if (req.user?.role !== 'admin') {
-    return res.status(403).json({ error: 'მხოლოდ ადმინისტრატორს აქვს წვდომა!' });
+router.post('/users', authenticateToken, async (req: CustomRequest, res) => {
+  const { username, password, role, can_view_history } = req.body as {
+    username?: string;
+    password?: string;
+    role?: UserRole;
+    can_view_history?: boolean;
+  };
+
+  // 1. მიმდინარე მომხმარებლის როლის შემოწმება — ADMIN-ს შეუძლია ნებისმიერი
+  //    როლის მომხმარებლის შექმნა, MANAGER-ს კი **მხოლოდ CASHIER-ის**
+  //    (Retail-ისთვისაც, HoReCa-ისთვისაც — ეს endpoint business_type-ს არ
+  //    არჩევს). ეს ესკალაციის თავიდან აცილებაა: manager-მა არ უნდა შეძლოს
+  //    საკუთარი თავის ან სხვისი admin/manager ანგარიშის შექმნა.
+  if (req.user?.role !== 'admin' && req.user?.role !== 'manager') {
+    return res.status(403).json({ error: 'მხოლოდ ადმინისტრატორს ან მენეჯერს აქვს წვდომა!' });
   }
 
   // 2. ვალიდაცია
   if (!username || !password || !role) {
     return res.status(400).json({ error: 'ყველა ველი სავალდებულოა!' });
+  }
+
+  if (!CREATABLE_ROLES.includes(role)) {
+    return res.status(400).json({ error: 'როლი არასწორია!' });
+  }
+
+  if (req.user?.role === 'manager' && role !== 'cashier') {
+    return res.status(403).json({ error: 'მენეჯერს მხოლოდ CASHIER როლის მომხმარებლის დამატება შეუძლია!' });
   }
 
   if (password.trim().length < 4) {

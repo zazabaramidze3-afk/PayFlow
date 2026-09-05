@@ -873,11 +873,23 @@ export default function UsersManagement({ currentUserRole }: UsersManagementProp
               </div>
               <div className={styles.field}>
                 <label className={styles.label}>როლი (Role)</label>
-                <select value={newRole} onChange={e => setNewRole(e.target.value as any)} className={styles.fullInput}>
-                  <option value="cashier">CASHIER (მოლარე)</option>
-                  <option value="manager">MANAGER (მენეჯერი)</option>
-                  <option value="admin">ADMIN (ადმინისტრატორი)</option>
-                </select>
+                {/* 🔒 MANAGER-ს მხოლოდ CASHIER-ის დამატება შეუძლია (backend:
+                    POST /api/users-ის იგივე შეზღუდვა, პრივილეგიის ესკალაციის
+                    თავიდან ასაცილებლად) — dropdown-ი მხოლოდ ADMIN-ისთვის
+                    ჩანს, MANAGER-ს როლი ფიქსირებული აქვს. */}
+                {currentUserRole === 'manager' ? (
+                  <input type="text" value="CASHIER (მოლარე)" disabled className={styles.fullInput} />
+                ) : (
+                  <select
+                    value={newRole}
+                    onChange={e => setNewRole(e.target.value as 'admin' | 'manager' | 'cashier')}
+                    className={styles.fullInput}
+                  >
+                    <option value="cashier">CASHIER (მოლარე)</option>
+                    <option value="manager">MANAGER (მენეჯერი)</option>
+                    <option value="admin">ADMIN (ადმინისტრატორი)</option>
+                  </select>
+                )}
               </div>
               <div className={styles.modalActions}>
                 <button type="button" onClick={() => setIsModalOpen(false)} className={styles.cancelBtn}>გაუქმება</button>
