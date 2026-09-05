@@ -36,6 +36,7 @@ import platformAdminRoutes from './routes/platformAdmin';
 // ამიტომ Retail org-ებზე ეს მონტაჟი ეფექტს არ ახდენს.
 import tablesRoutes from './routes/tables';
 import ordersRoutes from './routes/orders';
+import kitchenRoutes from './routes/kitchen';
 
 dotenv.config();
 
@@ -132,6 +133,7 @@ app.use('/api', organizationsRoutes);
 app.use('/api', platformAdminRoutes);
 app.use('/api', tablesRoutes);
 app.use('/api', ordersRoutes);
+app.use('/api', kitchenRoutes);
 
 // ==========================================
 //  🛰️ Sentry Error Handler (Roadmap STEP 0 / ცვლილება #7)

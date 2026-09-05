@@ -1,7 +1,7 @@
 # HoReCa მოდულის დანერგვა — Roadmap
 
-**სტატუსი:** 🟢 STEP 1 (Tables + Orders) — სრულად დასრულებულია, Backend-იც და Frontend-იც (migration + API + UI + Git push + Render deploy + production DB migration). მზადაა STEP 2 (KDS)-ის დასაწყებად.
-**თარიღი:** 03.09.2026
+**სტატუსი:** 🟢 STEP 1 (Tables + Orders) — სრულად დასრულებულია (production-ზე ცოცხლადაა, screenshot-ით დადასტურებული). 🟡 STEP 2 (KDS) — Backend+Frontend დაწერილია, `tsc --noEmit` სუფთაა, **ჯერ არ გატარებულა migration და არ ტესტირებულა** (STEP 2-ის "2.1" ქვეთავი).
+**თარიღი:** 03.09.2026 (STEP 2-ის დამატება: 05.09.2026)
 **კონტექსტი:** PayFlow ამჟამად მთლიანად Retail (მარკეტი/საცალო) სეგმენტზეა
 აგებული. მოთხოვნაა იმავე კოდბაზაში/DB-ში HoReCa-ს (რესტორანი, კაფე-ბარი
 და მისთ.) მხარდაჭერის დამატება — მაგიდების მართვა, ღია შეკვეთა,
@@ -306,6 +306,70 @@ infra-გადაწყვეტილებაა — თუ latency პრო
 - `KitchenDisplay.tsx` — station-ით გაფილტრული ტიკეტების სია, touch-friendly
   `pending → preparing → ready` ღილაკები
 
+### 2.1 ✅ დაწერილია, `tsc --noEmit` სუფთაა (05.09.2026) — ჯერ არ ტესტირებულა
+
+**გადაწყვეტილი ღია საკითხები (v1):**
+- **`product_categories`/`products.category_id` შემცირდა scope-იდან** —
+  KDS routing-ს მხოლოდ `products.station` სჭირდება ფუნქციონირებისთვის,
+  კატეგორია (მენიუს ორგანიზაციისთვის) ცალკე, მომავალი ფიჩერია.
+- **Course-ის გაგზავნის UX** ("ღია საკითხების" პუნქტი) — გადაწყდა
+  უმარტივესი ვარიანტით: **ავტომატური გაგზავნა დამატებისთანავე**, batch/
+  "send course N" ღილაკის გარეშე. `POST /orders/:id/items` item-ის
+  დამატებისას თუ `products.station` მინიჭებულია, item მაშინვე
+  `kitchen_status = 'sent'`-ზეა (`sent_to_kitchen_at = NOW()`) და
+  KitchenDisplay.tsx-ის GET-ში სახეზეა; station-ის გარეშე პროდუქტი
+  (ჯერ არ მინიჭებია Products.tsx-ში) კვლავ `'pending'`-ზე რჩება,
+  KDS-ზე არ ჩანს და კვლავ რედაქტირებადია.
+
+**რა დაიწერა:**
+- `backend/migrations/020_add_kds_station.sql` — `products.station`
+  (`'kitchen'|'bar'|NULL`), migration 009/013/019-ის იდემპოტენტური
+  პატერნით. ⚠️ **ჯერ არ გაშვებულა** არც ლოკალურ (`payflow_db`), არც
+  production (Neon) ბაზაზე — `npm run migrate` ლოკალურად, შემდეგ
+  pgAdmin-ით production-ზე (STEP 1-ის identik პროცედურა).
+- `backend/src/routes/kitchen.ts` — `GET /kitchen/tickets?station=`
+  (ღია შეკვეთების, `served`/`voided`-ის გარეშე ტიკეტები, JOIN
+  orders/tables/products-თან), `PATCH /kitchen/tickets/:orderItemId/status`
+  (მკაცრი `ALLOWED_TRANSITIONS` — `sent→preparing→ready→served`, მხოლოდ
+  წინ).
+- `backend/src/routes/orders.ts` (`POST /orders/:id/items`) — `products.
+  station`-ის სნეპშოტი + ავტო-გაგზავნის ლოგიკა (ზემოთ).
+- `backend/src/routes/products.ts` (`POST`/`PUT /products`) — `station`
+  ველის მიღება/ვალიდაცია (`'kitchen'|'bar'|null`). ⚠️ ცნობილი შეზღუდვა:
+  არსებული `COALESCE($N, column)` პატერნით (იგივეა, რაც `barcode`-საც
+  აქვს) ერთხელ მინიჭებული station-ის უკან "არცერთი"-ზე დაბრუნება ამ
+  endpoint-ით შეუძლებელია — მხოლოდ kitchen ⇄ bar გადართვა.
+- `backend/src/types.ts` — `Station`, `ProductStationLookup`,
+  `KitchenTicket` (products.ts-ის `any`-ზე აგებული ისტორიულ კოდს არ
+  ეხება — მხოლოდ ახალი query-ების typed shape).
+- `frontend/src/lib/horecaTypes.ts` — `KitchenTicket`.
+- `frontend/src/pages/KitchenDisplay.tsx` (+ `.module.scss`) — ახალი
+  გვერდი: station-ტაბები (🍳 სამზარეულო/🍹 ბარი), 4წმ polling, მაგიდის
+  მიხედვით დაჯგუფებული ტიკეტ-ბარათები, ⏱️ გასულ-დროის ბეჯი
+  (ok/warning/danger 0-6-12+ წუთზე), `დაწყება → მზადაა → მიტანილია`
+  ღილაკები.
+- `frontend/src/App.tsx` — "🍳 სამზარეულო" ნავიგაცია (`Tables`-ის იგივე
+  ხილვადობა: ნებისმიერი როლი HoReCa org-ში, RegisterGuard-ის გარეშე —
+  POS ტრანზაქცია არაა).
+- `frontend/src/pages/Products.tsx` — station-ის ამომრჩევი დამატების/
+  რედაქტირების ფორმაში, მხოლოდ `businessType === 'horeca'`-ზე
+  (`App.tsx`-იდან პროპად გადმოცემული).
+
+**ვერიფიცირებულია:** `npx tsc --noEmit` — 0 შეცდომა (backend + frontend),
+`npx sass` — SCSS კომპილირდება უშეცდომოდ.
+
+**⚠️ ჯერ არ ტესტირებულა:** ამ session-ს (device_bash-ის იზოლირებულ
+გარემოს) არც ლოკალურ Postgres-თან (`localhost:5432`, `ECONNREFUSED`),
+არც production-თან პირდაპირი წვდომა არ აქვს — STEP 1-ის საპირწონედ,
+რეალური migration/manual QA მომხმარებელმა თავად უნდა შეასრულოს:
+1. `cd backend && npm run migrate` (ლოკალურ `payflow_db`-ზე).
+2. Products გვერდზე რამდენიმე პროდუქტს მიენიჭოს station.
+3. `npm run start` (ორივე — backend/frontend) და KDS-ის ხელით ტესტი:
+   მაგიდაზე item-ის დამატება → სამზარეულო/ბარის ეკრანზე გამოჩენა →
+   status-ის წინსვლა.
+4. Production migration (pgAdmin, Neon) STEP 1-ის იდენტური პროცედურით.
+5. `git push origin main` (ამ session-საც GitHub credentials არ აქვს).
+
 ---
 
 ## STEP 3: მენიუს მოდიფაიერები + რეცეპტი-საწყობი (BOM)
@@ -403,16 +467,18 @@ sync). **`orders`/`order_items` v1-ში ამ დონეს არ იღ�
 
 - [ ] **STEP 1:** მიმტანის წვდომის scope — მხოლოდ საკუთარი გახსნილი
   მაგიდები, თუ ყველა ღია შეკვეთა (cross-waiter)?
-- [ ] **STEP 2:** Course-ის "გაგზავნის" UX — ავტომატურად დამატებისთანავე,
-  თუ ცალკე batch-ღილაკით ("send course 2")?
+- [x] **STEP 2:** Course-ის "გაგზავნის" UX — **გადაწყდა (05.09.2026):**
+  ავტომატურად დამატებისთანავე (v1), batch-ღილაკის გარეშე. დეტალები —
+  STEP 2-ის "2.1 ✅ დაწერილია" ქვეთავში.
 - [ ] **STEP 3:** `recipe_items`-ის ერთეულები (გრ/კგ/ლ/ცალი) —
   კონვერტაციის ლოგიკა საჭიროა, თუ ერთი საბაზისო ერთეული საკმარისია?
 - [ ] **STEP 1/3:** Void-ის ავტორიზაცია item-დონეზე — cashier/waiter
   თავად, თუ manager PIN override (Discount-ის ანალოგიით)?
 - [ ] **STEP 4:** Tips-ის განაწილება — ერთ waiter-ს მთლიანად, თუ
   pooled (გუნდზე გადანაწილება)?
-- [ ] **STEP 2:** Realtime latency — polling მისაღებია, თუ საწყისშივე
-  WebSocket გვჭირდება?
+- [ ] **STEP 2:** Realtime latency — v1 დაწერილია 4წმ polling-ით
+  (`KitchenDisplay.tsx`); კვლავ ღიაა, გახდება თუ არა WebSocket საჭირო
+  რეალურ დატვირთვაზე ტესტირების შემდეგ.
 - [ ] **Retail POS (გვერდითი ეფექტი, 04.09.2026 ტესტირებიდან):**
   `App.tsx`-ის გლობალური 403-interceptor მხოლოდ "სალაროს ტოკენი"-ს
   შემცველ შეტყობინებებზე რთავს ავტომატურ re-pair UI-ს — Register-ის

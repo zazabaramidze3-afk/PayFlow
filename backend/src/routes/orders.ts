@@ -13,7 +13,7 @@ import { requireRegister } from '../middleware/registerAuth';
 import { requireAnyRole } from '../middleware/requireRole';
 import { requireBusinessType } from '../middleware/requireBusinessType';
 import { withOrgContext } from '../db';
-import { Order, OrderItem, OrderStatus, KitchenStatus } from '../types';
+import { Order, OrderItem, OrderStatus, KitchenStatus, ProductStationLookup } from '../types';
 
 const router = Router();
 
@@ -240,8 +240,8 @@ router.post(
           throw new Error('CLOSED');
         }
 
-        const productCheck = await client.query<{ price: number }>(
-          'SELECT price FROM products WHERE id = $1 AND organization_id = $2',
+        const productCheck = await client.query<ProductStationLookup>(
+          'SELECT price, station FROM products WHERE id = $1 AND organization_id = $2',
           [parsedProductId, req.user?.organizationId]
         );
 
@@ -250,12 +250,41 @@ router.post(
         }
 
         const unitPrice = productCheck.rows[0].price;
+        const stationValue = productCheck.rows[0].station;
+
+        // 🍳 KDS routing (STEP 2, Roadmap "03.09.2026") — "Course-ის
+        // გაგზავნის UX" ღია საკითხი (roadmap-ის "ღია საკითხები") ამ
+        // v1-ისთვის გადაწყდა უმარტივესი ვარიანტით: ავტომატური გაგზავნა
+        // დამატებისთანავე (batch/"send course N" ღილაკი — მომავალი
+        // იტერაცია, თუ საჭირო გახდება). სადაც station მინიჭებულია
+        // (products.station NOT NULL), item მაშინვე 'sent'-ზეა და
+        // KitchenDisplay.tsx-ის GET /kitchen/tickets-ში სახეზეა.
+        // Station-ის გარეშე პროდუქტი (station === null, ჯერ ადმინს არ
+        // მინიჭებია Products.tsx-ში) კვლავ 'pending'-ზე რჩება, კვლავ
+        // რედაქტირებადია (PATCH /orders/items/:id-ის NOT_EDITABLE
+        // შემოწმება 'pending'-ზეა აგებული) და არსად არ ჩანს, სანამ
+        // routing არ დაემატება.
+        const kitchenStatus: KitchenStatus = stationValue ? 'sent' : 'pending';
+        const sentToKitchenAt = stationValue ? new Date() : null;
 
         const insertResult = await client.query<OrderItem>(
-          `INSERT INTO order_items (order_id, product_id, quantity, unit_price, seat_number, course_number, notes)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)
+          `INSERT INTO order_items
+            (order_id, product_id, quantity, unit_price, seat_number, course_number, notes,
+             station, kitchen_status, sent_to_kitchen_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
            RETURNING *`,
-          [req.params.id, parsedProductId, parsedQuantity, unitPrice, seatNumberValue, courseNumberValue, notesValue]
+          [
+            req.params.id,
+            parsedProductId,
+            parsedQuantity,
+            unitPrice,
+            seatNumberValue,
+            courseNumberValue,
+            notesValue,
+            stationValue,
+            kitchenStatus,
+            sentToKitchenAt,
+          ]
         );
 
         return insertResult.rows[0];

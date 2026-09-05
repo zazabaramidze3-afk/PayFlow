@@ -60,6 +60,9 @@ const UsersManagement = lazy(() => import('./pages/UsersManagement'));
 // გვერდებს აქვს. Retail org-ისთვის ეს chunk საერთოდ არასდროს იტვირთება
 // (ნავიგაციაშიც არ ჩანს — იხ. businessType-ის შემოწმება ქვემოთ).
 const Tables = lazy(() => import('./pages/Tables'));
+// 🍳 HoReCa Module STEP 2 (Roadmap "03.09.2026") — KDS ეკრანი, Tables.tsx-ის
+// იგივე lazy/businessType-გეითინგის პატერნით.
+const KitchenDisplay = lazy(() => import('./pages/KitchenDisplay'));
 
 // =======================================================
 // 🛡️ AXIOS INTERCEPTOR — ავტომატური ტოკენის მიბმა
@@ -363,6 +366,17 @@ function App() {
                 🍽️ მაგიდები
               </li>
             )}
+            {/* 🍳 HoReCa Module STEP 2 — Tables-ის იგივე ხილვადობა
+                (ნებისმიერი როლი, ვინც Sales/Tables-საც ხედავს). Register/
+                Shift context არ სჭირდება — POS ტრანზაქცია არაა. */}
+            {businessType === 'horeca' && (
+              <li
+                onClick={() => navigateTo('kitchen')}
+                className={`${styles.navItem} ${currentPage === 'kitchen' ? styles.active : ''}`}
+              >
+                🍳 სამზარეულო
+              </li>
+            )}
             {isAdminOrManager && (
               <li
                 onClick={() => navigateTo('users_control')}
@@ -383,7 +397,7 @@ function App() {
             ცალკე ფაილია, პირველივე ვიზიტზე ერთხელ იტვირთება). */}
         <Suspense fallback={<div className={styles.pageLoadingFallback}>იტვირთება...</div>}>
           {currentPage === 'dashboard' && isAdminOrManager && <Dashboard />}
-          {currentPage === 'products' && isAdminOrManager && <Products />}
+          {currentPage === 'products' && isAdminOrManager && <Products businessType={businessType} />}
           {/* 🖥️ Device Pairing (Roadmap STEP 2) — მხოლოდ POS/Sales გვერდზეა
               საჭირო (ფიზიკური სალარო). Admin/Manager პანელი (Dashboard,
               Products, Users Control) ამაზე დამოკიდებული არასდროს არ ყოფილა,
@@ -409,6 +423,12 @@ function App() {
           )}
           {currentPage === 'tables' && businessType === 'horeca' && isAdminOrManager && (
             <Tables canManage={true} />
+          )}
+          {/* 🍳 HoReCa Module STEP 2 — ყველა როლისთვის ერთნაირად (არა
+              cashier-ს RegisterGuard-ი, არც isAdminOrManager-ის pin) —
+              KDS მხოლოდ უკვე გახსნილი შეკვეთების item-ებს კითხულობს/ცვლის. */}
+          {currentPage === 'kitchen' && businessType === 'horeca' && (
+            <KitchenDisplay />
           )}
           {currentPage === 'users_control' && isAdminOrManager && <UsersManagement currentUserRole={userRole} />}
         </Suspense>

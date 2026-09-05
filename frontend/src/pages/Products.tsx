@@ -3,6 +3,12 @@ import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import styles from './Products.module.scss';
 
+// 🍳 KDS routing (STEP 2, Roadmap "03.09.2026", migration 020) —
+// 'kitchen'|'bar'|null. Retail-ზეც ჩნდება ტიპის დონეზე (backend-ის
+// SELECT * ყოველთვის აბრუნებს ამ ველს), მაგრამ UI-ში ჩანს/რედაქტირდება
+// მხოლოდ businessType === 'horeca'-ზე (ქვემოთ, ProductsProps).
+type ProductStation = 'kitchen' | 'bar' | null;
+
 // პროდუქტის ტიპის ინტერფეისი
 interface Product {
   id: number;
@@ -10,6 +16,14 @@ interface Product {
   name: string;
   price: number;
   stock: number;
+  station: ProductStation;
+}
+
+interface ProductsProps {
+  // App.tsx-ის GET /organizations/me-დან უკვე წამოღებული businessType
+  // (Tables.tsx/OrderScreen.tsx-ის იგივე მოდელი) — null სანამ ჯერ არ
+  // ჩაიტვირთა.
+  businessType: 'retail' | 'horeca' | null;
 }
 
 // 📥 POST /api/products/import-ის პასუხის ფორმა (backend/src/routes/products.ts)
@@ -24,13 +38,14 @@ interface ProductImportResult {
   skipped: ProductImportSkippedRow[];
 }
 
-export default function Products() {
+export default function Products({ businessType }: ProductsProps) {
   // ძირითადი სტეიტები (State)
   const [products, setProducts] = useState<Product[]>([]);
   const [barcode, setBarcode] = useState('');
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [stock, setStock] = useState('');
+  const [station, setStation] = useState<ProductStation>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 9;
@@ -201,7 +216,10 @@ export default function Products() {
       barcode: barcode.trim() || null,
       name,
       price: parsedPrice,
-      stock: parsedStock
+      stock: parsedStock,
+      // 🍳 KDS routing (STEP 2) — მხოლოდ HoReCa-ზეა რედაქტირებადი
+      // (ქვემოთ, ფორმის JSX); Retail-ზე ველი ყოველთვის null-ია.
+      station: businessType === 'horeca' ? (station || null) : null,
     };
 
     try {
@@ -215,7 +233,7 @@ export default function Products() {
         setProducts([...products, response.data]);
         toast.success('პროდუქტი წარმატებით დაემატა!');
       }
-      setBarcode(''); setName(''); setPrice(''); setStock('');
+      setBarcode(''); setName(''); setPrice(''); setStock(''); setStation(null);
     } catch (error) {
       toast.error('შეცდომა მონაცემების შენახვისას!');
     }
@@ -249,6 +267,7 @@ export default function Products() {
     setName(product.name);
     setPrice(product.price.toString());
     setStock(product.stock.toString());
+    setStation(product.station);
   };
 
   // 📥 Excel Import — ფაილის input-ის (დამალული) გახსნა ღილაკზე დაჭერით
@@ -388,6 +407,20 @@ export default function Products() {
         <input type="number" step="0.01" min="0.01" value={price} onChange={e => { const val = Number(e.target.value); if (val >= 0 || e.target.value === '') setPrice(e.target.value); }} className={styles.input} placeholder="ფასი" />
         {/* რაოდენობა: მინიმალური ზღვარია 0, ბლოკავს მინუსს კლავიატურიდან და ისრებიდან */}
         <input type="number" min="0" value={stock} onChange={e => { const val = Number(e.target.value); if (val >= 0 || e.target.value === '') setStock(e.target.value); }} className={styles.input} placeholder="რაოდენობა" />
+        {/* 🍳 KDS routing (STEP 2, Roadmap "03.09.2026") — მხოლოდ HoReCa
+            ორგანიზაციაში ჩანს. აქ განისაზღვრება, სად გაეგზავნება item
+            KDS-ზე (KitchenDisplay.tsx) დამატებისთანავე. */}
+        {businessType === 'horeca' && (
+          <select
+            value={station ?? ''}
+            onChange={e => setStation((e.target.value || null) as ProductStation)}
+            className={styles.input}
+          >
+            <option value="">🍳/🍹 სადგური (არცერთი)</option>
+            <option value="kitchen">🍳 სამზარეულო</option>
+            <option value="bar">🍹 ბარი</option>
+          </select>
+        )}
 
         <button type="submit" className={styles.submitBtn}>
           {editingId ? 'განახლება' : 'დამატება'}

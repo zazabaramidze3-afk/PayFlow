@@ -1,0 +1,139 @@
+/* KitchenDisplay.module.scss */
+@use '../styles/variables' as v;
+@use '../styles/mixins' as m;
+
+.kdsContainer {
+  animation: fadeInUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.topPanel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  background: v.$color-bg-card;
+  padding: 18px 20px;
+  border-radius: v.$radius-md;
+  border: 1px solid v.$color-border;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  h2 { margin: 0; color: v.$color-text-primary; }
+  small { color: v.$color-text-secondary; }
+}
+
+.stationTabs {
+  display: flex;
+  gap: 8px;
+}
+
+.stationTab {
+  @include m.btn-base;
+  background: v.$color-bg-subtle;
+  color: v.$color-text-secondary;
+  border: 1px solid v.$color-border;
+
+  &.active {
+    background: v.$color-primary-soft;
+    color: v.$color-primary;
+    border-color: v.$color-primary;
+  }
+}
+
+.emptyState {
+  @include m.card;
+  padding: 40px;
+  text-align: center;
+  color: v.$color-text-secondary;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.orderGroup {
+  @include m.card;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.orderGroupHeader {
+  font-size: 15px;
+  font-weight: 700;
+  color: v.$color-text-primary;
+  padding-bottom: 6px;
+  border-bottom: 1px solid v.$color-border;
+}
+
+.ticketCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: v.$radius-sm;
+  background: v.$color-bg-subtle;
+  border-left: 3px solid v.$color-primary;
+}
+
+.ticketMain {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ticketProduct {
+  font-size: 14px;
+  font-weight: 700;
+  color: v.$color-text-primary;
+}
+
+.ticketMeta {
+  font-size: 12px;
+  color: v.$color-text-secondary;
+}
+
+.ticketNotes {
+  font-size: 12px;
+  color: v.$color-warning;
+  font-weight: 600;
+}
+
+.ticketFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.elapsedBadge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: v.$radius-pill;
+}
+
+.elapsedOk { @include m.badge(v.$color-success-soft, v.$color-success); }
+.elapsedWarning { @include m.badge(v.$color-warning-soft, v.$color-warning); }
+.elapsedDanger { @include m.badge(v.$color-danger-soft, v.$color-danger); }
+
+.actionBtn {
+  @include m.btn-base;
+  padding: 6px 12px;
+  min-height: unset;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.actionStart { @include m.btn-primary; }
+.actionReady { @include m.btn-success; }
+.actionServed { @include m.btn-secondary; }
+
+@keyframes fadeInUp {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

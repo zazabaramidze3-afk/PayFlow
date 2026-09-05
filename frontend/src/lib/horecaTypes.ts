@@ -71,3 +71,27 @@ export interface OrderItem {
 export interface OrderWithItems extends Order {
   items: OrderItem[];
 }
+
+// ==========================================
+// 🍳 KDS routing (STEP 2, Roadmap "03.09.2026", migration 020) —
+// GET /kitchen/tickets-ის row-ის ფორმა (backend/src/types.ts-ის
+// KitchenTicket-ის ანარეკლი, Tables.tsx/OrderScreen.tsx-ის ზემოთა
+// კონვენციით — ერთი წყარო KitchenDisplay.tsx-სთვის).
+// ==========================================
+
+export interface KitchenTicket {
+  id: string;
+  order_id: string;
+  table_id: string | null;
+  table_name: string | null;
+  product_id: number;
+  product_name: string;
+  quantity: number;
+  seat_number: number | null;
+  course_number: number;
+  kitchen_status: KitchenStatus;
+  station: NonNullable<OrderStation>;
+  notes: string | null;
+  sent_to_kitchen_at: string | null;
+  created_at: string;
+}

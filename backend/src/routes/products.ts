@@ -29,6 +29,14 @@ const router = Router();
 
 const LOW_STOCK_THRESHOLD = 5;
 
+// 🍳 KDS routing (STEP 2, Roadmap "03.09.2026", migration 020) —
+// station ('kitchen'|'bar'|null): NULL == ეს პროდუქტი KDS-ზე არ ჩანს
+// (routing არ არის მინიჭებული). Retail org-ებზეც უწყინარია —
+// KitchenDisplay.tsx-ს/GET /kitchen/tickets-ს requireBusinessType
+// ('horeca') იცავს, ეს ველი მხოლოდ HoReCa-ს ეხება ფაქტობრივად.
+const VALID_STATIONS = ['kitchen', 'bar'] as const;
+type StationValue = (typeof VALID_STATIONS)[number] | null;
+
 // ==========================================
 // 📦 პროდუქტების CRUD
 // ==========================================
@@ -94,7 +102,7 @@ router.post('/products', authenticateToken, async (req: CustomRequest, res: Resp
     return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
   }
 
-  const { name, price, stock, barcode } = req.body;
+  const { name, price, stock, barcode, station } = req.body;
 
   if (!name || price === undefined || price < 0) {
     return res.status(400).json({ error: 'სახელი და ვალიდური ფასი სავალდებულოა' });
@@ -107,6 +115,11 @@ router.post('/products', authenticateToken, async (req: CustomRequest, res: Resp
   // "დაცვის ხვრელი" არ უნდა ეხებოდეს — აქ ცალსახად ვამოწმებთ.
   if (stock !== undefined && stock !== null && Number(stock) < 0) {
     return res.status(400).json({ error: 'მარაგი უარყოფითი ვერ იქნება' });
+  }
+
+  const stationValue: StationValue = station || null;
+  if (stationValue !== null && !VALID_STATIONS.includes(stationValue)) {
+    return res.status(400).json({ error: "station უნდა იყოს 'kitchen', 'bar' ან ცარიელი" });
   }
 
   try {
@@ -129,8 +142,8 @@ router.post('/products', authenticateToken, async (req: CustomRequest, res: Resp
 
     const result = await withOrgContext(req.user?.organizationId, (client) =>
       client.query(
-        `INSERT INTO products (name, price, stock, barcode, organization_id) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-        [name.trim(), price, stock ?? 0, barcode || null, req.user?.organizationId]
+        `INSERT INTO products (name, price, stock, barcode, organization_id, station) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        [name.trim(), price, stock ?? 0, barcode || null, req.user?.organizationId, stationValue]
       )
     );
 
@@ -149,7 +162,7 @@ router.put('/products/:id', authenticateToken, async (req: CustomRequest, res: R
     return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
   }
 
-  const { name, price, stock, barcode } = req.body;
+  const { name, price, stock, barcode, station } = req.body;
 
   // 📴 Roadmap STEP 5 (migration 011) — იხ. POST /products-ის იგივე
   // კომენტარი: ხელით რედაქტირებას (Products.tsx) მარაგის უარყოფით
@@ -157,6 +170,22 @@ router.put('/products/:id', authenticateToken, async (req: CustomRequest, res: R
   // Sync-ის ავტომატურ oversell-სცენარს.
   if (stock !== undefined && stock !== null && Number(stock) < 0) {
     return res.status(400).json({ error: 'მარაგი უარყოფითი ვერ იქნება' });
+  }
+
+  // 🍳 KDS routing (STEP 2) — იგივე COALESCE($N, column) პატერნი, რაც
+  // name/price/stock/barcode-ს ჰქონდა უკვე: თუ station req.body-ში
+  // საერთოდ არ მოვიდა, undefined რჩება → pg driver-ი NULL-ად გადასცემს
+  // → COALESCE ძველ მნიშვნელობას ინარჩუნებს. ⚠️ ცნობილი შეზღუდვა
+  // (იგივეა, რაც უკვე არსებულ barcode-ს აქვს): ერთხელ მინიჭებული
+  // station-ის უკან, "არცერთი"-ზე ხელახლა გასუფთავება ამ endpoint-ით
+  // შეუძლებელია — მხოლოდ kitchen ⇄ bar გადართვა. Un-assign, თუ საჭირო
+  // გახდება, ცალკე მოთხოვნაა.
+  let stationValue: StationValue | undefined;
+  if (station !== undefined) {
+    stationValue = station || null;
+    if (stationValue !== null && stationValue !== undefined && !VALID_STATIONS.includes(stationValue)) {
+      return res.status(400).json({ error: "station უნდა იყოს 'kitchen', 'bar' ან ცარიელი" });
+    }
   }
 
   try {
@@ -184,9 +213,10 @@ router.put('/products/:id', authenticateToken, async (req: CustomRequest, res: R
           name = COALESCE($1, name),
           price = COALESCE($2, price),
           stock = COALESCE($3, stock),
-          barcode = COALESCE($4, barcode)
-         WHERE id = $5 AND organization_id = $6 RETURNING *`,
-        [name?.trim(), price, stock, barcode, req.params.id, req.user?.organizationId]
+          barcode = COALESCE($4, barcode),
+          station = COALESCE($5, station)
+         WHERE id = $6 AND organization_id = $7 RETURNING *`,
+        [name?.trim(), price, stock, barcode, stationValue, req.params.id, req.user?.organizationId]
       )
     );
 

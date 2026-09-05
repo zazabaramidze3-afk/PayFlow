@@ -329,10 +329,45 @@ export interface OrderItem {
   seat_number: number | null;   // STEP 4 (ჩეკის გაყოფა)
   course_number: number;
   kitchen_status: KitchenStatus;
-  station: 'kitchen' | 'bar' | null;   // STEP 2-მდე ყოველთვის null
+  station: 'kitchen' | 'bar' | null;   // STEP 2 — products.station-იდან სნეპშოტი დამატების მომენტში
   notes: string | null;
   sent_to_kitchen_at: string | null;
   created_at: string;
   voided_by: string | null;
   void_reason: string | null;
+}
+
+// ==========================================
+// 🍳 KDS routing (STEP 2, Roadmap "03.09.2026", migration 020) —
+// public.products.station
+// ==========================================
+// products-ს არსად არ ჰქონდა საკუთარი TypeScript ინტერფეისი (routes/
+// products.ts მთლიანად `any`-ზეა აგებული, STEP 1-მდელი კოდი) — აქ
+// მხოლოდ ის ველებია, რაც routes/kitchen.ts-ს/routes/orders.ts-ს
+// სჭირდება (JOIN query-ების typed row shape-ისთვის), არა products.ts-ის
+// სრული refactor STEP 2-ის scope-ში.
+export type Station = 'kitchen' | 'bar';
+
+export interface ProductStationLookup {
+  price: number;
+  station: Station | null;
+}
+
+// GET /kitchen/tickets-ის ერთი row — order_items + JOIN (products.name,
+// orders.table_id, tables.name).
+export interface KitchenTicket {
+  id: string;
+  order_id: string;
+  table_id: string | null;
+  table_name: string | null;
+  product_id: number;
+  product_name: string;
+  quantity: number;
+  seat_number: number | null;
+  course_number: number;
+  kitchen_status: KitchenStatus;
+  station: Station;
+  notes: string | null;
+  sent_to_kitchen_at: string | null;
+  created_at: string;
 }
