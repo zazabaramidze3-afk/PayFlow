@@ -1,7 +1,7 @@
 # HoReCa მოდულის დანერგვა — Roadmap
 
-**სტატუსი:** 🟢 STEP 1 (Tables + Orders) — სრულად დასრულებულია (production-ზე ცოცხლადაა, screenshot-ით დადასტურებული). 🟢 STEP 2 (KDS) — **ტესტირებულია და მზადაა production-ისთვის** (ლოკალურად სრული manual QA ჩატარებულია, screenshot-ებით დადასტურებული; production migration + `git push` — STEP 2-ის "2.1" ქვეთავში, "Git/Deploy სტატუსი").
-**თარიღი:** 03.09.2026 (STEP 2-ის დამატება: 05.09.2026)
+**სტატუსი:** 🟢 STEP 1 (Tables + Orders) — სრულად დასრულებულია (production-ზე ცოცხლადაა, screenshot-ით დადასტურებული). 🟢 STEP 2 (KDS) — სრულად დასრულებულია და production-ზეა (migration 020 + push დადასტურებული). 🟢 STEP 3.1 (მოდიფაიერები) — **სრულად დასრულებულია და production-ზეა** (migration 021 გაშვებულია Neon-ზე, backend/frontend live Render+Vercel-ზე commit `16c4fad`-ით, ლოკალურად სრული manual QA screenshot-ებით დადასტურებული). STEP 3.2 (BOM/რეცეპტი-საწყობი) — ჯერ არ დაწყებულა, ცალკე pass-ია (იხ. STEP 3.2 ქვემოთ).
+**თარიღი:** 03.09.2026 (STEP 2-ის დამატება: 05.09.2026, STEP 3.1-ის დამატება: 05.09.2026)
 **კონტექსტი:** PayFlow ამჟამად მთლიანად Retail (მარკეტი/საცალო) სეგმენტზეა
 აგებული. მოთხოვნაა იმავე კოდბაზაში/DB-ში HoReCa-ს (რესტორანი, კაფე-ბარი
 და მისთ.) მხარდაჭერის დამატება — მაგიდების მართვა, ღია შეკვეთა,
@@ -369,21 +369,20 @@ infra-გადაწყვეტილებაა — თუ latency პრო
    (multi-table stress test), voided-then-re-added item-ის ქეისიც.
 4. `npm run start` (backend+frontend) ლოკალურად სტაბილურად მუშაობს.
 
-**⚠️ დარჩენილია production-ზე (STEP 1-ის იდენტური პროცედურა):**
-1. **Production migration** — `020_add_kds_station.sql`, pgAdmin-ით
-   Neon-ზე (ეს session-იც ვერ უკავშირდება Neon-ს პირდაპირ — production
-   `DATABASE_URL` ლოკალურ `.env`-ში არ ინახება, უსაფრთხოების მოსაზრებით).
-2. **`git push origin main`** commit `b64ffe4`-ისთვის — ამ session-საც
-   (device_bash-იც) GitHub credentials არ აქვს (`could not read Username
-   for 'https://github.com'`), მომხმარებელმა თავად უნდა გაუშვას საკუთარი
-   ტერმინალიდან.
-3. Push + migration-ის შემდეგ Render (backend) და Vercel (frontend)
-   ავტომატურად დეპლოირდება — production-ზე დადასტურება იმავე screenshot
-   პროცედურით, რაც STEP 1-ს ჰქონდა (1.6 ქვეთავი).
+**✅ Production (05.09.2026):** migration `020_add_kds_station.sql`
+გაშვებულია Neon-ზეც (pgAdmin), commit `b64ffe4`+ დოკუმენტაციის commit-ები
+push-დებულია და Render/Vercel ორივემ დეპლოირა — STEP 2 სრულად
+დასრულებულია.
 
 ---
 
 ## STEP 3: მენიუს მოდიფაიერები + რეცეპტი-საწყობი (BOM)
+
+⚠️ **STEP 3.1 (მოდიფაიერები) და STEP 3.2 (BOM) განზრახ გამიჯნულია
+ცალკე pass-ებად** (გადაწყვეტილება 05.09.2026 სესიაზე, `AskUserQuestion`-ით
+დადასტურებული) — BOM ეხება checkout-ის მყიფე stock-decrement ლოგიკას
+(`sales.ts`), ამიტომ ცალკე, ფრთხილად მოსატესტია. STEP 3.1 ქვემოთ
+სრულადაა დასრულებული და production-ზეა; STEP 3.2 ჯერ არ დაწყებულა.
 
 ### 3.1 მოდიფაიერები
 
@@ -418,7 +417,62 @@ CREATE TABLE public.order_item_modifiers (
 );
 ```
 
-### 3.2 რეცეპტი-საწყობი
+### 3.1 ✅ დაწერილია, ტესტირებულია და production-ზეა (05.09.2026)
+
+**რა დაიწერა:**
+- `backend/migrations/021_add_modifiers.sql` — ზუსტად ზემოთ მოცემული 4
+  ცხრილი + RLS policy-ები (migration 019/020-ის იდენტური fail-open
+  pattern). ისტორიის დაცვისთვის `order_item_modifiers.modifier_option_id`-ს
+  განზრახ **არ** აქვს `ON DELETE CASCADE` (routes/modifiers.ts 409-ით
+  იცავს, `tables.ts`-ის FK-409 პატერნის იდენტურად); `product_modifier_groups`
+  (სუფთა config) კი `CASCADE`-ია.
+- `backend/src/routes/modifiers.ts` — სრული CRUD ჯგუფებზე/ოფციებზე
+  (`GET/POST/PUT/DELETE /modifiers/groups`, `/modifiers/groups/:id/options`,
+  `/modifiers/options/:id`) + `GET/PUT /modifiers/products/:id` (რომელი
+  ჯგუფებია მიბმული პროდუქტზე — სრული ჩანაცვლების patern, delete-all +
+  re-insert ერთ ტრანზაქციაში).
+- `backend/src/routes/orders.ts` (`POST /orders/:id/items`) — არასავალდებულო
+  `modifierOptionIds` ვალიდაცია: `is_required` ჯგუფს სჭირდება მინიმუმ
+  ერთი არჩევანი, `selection_type = 'single'` ჯგუფს — მაქსიმუმ ერთი.
+  `unit_price = products.price + Σ price_delta`. წარმატებული დამატებისას
+  `order_item_modifiers` row-ები იწერება `price_delta_snapshot`-ით
+  (მენიუს ფასის მომავალი ცვლილება ძველ შეკვეთას აღარ ეხება).
+- `backend/src/routes/kitchen.ts` (`GET /kitchen/tickets`) და
+  `backend/src/routes/orders.ts` (`GET /orders/:id`) — თითოეულ item-ს/
+  ტიკეტს ემატება `modifiers: OrderItemModifierSummary[]`.
+- `frontend/src/pages/Modifiers.tsx` (+ `.module.scss`) — ახალი admin/
+  manager-ონლი მართვის გვერდი (`App.tsx`-ის ახალი "🧩 მოდიფაიერები"
+  ნავიგაცია): ჯგუფების CRUD მოდალით, ოფციების ინლაინ დამატება/
+  რედაქტირება/წაშლა ჯგუფის ბარათში.
+- `frontend/src/pages/Products.tsx` — რედაქტირების ფორმის ქვემოთ ახალი
+  checklist-პანელი ("🧩 მიბმული მოდიფაიერების ჯგუფები"), ხილული მხოლოდ
+  არსებული პროდუქტის რედაქტირებისას (`editingId`-ს სჭირდება).
+- `frontend/src/pages/OrderScreen.tsx` — item-ის დამატების ფორმაში
+  არჩეული პროდუქტის მიბმული ჯგუფები (`single` → radio + "არცერთი"
+  არასავალდებულოზე, `multiple` → checkbox), სავალდებულო ჯგუფის
+  frontend-ვალიდაცია (დამატება disabled-ია), item-ების ცხრილში
+  არჩეული ოფციების ჩვენება.
+- `frontend/src/pages/KitchenDisplay.tsx` — ტიკეტ-ბარათზე მოდიფაიერების
+  ჩვენება (notes-ის იგივე ვიზუალური წონით, "🧩" პრეფიქსით).
+
+**ვერიფიცირებულია:** `npx tsc --noEmit` — 0 შეცდომა (backend + frontend).
+
+**✅ ლოკალურად გატესტილია (05.09.2026, manager როლით, screenshot-ებით
+დადასტურებული):** ჯგუფის შექმნა (single + required) → 3 ოფციის
+დამატება → პროდუქტზე მიბმა (Products) → OrderScreen-ში სავალდებულო
+ვალიდაცია (დამატება ვერ ხერხდება არჩევანის გარეშე) → წარმატებული
+დამატება არჩევანით (ფასი სწორად გამოთვლილი) → item-ების ცხრილში
+"Medium" ჩანს → KDS-ზე ტიკეტზეც "🧩 Medium" სწორად აისახება.
+
+**✅ Production (05.09.2026):** commit `16c4fad` push-დებულია
+origin/main-ზე, Render (backend) და Vercel (frontend) ორივემ
+ავტომატურად დეპლოირა (screenshot-ით დადასტურებული — deploy status
+"Live"/"Ready" commit `16c4fad`-ზე). Migration `021_add_modifiers.sql`
+გაშვებულია Neon Production-ზეც (pgAdmin, "COMMIT" + "Query returned
+successfully", ცხრილების რაოდენობა 13→17). **STEP 3.1 სრულადაა
+დასრულებული.**
+
+### 3.2 რეცეპტი-საწყობი (BOM) — ჯერ არ დაწყებულა
 
 გახლეჩა, რაც ახლა Products-ში არ არსებობს: **`ingredients`**
 (ნედლეული, საკუთარი `stock`-ით — არასდროს იყიდება პირდაპირ) vs
