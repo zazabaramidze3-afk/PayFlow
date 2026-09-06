@@ -45,6 +45,9 @@ interface ZReportData {
   actual?: number;
   difference?: number;
   receiptCount?: number;
+  // 🩹 FIX (06.09.2026) — HoReCa STEP 4, PUT /shifts/close-ის ახალი ველი
+  // (migration 024) — ჯამური tip ცვლაზე, reconciliation-ისთვის.
+  tipTotal?: number;
 }
 
 const POLL_INTERVAL_MS = 8000;
@@ -561,6 +564,13 @@ export default function Tables({ canManage }: TablesProps) {
                     <span>ფაქტობრივი:</span>
                     <strong>{Number(zReport.actual ?? 0).toFixed(2)} ₾</strong>
                   </div>
+                  {/* 🩹 FIX (06.09.2026) — HoReCa STEP 4: ჯამური tip ცვლაზე. */}
+                  {Number(zReport.tipTotal ?? 0) > 0 && (
+                    <div className={styles.zReportRow}>
+                      <span>ჯამური tip:</span>
+                      <strong>{Number(zReport.tipTotal ?? 0).toFixed(2)} ₾</strong>
+                    </div>
+                  )}
                   <hr className={styles.zReportDivider} />
                   <div
                     className={`${styles.zReportRow} ${Number(zReport.difference ?? 0) < 0 ? styles.zReportNegative : styles.zReportPositive}`}

@@ -208,7 +208,7 @@ router.post('/shifts/open', authenticateToken, requireRegister, async (req: Cust
 async function computeShiftTotals(
   client: PoolClient,
   shiftId: string
-): Promise<{ total_cash: number; total_card: number; receipt_count: number }> {
+): Promise<{ total_cash: number; total_card: number; receipt_count: number; total_tip: number }> {
   const salesSumResult = await client.query(
     `SELECT
        COALESCE(SUM(CASE WHEN p.payment_method = 'cash' THEN p.total_amount ELSE 0 END), 0)
@@ -225,7 +225,13 @@ async function computeShiftTotals(
              JOIN payments p2 ON p2.id = ps.payment_id
              WHERE p2.shift_id = $1 AND p2.is_voided = false AND ps.method = 'card'
            ), 0) AS total_card,
-       COUNT(*) as receipt_count
+       COUNT(*) as receipt_count,
+       -- 🩹 FIX (06.09.2026) — migration 023-ით payments.tip_amount უკვე
+       -- ინახება, მაგრამ Z-Report არსად აჯამებდა (reconciliation/payroll-
+       -- ისთვის საჭირო). ცალკე ჯამდება, register-ის ნაღდი ფულის
+       -- (total_cash/end_amount_expected) გამოთვლას არ ეხება — tip
+       -- მთლიანად waiter-ს ეკუთვნის (migration 023-ის კომენტარი).
+       COALESCE(SUM(p.tip_amount), 0) AS total_tip
      FROM payments p
      WHERE p.shift_id = $1 AND p.is_voided = false`,
     [shiftId]
@@ -235,6 +241,7 @@ async function computeShiftTotals(
     total_cash: parseFloat(salesSumResult.rows[0].total_cash),
     total_card: parseFloat(salesSumResult.rows[0].total_card),
     receipt_count: Number(salesSumResult.rows[0].receipt_count),
+    total_tip: parseFloat(salesSumResult.rows[0].total_tip),
   };
 }
 
@@ -284,7 +291,7 @@ router.put('/shifts/close', authenticateToken, async (req: CustomRequest, res: R
       // Z-Report-ის ხელახლა დასაბეჭდად receipt_count/card_total-იც სჭირდება,
       // არა მხოლოდ end_amount_expected/difference — ამიტომ ახლა shifts
       // row-შიც ვინახავთ, ცალკე computeShiftTotals()-ის საშუალებით.
-      const { total_cash, total_card, receipt_count } = await computeShiftTotals(client, shift.id);
+      const { total_cash, total_card, receipt_count, total_tip } = await computeShiftTotals(client, shift.id);
       const end_amount_expected = shift.start_amount + total_cash;
       const difference = Number(end_amount_actual) - end_amount_expected;
 
@@ -298,10 +305,11 @@ router.put('/shifts/close', authenticateToken, async (req: CustomRequest, res: R
             end_amount_actual = $3,
             difference = $4,
             receipt_count = $5,
-            card_total = $6
-        WHERE id = $7
+            card_total = $6,
+            tip_total = $7
+        WHERE id = $8
       `;
-      await client.query(updateQuery, [closedAt, end_amount_expected, end_amount_actual, difference, receipt_count, total_card, shift.id]);
+      await client.query(updateQuery, [closedAt, end_amount_expected, end_amount_actual, difference, receipt_count, total_card, total_tip, shift.id]);
 
       return {
         message: "ცვლა დაიხურა",
@@ -312,6 +320,8 @@ router.put('/shifts/close', authenticateToken, async (req: CustomRequest, res: R
         receiptCount: receipt_count,
         // 💰 Roadmap ეტაპი 8 — დამატებითი ველი, არსებულს არაფერს არ ცვლის.
         cardTotal: total_card,
+        // 🍽️ HoReCa STEP 4 (06.09.2026) — Z-Report-ის ჯამური tip.
+        tipTotal: total_tip,
       };
     });
 
@@ -1540,7 +1550,7 @@ async function syncSingleOfflineReceipt(
   // migration 011-ის, იგივე პატერნი), რომ იცოდეს ამ ცვლის Z-Report
   // ხელახლა უნდა დაიბეჭდოს.
   if (shift.status === 'closed') {
-    const { total_cash, receipt_count, total_card } = await computeShiftTotals(client, shift.id);
+    const { total_cash, receipt_count, total_card, total_tip } = await computeShiftTotals(client, shift.id);
     const newExpected = Number(shift.start_amount) + total_cash;
     const previousActual = shift.end_amount_actual !== null ? Number(shift.end_amount_actual) : 0;
     const newDifference = previousActual - newExpected;
@@ -1553,16 +1563,18 @@ async function syncSingleOfflineReceipt(
            difference = $2,
            receipt_count = $3,
            card_total = $4,
+           tip_total = $5,
            is_amended = true,
-           last_amended_at = $5,
-           original_end_amount_expected = COALESCE(original_end_amount_expected, $6),
-           original_difference = COALESCE(original_difference, $7)
-       WHERE id = $8`,
+           last_amended_at = $6,
+           original_end_amount_expected = COALESCE(original_end_amount_expected, $7),
+           original_difference = COALESCE(original_difference, $8)
+       WHERE id = $9`,
       [
         newExpected,
         newDifference,
         receipt_count,
         total_card,
+        total_tip,
         formatDbTimestamp(new Date()),
         previousExpected,
         previousDifference,

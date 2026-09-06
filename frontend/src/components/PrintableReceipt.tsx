@@ -171,7 +171,7 @@ function ReceiptBody({ receipt }: PrintableReceiptProps) {
       )}
       {hasTip && (
         <div className="receipt-row" style={{ fontSize: '12px' }}>
-          <span>ჯამფური (tip):</span>
+          <span>ჯამური (tip):</span>
           <span>{receipt.tipAmount!.toFixed(2)} ₾</span>
         </div>
       )}

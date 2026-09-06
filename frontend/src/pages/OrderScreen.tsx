@@ -927,7 +927,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
                 )}
 
                 <div className={styles.formGroup} style={{ marginTop: '10px' }}>
-                  <label>🍴 ჯამფური (tip, ₾) — არასავალდებულო</label>
+                  <label>🍴 ჯამური (tip, ₾) — არასავალდებულო</label>
                   <input
                     type="number"
                     min="0"

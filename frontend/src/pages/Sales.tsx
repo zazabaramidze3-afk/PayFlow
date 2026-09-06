@@ -68,6 +68,9 @@ interface ZReportResponse {
   actual: number;
   difference: number;
   receiptCount: number;
+  // 🩹 FIX (06.09.2026) — HoReCa STEP 4, PUT /shifts/close-ის ახალი ველი
+  // (migration 024) — ჯამური tip ცვლაზე, reconciliation/payroll-ისთვის.
+  tipTotal: number;
 }
 
 // ==========================================
@@ -1378,6 +1381,12 @@ export default function Sales() {
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>გაყიდული ჩეკები:</span> <strong>{zReport.receiptCount ?? 0}</strong></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>მოსალოდნელი:</span> <strong>{Number(zReport.expected ?? 0).toFixed(2)} ₾</strong></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>ფაქტობრივი:</span> <strong>{Number(zReport.actual ?? 0).toFixed(2)} ₾</strong></div>
+                  {/* 🩹 FIX (06.09.2026) — HoReCa STEP 4: ჯამური tip ცვლაზე,
+                      reconciliation/payroll-ისთვის. 0-ზე არ ჩანს (Retail
+                      POS checkout-ს tip საერთოდ არ აქვს). */}
+                  {Number(zReport.tipTotal ?? 0) > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>ჯამური tip:</span> <strong>{Number(zReport.tipTotal ?? 0).toFixed(2)} ₾</strong></div>
+                  )}
                   <hr style={{ border: 'none', borderTop: '1px solid #e2e8f0' }} />
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: (zReport.difference ?? 0) < 0 ? '#ef4444' : '#10b981' }}><span>სხვაობა:</span> <strong>{Number(zReport.difference ?? 0).toFixed(2)} ₾</strong></div>
                 </div>
@@ -1618,6 +1627,7 @@ export default function Sales() {
             actual: zReport.actual,
             difference: zReport.difference,
             receiptCount: zReport.receiptCount,
+            tipTotal: zReport.tipTotal,
           } satisfies PrintableZReportData}
         />
       )}

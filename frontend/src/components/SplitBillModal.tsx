@@ -293,12 +293,28 @@ export default function SplitBillModal({ open, orderId, activeItems, totalAmount
                       cash input-ის ქვეშ, split-მოდალს კი არა — თუ
                       "მიღებული ნაღდი" გადასახდელზე მეტი შეყვანილიყო, ხურდა
                       არსად ჩანდა submit-მდე (მხოლოდ დაბეჭდილ ჩეკზე
-                      გამოჩნდებოდა post-factum). იგივე პატერნი აქაც. */}
-                  {Number(part.cashReceivedInput) > 0 && (
-                    <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#166534', fontWeight: 'bold' }}>
-                      ხურდა: {Math.max(0, Number((Number(part.cashReceivedInput) - (previewAmounts[index] ?? 0)).toFixed(2))).toFixed(2)} ₾
-                    </p>
-                  )}
+                      გამოჩნდებოდა post-factum). იგივე პატერნი აქაც.
+                      🩹 FIX (06.09.2026, მე-2 რაუნდი) — `Math.max(0, ...)`-ის
+                      clamp-ი "ხურდა: 0.00 ₾"-ს აჩვენებდა როგორც ზუსტი
+                      თანხის, ისე დანაკლისის შემთხვევაშიც — live რეჟიმში
+                      ვერ ერკვეოდი, საკმარისია თუ არა თანხა submit-მდე
+                      (ეს მხოლოდ submit-ის მცდელობისას, ერთი საერთო
+                      შეცდომის სტრიქონით ცხადდებოდა). ახლა დანაკლისზე
+                      ცალკე, წითელი "⚠️ აკლია X ₾" გამოჩნდება. */}
+                  {Number(part.cashReceivedInput) > 0 && (() => {
+                    const received = Number(part.cashReceivedInput);
+                    const due = previewAmounts[index] ?? 0;
+                    const diff = Number((received - due).toFixed(2));
+                    return diff >= 0 ? (
+                      <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#166534', fontWeight: 'bold' }}>
+                        ხურდა: {diff.toFixed(2)} ₾
+                      </p>
+                    ) : (
+                      <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#dc2626', fontWeight: 'bold' }}>
+                        ⚠️ აკლია {Math.abs(diff).toFixed(2)} ₾
+                      </p>
+                    );
+                  })()}
                 </>
               )}
 

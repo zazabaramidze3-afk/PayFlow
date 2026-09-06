@@ -18,6 +18,11 @@ export interface PrintableZReportData {
   actual: number;
   difference: number;
   receiptCount: number;
+  // 🩹 FIX (06.09.2026) — HoReCa STEP 4-ის tip-ის (migration 023/024)
+  // ჯამური ჯამი ცვლაზე — undefined ძველი (migration 024-მდელი) ჩეკებზე,
+  // 0-ზეც არ ჩანს ბლოკი (რადგან ჩვეულებრივ Retail POS checkout-ს tip
+  // საერთოდ არ აქვს).
+  tipTotal?: number;
 }
 
 interface PrintableZReportProps {
@@ -53,6 +58,12 @@ export default function PrintableZReport({ report }: PrintableZReportProps) {
         <span>ფაქტობრივი თანხა:</span>
         <span>{report.actual.toFixed(2)} ₾</span>
       </div>
+      {typeof report.tipTotal === 'number' && report.tipTotal > 0 && (
+        <div className="receipt-row">
+          <span>ჯამური tip:</span>
+          <span>{report.tipTotal.toFixed(2)} ₾</span>
+        </div>
+      )}
       <hr />
       <div className="receipt-row" style={{ fontWeight: 'bold', fontSize: '14px' }}>
         <span>სხვაობა:</span>
