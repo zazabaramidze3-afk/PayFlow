@@ -335,7 +335,7 @@ router.post('/auth/verify-manager-pin', authenticateToken, async (req: CustomReq
 });
 
 // ➕ ახალი მომხმარებლის რეგისტრაცია
-const CREATABLE_ROLES: readonly UserRole[] = ['admin', 'manager', 'cashier'];
+const CREATABLE_ROLES: readonly UserRole[] = ['admin', 'manager', 'cashier', 'waiter'];
 
 router.post('/users', authenticateToken, async (req: CustomRequest, res) => {
   const { username, password, role, can_view_history } = req.body as {
@@ -363,8 +363,11 @@ router.post('/users', authenticateToken, async (req: CustomRequest, res) => {
     return res.status(400).json({ error: 'როლი არასწორია!' });
   }
 
-  if (req.user?.role === 'manager' && role !== 'cashier') {
-    return res.status(403).json({ error: 'მენეჯერს მხოლოდ CASHIER როლის მომხმარებლის დამატება შეუძლია!' });
+  // 🍽 HoReCa STEP 4 (Roadmap "03.09.2026", migration 023) — 'waiter'
+  // როლიც იმავე დონეზეა, რაც 'cashier' (staff-level, არა admin/manager
+  // ესკალაცია), ამიტომ manager-ს ამის შექმნაც შეუძლია.
+  if (req.user?.role === 'manager' && role !== 'cashier' && role !== 'waiter') {
+    return res.status(403).json({ error: 'მენეჯერს მხოლოდ CASHIER ან WAITER როლის მომხმარებლის დამატება შეუძლია!' });
   }
 
   if (password.trim().length < 4) {

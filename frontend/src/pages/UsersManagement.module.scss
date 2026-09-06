@@ -231,6 +231,7 @@
 .roleBadgeAdmin { @include m.badge(v.$color-danger-soft, v.$color-danger); }
 .roleBadgeManager { @include m.badge(v.$color-warning-soft, var(--color-role-manager-text)); }
 .roleBadgeCashier { @include m.badge(v.$color-success-soft, var(--color-role-cashier-text)); }
+.roleBadgeWaiter { @include m.badge(v.$color-info-soft, v.$color-info); }
 
 .roleSelect {
   @include m.input-base;

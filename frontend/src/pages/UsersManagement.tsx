@@ -8,7 +8,7 @@ interface UserPermission {
   // string-ია, აღარ არის SERIAL INTEGER.
   id: string;
   username: string;
-  role: 'admin' | 'manager' | 'cashier';
+  role: 'admin' | 'manager' | 'cashier' | 'waiter';
   status: 'ა ქ ტ ი უ რ ი ' | 'და ბ ლო კ ი ლი ';
   can_view_history: boolean;
   can_use_discount: boolean;
@@ -41,7 +41,7 @@ interface AuditLogEntry {
   created_at: string;
   actor_name: string | null;
   target_name: string | null;
-  target_role: 'admin' | 'manager' | 'cashier' | null;
+  target_role: 'admin' | 'manager' | 'cashier' | 'waiter' | null;
 }
 
 // 🖥️ Roadmap STEP 2.2 — GET /api/registers-ის row ფორმა (backend/src/types.ts-ის
@@ -160,15 +160,19 @@ function renderAuditLogLine(log: AuditLogEntry) {
 }
 
 interface UsersManagementProps {
-  currentUserRole?: 'admin' | 'manager' | 'cashier';
+  currentUserRole?: 'admin' | 'manager' | 'cashier' | 'waiter';
+  // 🍽 HoReCa STEP 4 (Roadmap "03.09.2026", migration 023) — WAITER
+  // როლის dropdown-ის ჩვენება მხოლოდ HoReCa org-ში აქვს აზრი (Retail-ს
+  // მიმტანის კონცეფცია საერთოდ არ სჭირდება).
+  businessType?: 'retail' | 'horeca' | null;
 }
 
-export default function UsersManagement({ currentUserRole }: UsersManagementProps) {
+export default function UsersManagement({ currentUserRole, businessType }: UsersManagementProps) {
   const [users, setUsers] = useState<UserPermission[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [newRole, setNewRole] = useState<'admin' | 'manager' | 'cashier'>('cashier');
+  const [newRole, setNewRole] = useState<'admin' | 'manager' | 'cashier' | 'waiter'>('cashier');
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [historyLogs, setHistoryLogs] = useState<AuditLogEntry[]>([]);
@@ -325,7 +329,7 @@ export default function UsersManagement({ currentUserRole }: UsersManagementProp
     }
   };
 
-  const handleRoleChange = async (id: string, currentStatus: string, newRole: 'admin' | 'manager' | 'cashier') => {
+  const handleRoleChange = async (id: string, currentStatus: string, newRole: 'admin' | 'manager' | 'cashier' | 'waiter') => {
     try {
       await axios.put(`/api/users/${id}`, { role: newRole, status: currentStatus });
       setUsers(users.map(user => user.id === id ? { ...user, role: newRole } : user));
@@ -546,13 +550,13 @@ export default function UsersManagement({ currentUserRole }: UsersManagementProp
   const closeConfirmModal = () => setConfirmModal({ show: false, message: '', onConfirm: null, requireExportConfirmation: false });
 
   // მენეჯერს მხოლოდ cashier როლის მომხმარებლების ნახვა შეუძლია — ადმინი და სხვა მენეჯერები დამალულია
-  const visibleUsers = currentUserRole === 'manager' ? users.filter(u => u.role === 'cashier') : users;
+  const visibleUsers = currentUserRole === 'manager' ? users.filter(u => u.role === 'cashier' || u.role === 'waiter') : users;
 
   // ისტორიის ჩანართშიც იგივე წესი — მენეჯერს მხოლოდ cashier-ებთან დაკავშირებული ცვლილებები უნდა ანახოს
-  const visibleHistoryLogs = currentUserRole === 'manager' ? historyLogs.filter(l => l.target_role === 'cashier') : historyLogs;
+  const visibleHistoryLogs = currentUserRole === 'manager' ? historyLogs.filter(l => l.target_role === 'cashier' || l.target_role === 'waiter') : historyLogs;
 
   const roleBadgeClass = (role: UserPermission['role']) =>
-    role === 'admin' ? styles.roleBadgeAdmin : role === 'manager' ? styles.roleBadgeManager : styles.roleBadgeCashier;
+    role === 'admin' ? styles.roleBadgeAdmin : role === 'manager' ? styles.roleBadgeManager : role === 'waiter' ? styles.roleBadgeWaiter : styles.roleBadgeCashier;
 
   return (
     <div className={styles.page}>
@@ -651,6 +655,7 @@ export default function UsersManagement({ currentUserRole }: UsersManagementProp
                 <option value="admin">ADMIN (სრული წვდომა)</option>
                 <option value="manager">MANAGER</option>
                 <option value="cashier">CASHIER</option>
+                {businessType === 'horeca' && <option value="waiter">WAITER (მიმტანი)</option>}
               </select>
             </div>
 
@@ -769,6 +774,7 @@ export default function UsersManagement({ currentUserRole }: UsersManagementProp
                     <option value="admin">ADMIN (სრული წვდომა)</option>
                     <option value="manager">MANAGER</option>
                     <option value="cashier">CASHIER</option>
+                    {businessType === 'horeca' && <option value="waiter">WAITER (მიმტანი)</option>}
                   </select>
                 </td>
 
@@ -877,15 +883,29 @@ export default function UsersManagement({ currentUserRole }: UsersManagementProp
                     POST /api/users-ის იგივე შეზღუდვა, პრივილეგიის ესკალაციის
                     თავიდან ასაცილებლად) — dropdown-ი მხოლოდ ADMIN-ისთვის
                     ჩანს, MANAGER-ს როლი ფიქსირებული აქვს. */}
-                {currentUserRole === 'manager' ? (
+                {currentUserRole === 'manager' && businessType !== 'horeca' ? (
                   <input type="text" value="CASHIER (მოლარე)" disabled className={styles.fullInput} />
-                ) : (
+                ) : currentUserRole === 'manager' ? (
+                  // 🍽 HoReCa STEP 4 — manager-ს HoReCa org-ში CASHIER-ის გარდა
+                  // WAITER-ის დამატებაც შეუძლია (ორივე staff-დონის როლია,
+                  // იხ. backend/src/routes/auth.ts-ის იგივე შეზღუდვა), მაგრამ
+                  // არა MANAGER/ADMIN — ესკალაცია კვლავ დაცულია.
                   <select
-                    value={newRole}
-                    onChange={e => setNewRole(e.target.value as 'admin' | 'manager' | 'cashier')}
+                    value={newRole === 'waiter' ? 'waiter' : 'cashier'}
+                    onChange={e => setNewRole(e.target.value as 'cashier' | 'waiter')}
                     className={styles.fullInput}
                   >
                     <option value="cashier">CASHIER (მოლარე)</option>
+                    <option value="waiter">WAITER (მიმტანი)</option>
+                  </select>
+                ) : (
+                  <select
+                    value={newRole}
+                    onChange={e => setNewRole(e.target.value as 'admin' | 'manager' | 'cashier' | 'waiter')}
+                    className={styles.fullInput}
+                  >
+                    <option value="cashier">CASHIER (მოლარე)</option>
+                    {businessType === 'horeca' && <option value="waiter">WAITER (მიმტანი)</option>}
                     <option value="manager">MANAGER (მენეჯერი)</option>
                     <option value="admin">ADMIN (ადმინისტრატორი)</option>
                   </select>

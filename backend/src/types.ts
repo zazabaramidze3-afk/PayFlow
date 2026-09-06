@@ -21,7 +21,7 @@
 // ჯერ არცერთ routes/*.ts ფაილში არ გამოიყენება — მხოლოდ ტიპის დონეზეა
 // უკვე ასახული, რომ STEP 2-ის route-review მას მზად დახვდეს.
 
-export type UserRole = 'admin' | 'manager' | 'cashier';
+export type UserRole = 'admin' | 'manager' | 'cashier' | 'waiter';
 
 export interface User {
   id: string;
