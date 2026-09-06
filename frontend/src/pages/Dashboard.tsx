@@ -492,7 +492,7 @@ export default function Dashboard() {
                     <td style={{ fontWeight: 700 }}>{s.cashier_name}</td>
                     <td>
                       <span className={isOpen ? styles.badgeOpen : styles.badgeClosed}>
-                        {isOpen ? 'ღიაა' : '🔒 closed'}
+                        {isOpen ? 'open' : '🔒 closed'}
                       </span>
                       {/* 🧾 Migration 012 — დაგვიანებული offline sync-ის მიერ
                           "შესწორებული" ცვლა (routes/sales.ts,
