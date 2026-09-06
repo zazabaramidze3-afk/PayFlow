@@ -1,7 +1,7 @@
 # HoReCa მოდულის დანერგვა — Roadmap
 
-**სტატუსი:** 🟢 STEP 1 (Tables + Orders) — სრულად დასრულებულია (production-ზე ცოცხლადაა, screenshot-ით დადასტურებული). 🟢 STEP 2 (KDS) — სრულად დასრულებულია და production-ზეა (migration 020 + push დადასტურებული). 🟢 STEP 3.1 (მოდიფაიერები) — **სრულად დასრულებულია და production-ზეა** (migration 021 გაშვებულია Neon-ზე, backend/frontend live Render+Vercel-ზე commit `16c4fad`-ით, ლოკალურად სრული manual QA screenshot-ებით დადასტურებული). 🟢 STEP 3.2 (BOM/რეცეპტი-საწყობი, item-add-time stock-შემოწმების შესწორებითურთ) — **სრულად დასრულებულია და production-ზეა** (migration 022 გაშვებულია Neon-ზე `neondb`-ზე, COMMIT დადასტურებული; backend/frontend live Render+Vercel-ზე commit `d1d45f0`-ით, screenshot-ით დადასტურებული — Render "Live", Vercel "Ready"/Production; ლოკალურად სრული manual QA screenshot-ებით დადასტურებული — იხ. STEP 3.2 ქვემოთ).
-**თარიღი:** 03.09.2026 (STEP 2-ის დამატება: 05.09.2026, STEP 3.1-ის დამატება: 05.09.2026, STEP 3.2-ის დამატება: 05.09.2026, STEP 3.2-ის production-ზე გაშვება: 05.09.2026)
+**სტატუსი:** 🟢 STEP 1 (Tables + Orders) — სრულად დასრულებულია (production-ზე ცოცხლადაა, screenshot-ით დადასტურებული). 🟢 STEP 2 (KDS) — სრულად დასრულებულია და production-ზეა (migration 020 + push დადასტურებული). 🟢 STEP 3.1 (მოდიფაიერები) — **სრულად დასრულებულია და production-ზეა** (migration 021 გაშვებულია Neon-ზე, backend/frontend live Render+Vercel-ზე commit `16c4fad`-ით, ლოკალურად სრული manual QA screenshot-ებით დადასტურებული). 🟢 STEP 3.2 (BOM/რეცეპტი-საწყობი, item-add-time stock-შემოწმების შესწორებითურთ) — **სრულად დასრულებულია და production-ზეა** (migration 022 გაშვებულია Neon-ზე `neondb`-ზე, COMMIT დადასტურებული; backend/frontend live Render+Vercel-ზე commit `d1d45f0`-ით, screenshot-ით დადასტურებული — Render "Live", Vercel "Ready"/Production; ლოკალურად სრული manual QA screenshot-ებით დადასტურებული — იხ. STEP 3.2 ქვემოთ). 🟢 STEP 4 (ჩეკის გაყოფა + მიმტანის tips) — **სრულად დასრულებულია და production-ზეა** (migration 023 + 024 გაშვებულია Neon Production-ზე, ორივე COMMIT დადასტურებული; backend/frontend live Render+Vercel-ზე commit `5262a4f`-ით, screenshot-ით დადასტურებული — Render "Live", Vercel "Ready"/Production; ლოკალურად სრული manual QA screenshot-ებით დადასტურებული — იხ. STEP 4 ქვემოთ).
+**თარიღი:** 03.09.2026 (STEP 2-ის დამატება: 05.09.2026, STEP 3.1-ის დამატება: 05.09.2026, STEP 3.2-ის დამატება: 05.09.2026, STEP 3.2-ის production-ზე გაშვება: 05.09.2026, STEP 4-ის დამატება: 05.09.2026, STEP 4-ის production-ზე გაშვება: 06.09.2026)
 **კონტექსტი:** PayFlow ამჟამად მთლიანად Retail (მარკეტი/საცალო) სეგმენტზეა
 აგებული. მოთხოვნაა იმავე კოდბაზაში/DB-ში HoReCa-ს (რესტორანი, კაფე-ბარი
 და მისთ.) მხარდაჭერის დამატება — მაგიდების მართვა, ღია შეკვეთა,
@@ -575,6 +575,8 @@ axali ხარვეზი) — stock-გეითი მხოლოდ checko
 
 ## STEP 4: ჩეკის გაყოფა + მიმტანის როლი/tips
 
+### 🟢 დასრულებულია, production-ზეა (06.09.2026)
+
 - `payments`-ს ემატება `waiter_id UUID REFERENCES users(id)` და
   `tip_amount REAL NOT NULL DEFAULT 0 CHECK (tip_amount >= 0)`,
   `order_id UUID REFERENCES orders(id)`.
@@ -587,6 +589,46 @@ axali ხარვეზი) — stock-გეითი მხოლოდ checko
   migration არ სჭირდება. უფლებები: `orders`/`order_items` CRUD,
   **არა** Products/UsersManagement/Discount-permission (ეს
   manager/admin რჩება).
+
+**რეალიზებული სქოუფი (გეგმაზე ზემოთ, ტესტირების პროცესში დამატებული):**
+- **Migration 023** (`payments.waiter_id`, `payments.tip_amount`,
+  `payments.order_id`) და **Migration 024**
+  (`shifts.tip_total NUMERIC(10,2) NOT NULL DEFAULT 0`) — ორივე
+  ლოკალურად (`payflow_db`) და Neon Production-ზე გაშვებულია, COMMIT
+  დადასტურებული.
+- `POST /api/payments/split` — ორივე რეჟიმი (`equal`/`byItem`)
+  მუშავდება; ყველა split-ნაწილს ერთი `order_id` აქვს, რაც Dashboard-ს
+  საშუალებას აძლევს დანარჩენი ნაწილების item-ები აჩვენოს იმ ნაწილშიც,
+  სადაც საკუთარი items ცარიელია (🔀 შენიშვნით).
+- `computeShiftTotals()` აჯამებს `tip_amount`-საც (`total_tip`) — ცვლის
+  დახურვისას (`PUT /shifts/close`) და late-close ამენდმენტისას
+  `shifts.tip_total`-ში ინახება, რომ Z-Report-ის ხელახლა
+  ჩვენება/ბეჭდვა ისტორიულადაც სწორი დარჩეს. Sales.tsx/Tables.tsx/
+  PrintableZReport.tsx-ში ემატება ხაზი "ჯამური tip: X.XX ₾" (მხოლოდ
+  როცა > 0).
+- SplitBillModal.tsx-ს დაემატა ცოცხალი "ხურდა" გამოთვლა თითოეული
+  ნაწილის cash input-ქვეშ, არასაკმარისი გადახდის შემთხვევაში წითელი
+  "⚠️ აკლია X ₾" გაფრთხილებით (ნაცვლად ბუნდოვანი "ხურდა: 0.00"-ისა).
+- Print არქიტექტურა: `PrintableSplitReceipts` ერთ `.print-area`-ში
+  ალაგებს N ქვითარს (`pageBreakAfter: 'always'`), რომ ყველა
+  split-ნაწილი ერთდროულად დაიბეჭდოს.
+
+**✅ ლოკალურად გატესტილია (06.09.2026, cashier როლით, screenshot-ებით
+დადასტურებული):** ორივე split-რეჟიმი (თანაბრად/item-ების მიხედვით),
+split-ქვითრების ბეჭდვა (multi-page), Dashboard-ის sales history-ში
+split-ნაწილების item-დეტალების ჩვენება (🔀 fallback-ითურთ), ცვლის
+დახურვის Z-Report-ში "ჯამური tip"-ის სწორად ჩვენება.
+
+**✅ Production (06.09.2026):** commit `5262a4f` push-დებულია
+(`git push origin main`), Render backend "Live" და Vercel frontend
+"Ready"/Production სტატუსით დადასტურებულია screenshot-ით. Migration
+023 და 024 ორივე გაშვებულია Neon Production-ზე (pgAdmin, `neondb`),
+ორივე COMMIT დადასტურებული.
+
+**ღიად რჩება (v1-ის სქოუფის მიღმა, დაკავშირებული "ღია საკითხები"
+ქვეთავთან):** `'waiter'` როლის რეალური RBAC/UI-ის დანერგვა (ამ STEP-ში
+split checkout + tips cashier-role-ითაც მუშავდება); tips-ის
+pooled-განაწილება რამდენიმე waiter-ს შორის.
 
 ---
 
