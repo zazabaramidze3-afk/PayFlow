@@ -122,6 +122,66 @@
 .modalOverlay { @include m.modal-overlay; }
 .modalBody { @include m.modal-body; max-width: 420px; }
 
+// 🩹 მინი shift-კონტროლის ვიჯეტი (cashier/waiter, STEP 4 დასკვნა) — იხ.
+// Tables.tsx-ის ZReportData-ის კომენტარი.
+.shiftBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  background: v.$color-bg-card;
+  padding: 12px 20px;
+  border-radius: v.$radius-md;
+  border: 1px solid v.$color-border;
+  margin-bottom: 20px;
+}
+
+.shiftLoading {
+  font-size: 13px;
+  color: v.$color-text-secondary;
+}
+
+.shiftBadge {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.shiftBadgeOpen { color: v.$color-success; }
+.shiftBadgeClosed { color: v.$color-text-secondary; }
+
+// 🩹 FIX (05.09.2026) — Sales.tsx-ის Z-Report box-ის იგივე ბაგის თავიდან
+// აცილება: hardcoded ღია ფონზე ტექსტს ცალსახად მუქი ფერი უნდა ჰქონდეს,
+// თემისგან დამოუკიდებლად — წინააღმდეგ შემთხვევაში Dark Mode-ში
+// მემკვიდრეობითი ღია ტექსტი ღია ფონზე პრაქტიკულად უჩინარდება.
+.zReportTitle { color: v.$color-success; }
+
+.zReportBox {
+  background: #f8fafc;
+  color: #1e293b;
+  padding: 15px;
+  border-radius: v.$radius-sm;
+  margin: 20px 0;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.zReportRow {
+  display: flex;
+  justify-content: space-between;
+}
+
+.zReportDivider {
+  border: none;
+  border-top: 1px solid #e2e8f0;
+  margin: 0;
+}
+
+.zReportPositive { color: v.$color-success; }
+.zReportNegative { color: v.$color-danger; }
+
 .formGroup {
   margin-bottom: 14px;
   display: flex;

@@ -1,0 +1,114 @@
+/* SplitBillModal.module.scss */
+@use '../styles/variables' as v;
+@use '../styles/mixins' as m;
+
+// 🩹 z-index 10060 — იმავე დონეზეა, რაზეც ConfirmModal (OrderScreen.module.scss-ის
+// .modalOverlay 10050-ზეა), რომ ჩეკის გაყოფის მოდალი ორდერის ეკრანის
+// საკუთარ overlay-ებზე მაღლა იყოს.
+.modalOverlay {
+  @include m.modal-overlay;
+  z-index: 10060;
+}
+
+.modalBody {
+  @include m.modal-body;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+
+  h3 {
+    margin-top: 0;
+    color: v.$color-text-primary;
+  }
+}
+
+.modeSwitch {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.hint {
+  font-size: 13px;
+  color: v.$color-text-secondary;
+  background: v.$color-bg-subtle;
+  border-radius: v.$radius-sm;
+  padding: 10px 12px;
+  margin: 0 0 14px 0;
+  line-height: 1.5;
+}
+
+.formGroup {
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  label { font-size: 13px; font-weight: 600; color: v.$color-text-secondary; }
+}
+
+.inputField { @include m.input-base; width: 100%; }
+
+.partsList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.partCard {
+  border: 1px solid v.$color-border;
+  border-radius: v.$radius-md;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: v.$color-bg-subtle;
+}
+
+.partHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+
+  strong { color: v.$color-text-primary; }
+  span { font-weight: 700; color: v.$color-primary; }
+}
+
+.partRow {
+  display: flex;
+  gap: 8px;
+}
+
+.btnSmall {
+  @include m.btn-base;
+  flex: 1;
+  padding: 8px 10px;
+  min-height: 36px;
+  font-size: 13px;
+}
+
+.error {
+  color: v.$color-danger;
+  background: v.$color-danger-soft;
+  border-radius: v.$radius-sm;
+  padding: 10px 12px;
+  font-size: 13px;
+  margin: 0 0 14px 0;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  @include m.btn-base;
+  flex: 1;
+  min-width: 120px;
+}
+
+.btnPrimary { @include m.btn-primary; }
+.btnSecondary { @include m.btn-secondary; }

@@ -30,6 +30,23 @@ interface TablesProps {
 type ToastType = 'success' | 'error' | 'info';
 interface ToastItem { id: number; message: string; type: ToastType; }
 
+// 🩹 FIX (05.09.2026) — მინი shift-კონტროლი (STEP 4-ის დასკვნა): მანამდე
+// ცვლის გახსნა/დახურვის ერთადერთი UI Sales.tsx-ში (Retail POS) იყო,
+// რომლის sidebar-ლინკიც მხოლოდ userRole === 'cashier'-ზეა გამოსახული
+// (App.tsx) — waiter-ს, HoReCa-ს ახალ როლს, ცვლის გახსნის არანაირი გზა
+// არ ჰქონდა, მიუხედავად იმისა, რომ POST /shifts/open და checkActiveShift
+// (checkShift.ts) უკვე მხარს უჭერენ ('waiter' + 'cashier' ორივეს, STEP 4-ის
+// ადრინდელი ფიქსით). ეს ვიჯეტი (ქვემოთ) cashier-ისთვისაც და waiter-ისთვისაც
+// პირდაპირ Tables.tsx-ში აჩვენებს ცვლის სტატუსს + გახსნა/დახურვის ღილაკს,
+// Sales.tsx-ის სრული POS ეკრანის ხილვადობის გაფართოების გარეშე.
+interface ZReportData {
+  start?: number;
+  expected?: number;
+  actual?: number;
+  difference?: number;
+  receiptCount?: number;
+}
+
 const POLL_INTERVAL_MS = 8000;
 
 const STATUS_LABEL: Record<TableStatus, string> = {
@@ -76,6 +93,19 @@ export default function Tables({ canManage }: TablesProps) {
   const [formCapacity, setFormCapacity] = useState<string>('');
   const [formSaving, setFormSaving] = useState<boolean>(false);
 
+  // 🩹 მინი shift-კონტროლის state (იხ. ZReportData-ის კომენტარი ზემოთ).
+  // hasActiveShift === null → სტატუსი ჯერ არ ჩატვირთულა (ან canManage===true,
+  // ანუ admin/manager-ს ცვლა საერთოდ არ ეხება).
+  const [hasActiveShift, setHasActiveShift] = useState<boolean | null>(null);
+  const [activeShift, setActiveShift] = useState<{ id: string; opened_at: string } | null>(null);
+  const [showOpenShiftModal, setShowOpenShiftModal] = useState<boolean>(false);
+  const [startAmount, setStartAmount] = useState<string>('0');
+  const [openingShift, setOpeningShift] = useState<boolean>(false);
+  const [showCloseShiftModal, setShowCloseShiftModal] = useState<boolean>(false);
+  const [endAmountActual, setEndAmountActual] = useState<string>('');
+  const [closingShift, setClosingShift] = useState<boolean>(false);
+  const [zReport, setZReport] = useState<ZReportData | null>(null);
+
   const showToast = useCallback((message: string, type: ToastType = 'info') => {
     const id = ++toastIdRef.current;
     setToasts(prev => [...prev, { id, message, type }]);
@@ -104,6 +134,24 @@ export default function Tables({ canManage }: TablesProps) {
     const interval = window.setInterval(fetchTables, POLL_INTERVAL_MS);
     return () => window.clearInterval(interval);
   }, [fetchTables, selectedTable]);
+
+  // 🕐 ცვლის სტატუსი — მხოლოდ cashier/waiter-ისთვის (canManage === false);
+  // admin/manager-ს register/shift-კონტექსტი საერთოდ არ სჭირდება.
+  const fetchShiftStatus = useCallback(async () => {
+    if (canManage) return;
+    try {
+      const response = await axios.get('/api/shifts/status');
+      setHasActiveShift(Boolean(response.data?.hasActiveShift));
+      setActiveShift(response.data?.shift ?? null);
+    } catch {
+      // 🔇 არაკრიტიკული ვიჯეტია — ჩავარდნისას წინა ცნობილ მდგომარეობას
+      // ვინარჩუნებთ, splitBill/checkout-ის საკუთარი შეცდომები საკმარისია.
+    }
+  }, [canManage]);
+
+  useEffect(() => {
+    fetchShiftStatus();
+  }, [fetchShiftStatus]);
 
   const handleQuickStatus = async (table: RestaurantTable, status: TableStatus, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -207,6 +255,57 @@ export default function Tables({ canManage }: TablesProps) {
     fetchTables();
   }, [fetchTables]);
 
+  const handleOpenShift = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setOpeningShift(true);
+    try {
+      const parsedStart = parseFloat(startAmount) || 0;
+      await axios.post('/api/shifts/open', { start_amount: parsedStart });
+      showToast('ცვლა გაიხსნა', 'success');
+      setShowOpenShiftModal(false);
+      setStartAmount('0');
+      fetchShiftStatus();
+    } catch (error: unknown) {
+      const message = axios.isAxiosError<{ error?: string; message?: string }>(error)
+        ? error.response?.data?.error ?? error.response?.data?.message
+        : undefined;
+      showToast(message || 'ცვლის გახსნა ვერ მოხერხდა', 'error');
+    } finally {
+      setOpeningShift(false);
+    }
+  };
+
+  // 🩹 FIX (05.09.2026) — იგივე ვალიდაცია, რაც Sales.tsx-ის endAmountActual-ს
+  // დაემატა: ცარიელი/არავალიდური მნიშვნელობა ცალსახად იბლოკება submit-ზე,
+  // ჩუმად 0-დ აღარ ითვლება (რაც ცრუ დიდ "სხვაობას" აჩვენებდა Z-Report-ში).
+  const handleCloseShift = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const parsedEndAmount = parseFloat(endAmountActual);
+    if (endAmountActual.trim() === '' || !Number.isFinite(parsedEndAmount) || parsedEndAmount < 0) {
+      showToast('შეიყვანეთ სალაროში დათვლილი ფაქტობრივი ნაღდი ფულის ოდენობა', 'error');
+      return;
+    }
+    setClosingShift(true);
+    try {
+      const response = await axios.put<ZReportData>('/api/shifts/close', { end_amount_actual: parsedEndAmount });
+      setZReport(response.data);
+    } catch (error: unknown) {
+      const message = axios.isAxiosError<{ error?: string; message?: string }>(error)
+        ? error.response?.data?.error ?? error.response?.data?.message
+        : undefined;
+      showToast(message || 'ცვლის დახურვა ვერ მოხერხდა', 'error');
+    } finally {
+      setClosingShift(false);
+    }
+  };
+
+  const closeCloseShiftModal = () => {
+    setShowCloseShiftModal(false);
+    setZReport(null);
+    setEndAmountActual('');
+    fetchShiftStatus();
+  };
+
   if (selectedTable) {
     return (
       <OrderScreen
@@ -231,6 +330,30 @@ export default function Tables({ canManage }: TablesProps) {
           </button>
         )}
       </div>
+
+      {!canManage && (
+        <div className={styles.shiftBar}>
+          {hasActiveShift === null ? (
+            <span className={styles.shiftLoading}>ცვლის სტატუსი იტვირთება...</span>
+          ) : hasActiveShift ? (
+            <>
+              <span className={`${styles.shiftBadge} ${styles.shiftBadgeOpen}`}>
+                🟢 ცვლა აქტიურია{activeShift?.opened_at ? ` — გახსნილია: ${activeShift.opened_at}` : ''}
+              </span>
+              <button type="button" onClick={() => setShowCloseShiftModal(true)} className={`${styles.btn} ${styles.btnDanger}`}>
+                🛑 ცვლის დახურვა
+              </button>
+            </>
+          ) : (
+            <>
+              <span className={`${styles.shiftBadge} ${styles.shiftBadgeClosed}`}>🔒 ცვლა დახურულია</span>
+              <button type="button" onClick={() => setShowOpenShiftModal(true)} className={`${styles.btn} ${styles.btnPrimary}`}>
+                🚀 ცვლის გახსნა
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div className={styles.emptyState}>იტვირთება...</div>
@@ -345,6 +468,113 @@ export default function Tables({ canManage }: TablesProps) {
               {t.message}
             </div>
           ))}
+        </div>
+      )}
+
+      {showOpenShiftModal && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalBody}>
+            <h3>🚀 ცვლის გახსნა</h3>
+            <form onSubmit={handleOpenShift}>
+              <div className={styles.formGroup}>
+                <label>საწყისი ნაღდი ფული სალაროში (₾)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={startAmount}
+                  onChange={e => setStartAmount(e.target.value)}
+                  className={styles.inputField}
+                  autoFocus
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button type="button" onClick={() => setShowOpenShiftModal(false)} disabled={openingShift} className={`${styles.btn} ${styles.btnSecondary}`} style={{ flex: 1 }}>
+                  გაუქმება
+                </button>
+                <button type="submit" disabled={openingShift} className={`${styles.btn} ${styles.btnPrimary}`} style={{ flex: 1 }}>
+                  {openingShift ? 'იხსნება...' : 'გახსნა'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showCloseShiftModal && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalBody}>
+            {!zReport ? (
+              <>
+                <h3>🛑 ცვლის დახურვა</h3>
+                <p>შეიყვანეთ სალაროში არსებული ფაქტობრივი ნაღდი ფული.</p>
+                <form onSubmit={handleCloseShift}>
+                  <div className={styles.formGroup}>
+                    <label>💵 ფაქტობრივი ნაღდი ფული (₾)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={endAmountActual}
+                      onChange={e => setEndAmountActual(e.target.value)}
+                      className={styles.inputField}
+                      autoFocus
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                    <button type="button" onClick={() => setShowCloseShiftModal(false)} disabled={closingShift} className={`${styles.btn} ${styles.btnSecondary}`} style={{ flex: 1 }}>
+                      გაუქმება
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={
+                        closingShift ||
+                        endAmountActual.trim() === '' ||
+                        !Number.isFinite(parseFloat(endAmountActual)) ||
+                        parseFloat(endAmountActual) < 0
+                      }
+                      className={`${styles.btn} ${styles.btnDanger}`}
+                      style={{ flex: 1 }}
+                    >
+                      {closingShift ? 'მოწმდება...' : 'დახურვა'}
+                    </button>
+                  </div>
+                </form>
+              </>
+            ) : (
+              <div style={{ textAlign: 'center' }}>
+                <h3 className={styles.zReportTitle}>📊 ცვლა დაიხურა (Z-Report)</h3>
+                <div className={styles.zReportBox}>
+                  <div className={styles.zReportRow}>
+                    <span>საწყისი:</span>
+                    <strong>{Number(zReport.start ?? 0).toFixed(2)} ₾</strong>
+                  </div>
+                  <div className={styles.zReportRow}>
+                    <span>გაყიდული ჩეკები:</span>
+                    <strong>{zReport.receiptCount ?? 0}</strong>
+                  </div>
+                  <div className={styles.zReportRow}>
+                    <span>მოსალოდნელი:</span>
+                    <strong>{Number(zReport.expected ?? 0).toFixed(2)} ₾</strong>
+                  </div>
+                  <div className={styles.zReportRow}>
+                    <span>ფაქტობრივი:</span>
+                    <strong>{Number(zReport.actual ?? 0).toFixed(2)} ₾</strong>
+                  </div>
+                  <hr className={styles.zReportDivider} />
+                  <div
+                    className={`${styles.zReportRow} ${Number(zReport.difference ?? 0) < 0 ? styles.zReportNegative : styles.zReportPositive}`}
+                  >
+                    <span>სხვაობა:</span>
+                    <strong>{Number(zReport.difference ?? 0).toFixed(2)} ₾</strong>
+                  </div>
+                </div>
+                <button type="button" onClick={closeCloseShiftModal} className={`${styles.btn} ${styles.btnPrimary}`} style={{ width: '100%' }}>
+                  დახურვა
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

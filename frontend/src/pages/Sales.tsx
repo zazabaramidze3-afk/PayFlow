@@ -138,7 +138,13 @@ export default function Sales() {
   const [hasActiveShift, setHasActiveShift] = useState<boolean>(false);
   const [activeShift, setActiveShift] = useState<any>(null);
   const [startAmount, setStartAmount] = useState<string>('0');
-  const [endAmountActual, setEndAmountActual] = useState<string>('0');
+  // 🩹 FIX (05.09.2026) — default აქამდე '0' იყო, ანუ თუ მოლარე ამ ველს
+  // საერთოდ არ შეეხებოდა და პირდაპირ "დახურვა"-ს დააჭერდა, ჩუმად
+  // იგზავნებოდა end_amount_actual: 0 — რაც ცრუ დიდ "სხვაობას" (მაგ.
+  // -89 ₾) აჩვენებდა Z-Report-ში, თითქოს სალაროდან ნამდვილად აკლდა
+  // ფული. ახლა ცარიელი სტრიქონია default-ად, და handleCloseShift-ი
+  // ცარიელ/არავალიდურ მნიშვნელობაზე submit-ს ცალსახად ბლოკავს.
+  const [endAmountActual, setEndAmountActual] = useState<string>('');
   const [showCloseModal, setShowCloseModal] = useState<boolean>(false);
   // 🚧 Roadmap-ის მიღმა (12.08) — Late-close race condition-ის დაცვა:
   // ცვლის დახურვის ღილაკზე დაწკაპუნებასა და PUT /shifts/close-ის
@@ -602,6 +608,14 @@ export default function Sales() {
   const handleCloseShift = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // 🩹 FIX (05.09.2026) — იხ. ზემოთ endAmountActual-ის useState-ის
+    // კომენტარი: ცარიელი/არავალიდური მნიშვნელობა აქ ცალსახად იბლოკება,
+    // ჩუმად 0-დ აღარ ითვლება.
+    const parsedEndAmount = parseFloat(endAmountActual);
+    if (endAmountActual.trim() === '' || !Number.isFinite(parsedEndAmount) || parsedEndAmount < 0) {
+      return showToast('შეიყვანეთ სალაროში დათვლილი ფაქტობრივი ნაღდი ფულის ოდენობა', 'error');
+    }
+
     // ==========================================
     // 🚧 Late-close race condition guard (roadmap-ის მიღმა, 12.08)
     // ==========================================
@@ -636,7 +650,7 @@ export default function Sales() {
         showToast('✅ ყველა ოფლაინ ჩეკი დასინქრონდა', 'success');
       }
 
-      const response = await axios.put('/api/shifts/close', { end_amount_actual: parseFloat(endAmountActual) });
+      const response = await axios.put('/api/shifts/close', { end_amount_actual: parsedEndAmount });
       setZReport(response.data);
       // 🖨 Roadmap ეტაპი 7 — დახურვის ზუსტი მომენტი, Z-Report-ის ბეჭდვისთვის.
       setShiftClosedAtDisplay(new Date().toLocaleString('ka-GE', { hour12: false }));
@@ -1337,7 +1351,12 @@ export default function Sales() {
                   </div>
                   <div style={{ display: 'flex', gap: '10px', marginTop: '20px', flexWrap: 'wrap' }}>
                     <button type="button" onClick={() => setShowCloseModal(false)} disabled={closingShift} className={`${styles.btn} ${styles.btnSecondary}`} style={{ flex: 1, minWidth: '120px' }}>გაუქმება</button>
-                    <button type="submit" disabled={closingShift} className={`${styles.btn} ${styles.btnDanger}`} style={{ flex: 1, minWidth: '120px' }}>
+                    <button
+                      type="submit"
+                      disabled={closingShift || endAmountActual.trim() === '' || !Number.isFinite(parseFloat(endAmountActual)) || parseFloat(endAmountActual) < 0}
+                      className={`${styles.btn} ${styles.btnDanger}`}
+                      style={{ flex: 1, minWidth: '120px' }}
+                    >
                       {closingShift ? '⏳ მოწმდება...' : 'დახურვა'}
                     </button>
                   </div>
@@ -1346,7 +1365,14 @@ export default function Sales() {
             ) : (
               <div style={{ textAlign: 'center' }}>
                 <h3 style={{ color: '#10b981' }}>📊 ცვლა დაიხურა (Z-Report)</h3>
-                <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '8px', margin: '20px 0', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ background: '#f8fafc', color: '#1e293b', padding: '15px', borderRadius: '8px', margin: '20px 0', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {/* 🩹 FIX (05.09.2026) — ამ box-ს აქვს hardcoded ღია ფონი (#f8fafc),
+                      მაგრამ ტექსტს (span/strong) ცალკე ფერი არ ჰქონდა მინიჭებული —
+                      Dark Mode-ში მემკვიდრეობით ღია/თეთრი ფერი ერგებოდა, ანუ
+                      ციფრები პრაქტიკულად უჩინარდებოდა (თეთრი ტექსტი თეთრ ფონზე).
+                      მხოლოდ "სხვაობა" ჩანდა, რადგან მას აქვს საკუთარი (წითელი/მწვანე)
+                      inline ფერი. ახლა მთელ box-ს ცალსახად მუქი ტექსტის ფერი აქვს,
+                      თემისგან დამოუკიდებლად. */}
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>საწყისი:</span> <strong>{Number(zReport.start ?? 0).toFixed(2)} ₾</strong></div>
                   {/* 🖨 Roadmap ეტაპი 7 — "გაყიდული ჩეკების რაოდენობა", ადრე მოდალშიც კი არ ჩანდა */}
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>გაყიდული ჩეკები:</span> <strong>{zReport.receiptCount ?? 0}</strong></div>

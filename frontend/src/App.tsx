@@ -141,7 +141,7 @@ interface UserPermission {
   // string-ია, აღარ არის SERIAL INTEGER.
   id: string;
   username: string;
-  role: 'admin' | 'manager' | 'cashier';
+  role: 'admin' | 'manager' | 'cashier' | 'waiter';
   status: 'აქტიური' | 'დაბლოკილი';
 }
 
@@ -171,6 +171,22 @@ function getUserFromStoredToken(): UserPermission | null {
     localStorage.removeItem('token');
     return null;
   }
+}
+
+// 🩹 FIX (05.09.2026) — login/რეგისტრაცია/პაროლის-განახლების შემდეგ საწყისი
+// გვერდის არჩევა მანამდე მხოლოდ ორ შემთხვევას (cashier → 'sales',
+// ყველა დანარჩენი → 'dashboard') არჩევდა. 'waiter' როლის დამატების
+// შემდეგ ეს მეორე შემთხვევა waiter-საც შეეხო — ხოლო 'dashboard'-ის
+// render-პირობა (`isAdminOrManager`) waiter-ს ბლოკავს, ანუ login-ის
+// შემდეგ waiter მთლიან ცარიელ (შავ) ეკრანზე ხვდებოდა, სანამ ხელით არ
+// დააჭერდა "მაგიდები"-ს sidebar-ში. 'waiter' ყოველთვის მხოლოდ HoReCa
+// ორგანიზაციაშია შესაძლებელი შექმნილიყო (იხ. UsersManagement.tsx-ის
+// role-selector, businessType-ის მიხედვით დაცული) — ამიტომ 'tables'-ზე
+// უპირობო გადამისამართება businessType-ის cross-check-ის გარეშეც უსაფრთხოა.
+function getDefaultPageForRole(role: string): string {
+  if (role === 'cashier') return 'sales';
+  if (role === 'waiter') return 'tables';
+  return 'dashboard';
 }
 
 function App() {
@@ -262,7 +278,7 @@ function App() {
       localStorage.setItem('token', token);
 
       setCurrentUser(user);
-      setCurrentPage(user.role === 'cashier' ? 'sales' : 'dashboard');
+      setCurrentPage(getDefaultPageForRole(user.role));
       callback({});
     } catch (error: any) {
       if (error.response && error.response.data.error) {
@@ -279,7 +295,7 @@ function App() {
   const handlePasswordResetComplete = (token: string, user: any) => {
     localStorage.setItem('token', token);
     setCurrentUser(user);
-    setCurrentPage(user.role === 'cashier' ? 'sales' : 'dashboard');
+    setCurrentPage(getDefaultPageForRole(user.role));
   };
 
   // 🏢 Multi-Tenant SaaS STEP 3 — რეგისტრაცია auto-login-ით მთავრდება
@@ -289,7 +305,7 @@ function App() {
     localStorage.setItem('token', token);
     setCurrentUser(user);
     setShowRegister(false);
-    setCurrentPage(user.role === 'cashier' ? 'sales' : 'dashboard');
+    setCurrentPage(getDefaultPageForRole(user.role));
   };
 
   // სისტემიდან გამოსვლის ფუნქცია
@@ -470,7 +486,10 @@ function App() {
               გარეშე (მხოლოდ Tables CRUD-ისთვის; ორდერის რეალურად
               გახსნა/checkout მაინც სცადებდა register-ს, თუ დაპეირებული
               არაა — ბექენდი თავად დაბლოკავს ცხად შეცდომით). */}
-          {currentPage === 'tables' && businessType === 'horeca' && userRole === 'cashier' && (
+          {/* 🍽 HoReCa STEP 4 (Roadmap "03.09.2026", migration 023) — waiter-იც
+              cashier-ის იდენტურად ხედავს Tables-ს (RegisterGuard-ითურთ,
+              POST /orders-საც register-headers სჭირდება ორივესთვის). */}
+          {currentPage === 'tables' && businessType === 'horeca' && (userRole === 'cashier' || userRole === 'waiter') && (
             <RegisterGuard>
               <Tables canManage={false} />
             </RegisterGuard>
@@ -490,7 +509,7 @@ function App() {
           {currentPage === 'ingredients' && businessType === 'horeca' && isAdminOrManager && (
             <Ingredients />
           )}
-          {currentPage === 'users_control' && isAdminOrManager && <UsersManagement currentUserRole={userRole} />}
+          {currentPage === 'users_control' && isAdminOrManager && <UsersManagement currentUserRole={userRole} businessType={businessType} />}
         </Suspense>
       </div>
     </div>

@@ -40,6 +40,18 @@ export interface PrintableReceiptData {
   splits?: PrintableReceiptSplits | null;
   cashReceived?: number | null;
   changeDue?: number;
+  // 🍽️ HoReCa STEP 4 (06.09.2026) — ჩეკის გაყოფის (split bill) ჩეკები
+  // ცალკეულ payment-ებადაა ბაზაში, თითო "ნაწილს" (სტუმარს/ადგილს)
+  // შეესაბამება — ეს ორი ველი მხოლოდ მაშინ ივსება, ჩვეულებრივ checkout-ზე
+  // ორივე undefined-ია და ბლოკი საერთოდ არ ჩანს ჩეკზე.
+  partLabel?: string;
+  tipAmount?: number;
+  // 🩹 FIX (06.09.2026) — "თანაბრად" (equal) გაყოფილი ჩეკის ნაწილებში
+  // items ბაზაში მხოლოდ ერთ ნაწილზეა მიბმული (ორმაგი დათვლის თავიდან
+  // ასაცილებლად). ბეჭდვისას ყველა ნაწილს საერთო შეკვეთის რეალურ items-ს
+  // ვუჩვენებთ (OrderScreen.tsx ავსებს), ამ ველით კი ცალსახად ვნიშნავთ,
+  // რომ ეს გაზიარებული სია და არა მხოლოდ ამ ნაწილის კუთვნილი.
+  sharedItemsNote?: string;
 }
 
 interface PrintableReceiptProps {
@@ -54,18 +66,30 @@ const PAYMENT_METHOD_LABEL: Record<'cash' | 'card' | 'split', string> = {
   split: 'შერეული',
 };
 
-export default function PrintableReceipt({ receipt }: PrintableReceiptProps) {
+// 🩹 FIX (06.09.2026) — მთელი ჩეკის content ერთი, გაზიარებადი შიდა
+// კომპონენტის (`ReceiptBody`) შიგნითაა, .print-area/.receipt-80mm
+// wrapper-ის გარეშე. ეს საშუალებას იძლევა ორივე გამოყენების შემთხვევას
+// ერგოს ერთი წყარო: ჩვეულებრივი checkout-ის ერთ-ჩეკიან `PrintableReceipt`
+// (ქვემოთ) და split checkout-ის მრავალ-ჩეკიან `PrintableSplitReceipts`-ს
+// (ორივეს ბოლოში) — წინააღმდეგ შემთხვევაში მთელი JSX ორჯერ დაწერილი
+// იქნებოდა, ერთმანეთისგან დამოუკიდებლად სინქრონიზებული.
+function ReceiptBody({ receipt }: PrintableReceiptProps) {
   const hasDiscount = !!receipt.discountAmount && receipt.discountAmount > 0;
   const hasCashReceived = typeof receipt.cashReceived === 'number' && receipt.cashReceived > 0;
+  const hasTip = typeof receipt.tipAmount === 'number' && receipt.tipAmount > 0;
 
   return (
-    <div className="print-area receipt-80mm">
+    <>
       <h2>PayFlow</h2>
       <div style={{ textAlign: 'center', fontSize: '11px' }}>საკასო ჩეკი</div>
       <hr />
       <div>ჩეკი #: {receipt.paymentId}</div>
       <div>თარიღი: {receipt.createdAt}</div>
       {receipt.cashierName && <div>მოლარე: {receipt.cashierName}</div>}
+      {receipt.partLabel && <div>{receipt.partLabel}</div>}
+      {receipt.sharedItemsNote && (
+        <div style={{ fontSize: '10px', fontStyle: 'italic' }}>{receipt.sharedItemsNote}</div>
+      )}
       <hr />
       <table>
         <thead>
@@ -145,10 +169,51 @@ export default function PrintableReceipt({ receipt }: PrintableReceiptProps) {
           )}
         </>
       )}
+      {hasTip && (
+        <div className="receipt-row" style={{ fontSize: '12px' }}>
+          <span>ჯამფური (tip):</span>
+          <span>{receipt.tipAmount!.toFixed(2)} ₾</span>
+        </div>
+      )}
       <hr />
       <div style={{ textAlign: 'center', fontSize: '11px', marginTop: '4mm' }}>
         მადლობა შეძენისთვის!
       </div>
+    </>
+  );
+}
+
+// ჩვეულებრივი (ერთ-ჩეკიანი) checkout — ქცევა უცვლელია, `partLabel`/`tipAmount`
+// ორივე undefined-ია ამ გამოძახებაზე.
+export default function PrintableReceipt({ receipt }: PrintableReceiptProps) {
+  return (
+    <div className="print-area receipt-80mm">
+      <ReceiptBody receipt={receipt} />
+    </div>
+  );
+}
+
+interface PrintableSplitReceiptsProps {
+  receipts: PrintableReceiptData[];
+}
+
+// 🍽️ HoReCa STEP 4 (06.09.2026) — split checkout-ის N ჩეკი ერთ print
+// job-ში, ცალკეულ თერმულ-პრინტერის გვერდებად (page-break-ით), ერთი
+// .print-area-ს შიგნით. (print.css-ის .print-area position:absolute
+// მხოლოდ ერთ ინსტანციას უშვებს ერთდროულად — რამდენიმე .print-area ერთმანეთს
+// გადაეფარებოდა — ამიტომ ყველა receipt-80mm ბლოკი ერთ .print-area-შია.)
+export function PrintableSplitReceipts({ receipts }: PrintableSplitReceiptsProps) {
+  return (
+    <div className="print-area">
+      {receipts.map((receipt, index) => (
+        <div
+          key={receipt.paymentId}
+          className="receipt-80mm"
+          style={index < receipts.length - 1 ? { pageBreakAfter: 'always' } : undefined}
+        >
+          <ReceiptBody receipt={receipt} />
+        </div>
+      ))}
     </div>
   );
 }

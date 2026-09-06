@@ -21,8 +21,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import styles from './OrderScreen.module.scss';
-import PrintableReceipt, { PrintableReceiptData } from '../components/PrintableReceipt';
+import PrintableReceipt, { PrintableReceiptData, PrintableSplitReceipts } from '../components/PrintableReceipt';
 import ConfirmModal from '../components/ConfirmModal';
+import SplitBillModal, { SplitSuccessResult } from '../components/SplitBillModal';
 import { RestaurantTable, OrderWithItems, ModifierGroupWithOptions } from '../lib/horecaTypes';
 
 interface Product { id: number; name: string; price: number; stock: number; }
@@ -54,6 +55,11 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
   // ➕ item-ის დამატების ფორმა
   const [selectedProductId, setSelectedProductId] = useState<string>('');
   const [itemQuantity, setItemQuantity] = useState<string>('1');
+  // 🍴 HoReCa STEP 4 (Roadmap "03.09.2026", migration 023) — არასავალდებულო
+  // ადგილის ნომერი (seat), საჭირო მხოლოდ item-ის მიხედვით ჩეკის
+  // გასაყოფად ('byItem' split-ისთვის ქვემოთ). ცარიელი დარჩენისას
+  // (ძველი ქცევა) backend-ს NULL მიდის, ისევე როგორც აქამდე.
+  const [itemSeatNumber, setItemSeatNumber] = useState<string>('');
   const [itemNotes, setItemNotes] = useState<string>('');
   const [addingItem, setAddingItem] = useState<boolean>(false);
 
@@ -76,7 +82,11 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
   const [splitCashInput, setSplitCashInput] = useState<string>('');
   const [splitCardInput, setSplitCardInput] = useState<string>('');
   const [cashReceivedInput, setCashReceivedInput] = useState<string>('');
+  // 🍴 HoReCa STEP 4 (Roadmap "03.09.2026", migration 023) —
+  // არასავალდებულო tip, ჩვეულებრივ (არა-გახლეჩილ) checkout-ზე.
+  const [tipAmountInput, setTipAmountInput] = useState<string>('');
   const [checkingOut, setCheckingOut] = useState<boolean>(false);
+  const [showSplitModal, setShowSplitModal] = useState<boolean>(false);
 
   // 🔑 Manager PIN Override — მხოლოდ ფასდაკლების გეითისთვის (item-ის void-ს
   // აქ PIN არ სჭირდება, orders.ts-ის PATCH /orders/items/:id ნებისმიერ
@@ -93,6 +103,12 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
   // აძლევს მოლარეს ხელახლა დაბეჭდოს, თუ პრინტერი მზად არ იყო — Sales.tsx-ის
   // იგივე პრინციპი.
   const [lastReceipt, setLastReceipt] = useState<PrintableReceiptData | null>(null);
+  // 🍽️ HoReCa STEP 4 (06.09.2026) — ჩეკის გაყოფის (split bill) ბეჭდვადი
+  // ჩეკები. `lastReceipt`-ისგან განსხვავებით მასივია (თითო ნაწილზე ერთი
+  // ჩეკი), იბეჭდება ერთდროულად `PrintableSplitReceipts`-ით (page-break-ებით
+  // გამოყოფილი, ერთი `.print-area`-ს შიგნით — print.css-ის
+  // `position: absolute` შეზღუდვის გამო, იხ. PrintableReceipt.tsx).
+  const [splitReceipts, setSplitReceipts] = useState<PrintableReceiptData[]>([]);
   const [orderClosed, setOrderClosed] = useState<boolean>(false);
 
   const showToast = useCallback((message: string, type: ToastType = 'info') => {
@@ -201,6 +217,12 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
     }
   }, [lastReceipt]);
 
+  useEffect(() => {
+    if (splitReceipts.length > 0) {
+      setTimeout(() => window.print(), 150);
+    }
+  }, [splitReceipts]);
+
   const handleOpenOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     let guestCount: number | undefined;
@@ -267,11 +289,13 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
         productId: Number(selectedProductId),
         quantity: parsedQuantity,
         notes: itemNotes.trim() || undefined,
+        seatNumber: itemSeatNumber.trim() || undefined,
         modifierOptionIds: selectedModifierOptionIds.length > 0 ? selectedModifierOptionIds : undefined,
       });
       setSelectedProductId('');
       setItemQuantity('1');
       setItemNotes('');
+      setItemSeatNumber('');
       setSelectedModifierOptionIds([]);
       await fetchOrderForTable();
     } catch (error: unknown) {
@@ -469,6 +493,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
       discount?: { type: 'percent' | 'fixed'; value: number };
       splits?: { cash: number; card: number };
       cashReceived?: number;
+      tipAmount?: number;
     } = {
       items: activeItems.map(i => ({ productId: i.product_id, name: i.product_name, price: i.unit_price, quantity: i.quantity })),
       paymentMethod,
@@ -480,6 +505,10 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
     }
     if (paymentMethod === 'cash' && parsedCashReceived > 0) {
       payload.cashReceived = parsedCashReceived;
+    }
+    const parsedTipAmount = Number(tipAmountInput);
+    if (tipAmountInput.trim() !== '' && Number.isFinite(parsedTipAmount) && parsedTipAmount > 0) {
+      payload.tipAmount = parsedTipAmount;
     }
 
     let usedOverrideToken = false;
@@ -513,6 +542,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
       showToast(`მაგიდა "${table.name}" — ჩეკი დაიხურა!`, 'success');
       setOrderClosed(true);
       setManagerOverrideToken(null);
+      setTipAmountInput('');
       onOrderChanged();
     } catch (error: unknown) {
       showToast(getErrorMessage(error) || 'გადახდა ჩავარდა!', 'error');
@@ -557,10 +587,23 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
         <div className={styles.openOrderCard}>
           <h3>✅ ჩეკი დაიხურა</h3>
           <p>მაგიდა "{table.name}" მონიშნულია როგორც "დასალაგებელი" — დალაგების შემდეგ ხელით შეცვალეთ სტატუსი "თავისუფალზე" (🍽️ მაგიდები გვერდზე).</p>
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '10px' }}>
+          {/* 🩹 FIX (06.09.2026) — .openOrderCard-ის max-width: 420px-ში
+              (padding 40px-ის გამოკლებით ~340px სივრცე) 2 გრძელტექსტიანი
+              ღილაკი (მაგ. "🖨 ჩეკების ხელახლა ბეჭდვა (2)" + "🔙 მაგიდებზე
+              დაბრუნება") ერთ ხაზზე ვერ ეტეოდა — .btn-ს (mixins.scss)
+              ნაგულისხმევად `white-space: nowrap` აქვს, `flex-wrap` კი აქ
+              დაყენებული არ იყო, ამიტომ ღილაკები ბარათის საზღვრებს გარეთ
+              გადიოდა ვიზუალურად. `flexWrap: 'wrap'` ამატებს — თუ ერთ
+              ხაზზე არ ეტევა, შემდეგ ხაზზე გადადის, ბარათს არ სცილდება. */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center', marginTop: '10px' }}>
             {lastReceipt && (
               <button onClick={() => window.print()} className={`${styles.btn} ${styles.btnSecondary}`}>
                 🖨 ხელახლა ბეჭდვა
+              </button>
+            )}
+            {splitReceipts.length > 0 && (
+              <button onClick={() => window.print()} className={`${styles.btn} ${styles.btnSecondary}`}>
+                🖨 ჩეკების ხელახლა ბეჭდვა ({splitReceipts.length})
               </button>
             )}
             <button onClick={handleBackToFloorPlan} className={`${styles.btn} ${styles.btnPrimary}`}>
@@ -624,6 +667,17 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
               <div className={styles.formGroup}>
                 <label>რაოდენობა</label>
                 <input type="number" min="1" value={itemQuantity} onChange={e => setItemQuantity(e.target.value)} className={styles.inputField} />
+              </div>
+              <div className={styles.formGroup}>
+                <label>🍴 სტუმრის ადგილი (არასავალდებულო)</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={itemSeatNumber}
+                  onChange={e => setItemSeatNumber(e.target.value)}
+                  className={styles.inputField}
+                  placeholder="მაგ. 1, 2, 3..."
+                />
               </div>
 
               {/* 🧩 STEP 3.1 (მოდიფაიერები) — მხოლოდ მაშინ ჩანს, თუ
@@ -703,6 +757,11 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
                         <tr key={item.id} style={item.kitchen_status === 'voided' ? { opacity: 0.5, textDecoration: 'line-through' } : undefined}>
                           <td>
                             {item.product_name}
+                            {item.seat_number !== null && (
+                              <span style={{ marginLeft: '6px', fontSize: '11px', fontWeight: 700, color: '#2563EB', background: 'rgba(37, 99, 235, 0.08)', borderRadius: '4px', padding: '1px 6px' }}>
+                                🍴 {item.seat_number}
+                              </span>
+                            )}
                             {item.modifiers.length > 0 && (
                               <div style={{ fontSize: '12px', color: '#64748b' }}>
                                 {item.modifiers.map(m => m.name).join(', ')}
@@ -867,6 +926,19 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
                   </div>
                 )}
 
+                <div className={styles.formGroup} style={{ marginTop: '10px' }}>
+                  <label>🍴 ჯამფური (tip, ₾) — არასავალდებულო</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={tipAmountInput}
+                    onChange={e => setTipAmountInput(e.target.value)}
+                    className={styles.inputField}
+                    placeholder="0.00"
+                  />
+                </div>
+
                 <button
                   onClick={handleCheckout}
                   disabled={!paymentMethodValid || checkingOut}
@@ -875,6 +947,17 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
                 >
                   {checkingOut ? 'მუშავდება...' : 'ჩეკის დახურვა (ბეჭდვა)'}
                 </button>
+
+                {activeItems.length >= 2 && discountType === 'none' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowSplitModal(true)}
+                    className={`${styles.btn} ${styles.btnSecondary}`}
+                    style={{ width: '100%', padding: '12px', fontSize: '14px', marginTop: '8px' }}
+                  >
+                    🧾 ჩეკის გაყოფა
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -939,6 +1022,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
       )}
 
       {lastReceipt && <PrintableReceipt receipt={lastReceipt} />}
+      {splitReceipts.length > 0 && <PrintableSplitReceipts receipts={splitReceipts} />}
 
       <ConfirmModal
         open={!!confirmModal}
@@ -947,6 +1031,55 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
         onConfirm={() => confirmModal?.onConfirm()}
         onCancel={closeConfirmModal}
       />
+
+      {order && showSplitModal && (
+        <SplitBillModal
+          open={showSplitModal}
+          orderId={order.id}
+          activeItems={activeItems}
+          totalAmount={cartTotal}
+          onClose={() => setShowSplitModal(false)}
+          onSuccess={(result: SplitSuccessResult) => {
+            // 🍽️ HoReCa STEP 4 (06.09.2026) — split checkout-ის შედეგიდან
+            // ბეჭდვადი ჩეკების აგება. 'equal' რეჟიმში products ბაზაში
+            // მხოლოდ ერთ ნაწილზეა მიბმული (ორმაგი დათვლის თავიდან
+            // ასაცილებლად backend-ის ანალიტიკაში — იხ. routes/sales.ts),
+            // ამიტომ ბეჭდვისას ყველა ნაწილს საერთო შეკვეთის რეალურ
+            // items-ს ვუჩვენებთ, sharedItemsNote-ით ცალსახად მონიშნული,
+            // რომ ეს გაზიარებული სია და არა მხოლოდ ამ ნაწილის კუთვნილი
+            // (Dashboard.tsx-ის "გაყიდვების ისტორიის" იგივე მიდგომა).
+            const nowStr = new Date().toLocaleString('ka-GE', { hour12: false });
+            const partsCount = result.parts.length;
+            const sharedItems =
+              result.mode === 'equal' ? result.parts.find(p => p.items.length > 0)?.items ?? [] : [];
+            const receipts: PrintableReceiptData[] = result.parts.map((part, index) => ({
+              paymentId: part.paymentId,
+              createdAt: nowStr,
+              cashierName: myUsername || undefined,
+              items: result.mode === 'equal' ? sharedItems : part.items,
+              subtotalAmount: part.amount,
+              totalAmount: part.amount,
+              paymentMethod: part.paymentMethod,
+              cashReceived: part.cashReceived ?? undefined,
+              changeDue: part.changeDue ?? undefined,
+              tipAmount: part.tipAmount,
+              partLabel:
+                result.mode === 'byItem'
+                  ? `🪑 ადგილი ${part.seatNumber}`
+                  : `👤 ნაწილი ${index + 1}/${partsCount}`,
+              sharedItemsNote:
+                result.mode === 'equal'
+                  ? 'ზემოთ საერთო შეკვეთის სრული ჩამონათვალია — ეს ჩეკი მხოლოდ თანხის წილს წარმოადგენს.'
+                  : undefined,
+            }));
+            setSplitReceipts(receipts);
+            setShowSplitModal(false);
+            showToast(`მაგიდა "${table.name}" — ჩეკი გაიყო და დაიხურა!`, 'success');
+            setOrderClosed(true);
+            onOrderChanged();
+          }}
+        />
+      )}
     </div>
   );
 }

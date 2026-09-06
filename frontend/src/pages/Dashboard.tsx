@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import axios from 'axios';
 // 📊 Roadmap ეტაპი 6 — Executive Dashboard (ანალიტიკის ტაბი)
 import ExecutiveDashboard from './ExecutiveDashboard';
@@ -26,6 +26,12 @@ interface Payment {
   // მხოლოდ payment_method === 'split'-ზეა non-null.
   payment_method?: 'cash' | 'card' | 'split';
   splits?: PaymentSplits | null;
+  // 🩹 FIX (06.09.2026) — split checkout-ის ყველა ნაწილს ერთი და იგივე
+  // order_id აქვს გაზიარებული (backend, POST /payments/split). ამის
+  // მეშვეობით ვცნობთ ერთი ორდერის "და-ძმა" split-ნაწილებს, რომ ცარიელი
+  // items-ის მქონე ნაწილს ვაჩვენოთ საერთო შეკვეთის დეტალები, ცარიელი
+  // "დეტალები არ ჩატვირთულა" შეტყობინების ნაცვლად.
+  order_id?: string | null;
 }
 
 // 💰 Roadmap ეტაპი 8 — გადახდის მეთოდის ბეიჯის ტექსტი/კლასი. payment_method
@@ -204,6 +210,25 @@ export default function Dashboard() {
   };
 
   const totalPages = Math.max(1, Math.ceil(payments.length / pageSize));
+  // 🩹 FIX (06.09.2026) — "ჩეკის გაყოფის" (split) ორივე/ყველა ნაწილს
+  // items ბაზაში მხოლოდ ერთზეა მიბმული (analytics-ში ორმაგი დათვლის
+  // თავიდან ასაცილებლად, იხ. backend/routes/sales.ts). ეს ნიშნავს, რომ
+  // და-ძმა ნაწილების items მასივი ცარიელია — ეს არ არის ბაგი/დაუტვირთავი
+  // მონაცემი, უბრალოდ იმ კონკრეტულ ჩეკზე პროდუქტები არ ჩანს. აქ ვაგებთ
+  // order_id -> items რუკას (პირველი ნაპოვნი არა-ცარიელი items მასივიდან
+  // ამ ორდერისთვის), რომ ცარიელ split-ნაწილს დეტალების ცხრილში საერთო
+  // შეკვეთის რეალური პროდუქტები ვაჩვენოთ, ნაცვლად დამაბნეველი
+  // "დეტალები არ არის ჩატვირთული" შეტყობინებისა.
+  const sharedItemsByOrder = useMemo(() => {
+    const map = new Map<string, PaymentItem[]>();
+    for (const p of payments) {
+      if (p.order_id && Array.isArray(p.items) && p.items.length > 0 && !map.has(p.order_id)) {
+        map.set(p.order_id, p.items);
+      }
+    }
+    return map;
+  }, [payments]);
+
   const paginatedPayments = payments.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const rangeStart = payments.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const rangeEnd = Math.min(currentPage * pageSize, payments.length);
@@ -349,18 +374,54 @@ export default function Dashboard() {
                         {isExp && (
                           <tr>
                             <td colSpan={8} className={styles.detailRow}>
-                              <div className={styles.detailInner}>
-                                {Array.isArray(p.items) && p.items.length > 0 ? (
-                                  p.items.map((item, index) => (
-                                    <div key={index} className={styles.detailItem}>
-                                      └── 📦 <strong>{item?.name || 'პროდუქტი'}</strong> — {item?.quantity || 0} ცალი × {(item?.price || 0).toFixed(2)} ₾
+              <div className={styles.detailInner}>
+                                {(() => {
+                                  const ownItems = Array.isArray(p.items) ? p.items : [];
+                                  if (ownItems.length > 0) {
+                                    return ownItems.map((item, index) => (
+                                      <div key={index} className={styles.detailItem}>
+                                        └── 📦 <strong>{item?.name || 'პროდუქტი'}</strong> — {item?.quantity || 0} ცალი × {(item?.price || 0).toFixed(2)} ₾
+                                      </div>
+                                    ));
+                                  }
+                                  // 🩹 FIX (06.09.2026) — "თანაბრად" (equal) გაყოფილი ჩეკის და-ძმა
+                                  // ნაწილებს products ბაზაში მხოლოდ ერთზეა მიბმული (ორმაგი
+                                  // დათვლის თავიდან ასაცილებლად). ცარიელი ნაწილისთვის საერთო
+                                  // შეკვეთის რეალურ items-ს ვაჩვენებთ, მაგრამ ცალსახად ვნიშნავთ
+                                  // რომ ეს გაზიარებული დეტალებია — ეს კონკრეტული ჩეკი მხოლოდ
+                                  // თანხის ნაწილს წარმოადგენს.
+                                  // 🩹 FIX (06.09.2026) — თავდაპირველად აქ `p.payment_method === 'split'`
+                                  // შემოწმდებოდა, მაგრამ `payment_method: 'split'` სულ სხვა,
+                                  // არსებულ კონცეფციას ეხება (ერთი ჩეკის ნაღდი+ბარათით შერეული
+                                  // გადახდა, `p.splits`-ით ქვემოთ). ჩეკის გაყოფის (split-bill)
+                                  // ნაწილებს `payment_method` თითოეულის საკუთარი 'cash'/'card'
+                                  // არჩევანია — ამიტომ ეს პირობა არასდროს იყო true და "გაზიარებული
+                                  // დეტალების" fallback საერთოდ არ ამუშავდებოდა. სწორი ნიშანი
+                                  // უბრალოდ ის არის, გვაქვს თუ არა ამ order_id-ზე სხვა (და-ძმა)
+                                  // payment-ის non-empty items — ეს მხოლოდ split-bill სცენარზეა
+                                  // შესაძლებელი (ჩვეულებრივ checkout-ს ერთი payment ერგება ერთ
+                                  // order_id-ს).
+                                  const shared = p.order_id ? sharedItemsByOrder.get(p.order_id) : undefined;
+                                  if (shared && shared.length > 0) {
+                                    return (
+                                      <>
+                                        <div style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic', marginBottom: '4px' }}>
+                                          🔀 ეს ჩეკი გაყოფილი ანგარიშის ერთ-ერთი ნაწილია — ქვემოთ საერთო შეკვეთის სრული პროდუქტების ჩამონათვალია (ორმაგი დათვლის თავიდან ასაცილებლად, პროდუქტები ბაზაში მხოლოდ ერთ ნაწილზეა მიბმული):
+                                        </div>
+                                        {shared.map((item, index) => (
+                                          <div key={index} className={styles.detailItem}>
+                                            └── 📦 <strong>{item?.name || 'პროდუქტი'}</strong> — {item?.quantity || 0} ცალი × {(item?.price || 0).toFixed(2)} ₾
+                                          </div>
+                                        ))}
+                                      </>
+                                    );
+                                  }
+                                  return (
+                                    <div style={{ fontSize: '13px', color: '#94a3b8', fontStyle: 'italic' }}>
+                                      ℹ ამ ქვითრის დეტალები არ არის ხელმისაწვდომი
                                     </div>
-                                  ))
-                                ) : (
-                                  <div style={{ fontSize: '13px', color: '#94a3b8', fontStyle: 'italic' }}>
-                                    ℹ ამ ქვითრის დეტალები არ არის ჩატვირთული
-                                  </div>
-                                )}
+                                  );
+                                })()}
                                 {discountLabel && (
                                   <div className={styles.detailDiscount}>
                                     🏷 ფასდაკლება: {discountLabel} ({(p.subtotal_amount ?? 0).toFixed(2)} ₾ → {(p.total_amount ?? 0).toFixed(2)} ₾)

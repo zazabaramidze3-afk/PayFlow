@@ -127,8 +127,12 @@ router.get('/shifts/status', authenticateToken, async (req: CustomRequest, res: 
 // 🔒 STEP 2.2 (RLS Pilot) — ორივე შემოწმება + INSERT ერთ `withOrgContext`
 // ტრანზაქციაშია გაერთიანებული (ადრე სამი ცალკე, ავტოკომიტ query იყო).
 router.post('/shifts/open', authenticateToken, requireRegister, async (req: CustomRequest, res: Response) => {
-  if (req.user?.role !== 'cashier') {
-    return res.status(403).json({ message: "ცვლის გახსნა შეუძლია მხოლოდ მოლარეს" });
+  // 🍽 HoReCa STEP 4 (Roadmap "03.09.2026", migration 023) — waiter-საც
+  // შეუძლია ცვლის გახსნა, cashier-ის იდენტურად (ორივე staff-დონის როლია,
+  // POST /orders-საც checkActiveShift სჭირდება ორივესთვის). Retail-ზე
+  // 'waiter' როლის user პრაქტიკულად არასდროს იქნება — ნულოვანი გავლენა.
+  if (req.user?.role !== 'cashier' && req.user?.role !== 'waiter') {
+    return res.status(403).json({ message: "ცვლის გახსნა შეუძლია მხოლოდ მოლარეს ან მიმტანს" });
   }
 
   const { start_amount } = req.body;
@@ -331,7 +335,8 @@ router.put('/shifts/close', authenticateToken, async (req: CustomRequest, res: R
 // (org-ის წვდომისთვის საჭირო).
 // 🔒 STEP 2.2 (RLS Pilot) — `withOrgContext`-ში გადატანილია.
 router.get('/shifts/history', authenticateToken, async (req: CustomRequest, res: Response) => {
-  if (req.user?.role === 'cashier') return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
+  // 🍽 HoReCa STEP 4 — waiter იგივე staff-scope-შია, რაც cashier.
+  if (req.user?.role === 'cashier' || req.user?.role === 'waiter') return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
 
   const query = `
     SELECT s.*, u.name AS cashier_name
@@ -366,11 +371,26 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
   // Retail checkout-ს (frontend არასდროს გზავნის ამ ველს) ეს დამატება
   // ნულოვან გავლენას ახდენს — ქვემოთ, ტრანზაქციის ბოლოს, მხოლოდ მაშინ
   // მოქმედებს, თუ ცხადადაა გადმოცემული.
-  const { items, discount, paymentMethod: paymentMethodInput, splits, cashReceived, createdAt, orderId } = req.body;
+  const { items, discount, paymentMethod: paymentMethodInput, splits, cashReceived, createdAt, orderId, tipAmount } = req.body;
   if (!items || items.length === 0) return res.status(400).json({ error: 'კალათა ცარიელია!' });
 
   if (orderId !== undefined && orderId !== null && typeof orderId !== 'string') {
     return res.status(400).json({ error: 'orderId არავალიდურია' });
+  }
+
+  // 🍽 HoReCa STEP 4 (Roadmap "03.09.2026", migration 023) — tipAmount
+  // არასავალდებულოა (Retail checkout-ი მას არასდროს გზავნის — ნულოვანი
+  // გავლენა). waiter_id-ს კლიენტისგან არ ვიღებთ ("ავტომატურად, ვინც
+  // გადაიხდის" — Cowork session, 05.09.2026, AskUserQuestion-ით
+  // დადასტურებული) — ქვემოთ, INSERT-ის დროს, პირდაპირ req.user?.id-ია,
+  // მხოლოდ orderId-იანი (HoReCa მაგიდის) checkout-ზე.
+  let tipAmountToStore = 0;
+  if (tipAmount !== undefined && tipAmount !== null) {
+    const parsedTip = Number(tipAmount);
+    if (!Number.isFinite(parsedTip) || parsedTip < 0) {
+      return res.status(400).json({ error: 'tipAmount არავალიდურია' });
+    }
+    tipAmountToStore = Number(parsedTip.toFixed(2));
   }
 
   // ==========================================
@@ -554,8 +574,8 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
       // **write-blocker fix**: `organization_id` NOT NULL-ია (migration 013)
       // — ამის გარეშე ყოველი checkout 500-ით ჩავარდებოდა.
       const paymentQuery = `
-        INSERT INTO payments (cashier_id, shift_id, register_id, subtotal_amount, discount_type, discount_value, total_amount, payment_method, cash_received, created_at, organization_id)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        INSERT INTO payments (cashier_id, shift_id, register_id, subtotal_amount, discount_type, discount_value, total_amount, payment_method, cash_received, created_at, organization_id, waiter_id, tip_amount, order_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         RETURNING id
       `;
       const paymentResult = await client.query(paymentQuery, [
@@ -569,7 +589,10 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
         paymentMethod,
         cashReceivedToStore,
         createdAtToStore,
-        req.user?.organizationId
+        req.user?.organizationId,
+        orderId ? req.user?.id : null,
+        tipAmountToStore,
+        orderId || null
       ]);
       const newPaymentId = paymentResult.rows[0].id;
 
@@ -708,6 +731,389 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
     res.status(400).json({ error: err.message });
   }
 });
+
+// ==========================================
+// 🍽️/💳 2.4.1 HoReCa STEP 4 — ჩეკის გაყოფა (Split Bill)
+// ==========================================
+// Roadmap: `ROADMAP - HoReCa Module - 03.09.2026.md`, STEP 4.
+// (Cowork session, 05.09.2026, AskUserQuestion-ით დადასტურებული
+// გადაწყვეტილებები — იხ. migration 023-ის კომენტარი.)
+//
+// ეს არის ცალკე, ახალი ენდპოინტი — არსებულ POST /payments-ს (ზემოთ)
+// არაფერს არ ეხება. მიზეზი: POST /payments ერთი ორდერი → ერთი payment
+// მოდელზეა აგებული (orderId-ის მოსვლისას მაშინვე ხურავს ორდერს), ხოლო
+// გაყოფილი ჩეკისთვის ერთი ორდერი → **რამდენიმე** payments row გვჭირდება,
+// ორდერი კი მხოლოდ ბოლო ნაწილის ჩაწერის შემდეგ უნდა დაიხუროს.
+//
+// 🔑 დიზაინის გადაწყვეტილება (სტოკის ორმაგი-გამოკლების თავიდან acilebisTVis):
+// `order_items`-ის stock-decrement (ingredients ან products.stock, STEP 3.2-ის
+// იგივე branching) ხდება **ერთხელ**, მთელი ორდერის აქტიურ item-ებზე ერთად —
+// არა თითო split-ზე ცალკე. ფინანსური გაყოფა (რამდენ payments row-ად იყოფა
+// თანხა) მთლიანად დამოუკიდებელია stock-გავლენისგან.
+//
+// 📋 ორი რეჟიმი:
+//   - 'equal':  თანხა თანაბრად იყოფა parts.length ნაწილად (რაუნდინგის
+//     ნაშთი ბოლო ნაწილს ერგება, რომ ჯამი ზუსტად totalAmount-ს
+//     უტოლდებოდეს). Item-ების ცალკე მიბმა parts-ზე არ ხდება — მთელი
+//     ორდერის itemized სია მხოლოდ **პირველ** payment-ს ერთვის
+//     (payment_items), დანარჩენი parts მხოლოდ ფინანსური ჩანაწერებია.
+//   - 'byItem': parts.length === ორდერში წარმოდგენილი განსხვავებული
+//     seat_number-ების რაოდენობა ზუსტად — ყოველი item-ი (რომელსაც
+//     seat_number უნდა ჰქონდეს მინიჭებული, წინააღმდეგ შემთხვევაში 400)
+//     თავის seat-ის შესაბამის payment-ს ერთვის, ცალკე payment_items-ად.
+//
+// waiter_id ავტომატურად req.user?.id-ია ყველა ნაწილზე (იგივე კონვენცია,
+// რაც ჩვეულებრივ POST /payments-ზე) — ხელით არჩევა v1-ში არ არსებობს.
+interface SplitPartInput {
+  seatNumber?: unknown;
+  tipAmount?: unknown;
+  paymentMethod?: unknown;
+  cashReceived?: unknown;
+}
+
+interface SplitOrderItemRow {
+  id: string;
+  product_id: number;
+  quantity: number;
+  unit_price: number;
+  seat_number: number | null;
+  is_recipe_based: boolean;
+  product_name: string;
+}
+
+interface SplitComputedPart {
+  seatNumber: number | null;
+  amount: number;
+  tipAmount: number;
+  paymentMethod: 'cash' | 'card';
+  cashReceived: number | null;
+  changeDue: number | null;
+  items: SplitOrderItemRow[];
+}
+
+router.post(
+  '/payments/split',
+  authenticateToken,
+  requireRegister,
+  checkActiveShift,
+  async (req: CustomRequest, res: Response) => {
+    const { orderId, splitMode, parts, createdAt } = req.body as {
+      orderId?: unknown;
+      splitMode?: unknown;
+      parts?: unknown;
+      createdAt?: unknown;
+    };
+
+    if (typeof orderId !== 'string' || orderId.trim().length === 0) {
+      return res.status(400).json({ error: 'orderId სავალდებულოა' });
+    }
+    if (splitMode !== 'equal' && splitMode !== 'byItem') {
+      return res.status(400).json({ error: "splitMode უნდა იყოს 'equal' ან 'byItem'" });
+    }
+    if (!Array.isArray(parts) || parts.length < 2) {
+      return res.status(400).json({ error: 'გასაყოფად საჭიროა მინიმუმ 2 ნაწილი (parts)' });
+    }
+
+    const rawParts = parts as SplitPartInput[];
+    const parsedParts: {
+      seatNumber: number | null;
+      tipAmount: number;
+      paymentMethod: 'cash' | 'card';
+      cashReceived: number | null;
+    }[] = [];
+
+    for (const part of rawParts) {
+      if (part.paymentMethod !== 'cash' && part.paymentMethod !== 'card') {
+        return res.status(400).json({ error: "ყოველი ნაწილის paymentMethod უნდა იყოს 'cash' ან 'card'" });
+      }
+
+      let tipAmountValue = 0;
+      if (part.tipAmount !== undefined && part.tipAmount !== null) {
+        const parsedTip = Number(part.tipAmount);
+        if (!Number.isFinite(parsedTip) || parsedTip < 0) {
+          return res.status(400).json({ error: 'tipAmount არავალიდურია' });
+        }
+        tipAmountValue = Number(parsedTip.toFixed(2));
+      }
+
+      let seatNumberValue: number | null = null;
+      if (splitMode === 'byItem') {
+        const parsedSeat = Number(part.seatNumber);
+        if (!Number.isInteger(parsedSeat) || parsedSeat <= 0) {
+          return res.status(400).json({ error: "'byItem' რეჟიმში ყოველ ნაწილს სჭირდება დადებითი seatNumber" });
+        }
+        seatNumberValue = parsedSeat;
+      }
+
+      let cashReceivedValue: number | null = null;
+      if (part.paymentMethod === 'cash' && part.cashReceived !== undefined && part.cashReceived !== null) {
+        const parsedReceived = Number(part.cashReceived);
+        if (!Number.isFinite(parsedReceived) || parsedReceived < 0) {
+          return res.status(400).json({ error: 'cashReceived არავალიდურია' });
+        }
+        cashReceivedValue = Number(parsedReceived.toFixed(2));
+      }
+
+      parsedParts.push({
+        seatNumber: seatNumberValue,
+        tipAmount: tipAmountValue,
+        paymentMethod: part.paymentMethod,
+        cashReceived: cashReceivedValue,
+      });
+    }
+
+    if (splitMode === 'byItem') {
+      const seatNumbers = parsedParts.map((p) => p.seatNumber);
+      if (new Set(seatNumbers).size !== seatNumbers.length) {
+        return res.status(400).json({ error: "'byItem' რეჟიმში ორი ნაწილი ერთსა და იმავე seatNumber-ს ვერ იზიარებს" });
+      }
+    }
+
+    let createdAtToStore: string;
+    if (createdAt !== undefined && createdAt !== null && createdAt !== '') {
+      const parsedCreatedAt = new Date(createdAt as string);
+      if (isNaN(parsedCreatedAt.getTime())) {
+        return res.status(400).json({ error: 'createdAt არავალიდურია (მოსალოდნელია ISO 8601 თარიღი)' });
+      }
+      createdAtToStore = formatDbTimestamp(parsedCreatedAt);
+    } else {
+      createdAtToStore = formatDbTimestamp(new Date());
+    }
+
+    try {
+      const result = await withOrgContext(req.user?.organizationId, async (client) => {
+        const orderResult = await client.query<{ id: string; status: string; table_id: string | null }>(
+          'SELECT id, status, table_id FROM orders WHERE id = $1 AND organization_id = $2',
+          [orderId, req.user?.organizationId]
+        );
+        if (orderResult.rows.length === 0) {
+          throw new HttpError(404, { error: 'შეკვეთა ვერ მოიძებნა' });
+        }
+        if (orderResult.rows[0].status !== 'open') {
+          throw new HttpError(400, { error: 'შეკვეთა უკვე დახურულია ან გაუქმებულია' });
+        }
+
+        const itemsResult = await client.query<SplitOrderItemRow>(
+          `SELECT oi.id, oi.product_id, oi.quantity, oi.unit_price, oi.seat_number,
+                  p.is_recipe_based, p.name AS product_name
+           FROM order_items oi
+           JOIN products p ON p.id = oi.product_id
+           WHERE oi.order_id = $1 AND oi.kitchen_status != 'voided'`,
+          [orderId]
+        );
+
+        if (itemsResult.rows.length === 0) {
+          throw new HttpError(400, { error: 'შეკვეთაში აქტიური item არ არის — გადასახდელი არაფერია' });
+        }
+
+        const allItems = itemsResult.rows;
+        const totalAmount = Number(
+          allItems.reduce((sum, item) => sum + item.unit_price * item.quantity, 0).toFixed(2)
+        );
+
+        // 🪑 'byItem' — item-ების seat_number-ის მიხედვით დაჯგუფება.
+        // ყოველ აქტიურ item-ს **უნდა** ჰქონდეს seat_number მინიჭებული
+        // (OrderScreen.tsx-ში item-ის დამატებისას), და parts-ის
+        // seatNumber-ების სია ზუსტად ემთხვეოდეს item-ებში წარმოდგენილ
+        // seat_number-ების სიას — არც ერთი დაუფარავი item, არც ერთი
+        // "ცარიელი" ნაწილი.
+        const computedParts: SplitComputedPart[] = [];
+
+        if (splitMode === 'byItem') {
+          const itemsWithoutSeat = allItems.filter((item) => item.seat_number === null);
+          if (itemsWithoutSeat.length > 0) {
+            throw new HttpError(400, {
+              error: `item-ის მიხედვით გასაყოფად ყველა item-ს სჭირდება მინიჭებული ადგილი (seat) — არ აქვს: ${itemsWithoutSeat
+                .map((i) => i.product_name)
+                .join(', ')}`,
+            });
+          }
+
+          const seatNumbersInItems = new Set(allItems.map((item) => item.seat_number));
+          const seatNumbersInParts = new Set(parsedParts.map((p) => p.seatNumber));
+          if (
+            seatNumbersInItems.size !== seatNumbersInParts.size ||
+            [...seatNumbersInItems].some((seat) => !seatNumbersInParts.has(seat))
+          ) {
+            throw new HttpError(400, {
+              error: 'გადმოცემული ნაწილების (parts) ადგილები არ ემთხვევა შეკვეთაში არსებულ ადგილებს',
+            });
+          }
+
+          for (const part of parsedParts) {
+            const partItems = allItems.filter((item) => item.seat_number === part.seatNumber);
+            const partAmount = Number(
+              partItems.reduce((sum, item) => sum + item.unit_price * item.quantity, 0).toFixed(2)
+            );
+            computedParts.push({
+              seatNumber: part.seatNumber,
+              amount: partAmount,
+              tipAmount: part.tipAmount,
+              paymentMethod: part.paymentMethod,
+              cashReceived: part.cashReceived,
+              changeDue: part.paymentMethod === 'cash' && part.cashReceived !== null
+                ? Number((part.cashReceived - partAmount).toFixed(2))
+                : null,
+              items: partItems,
+            });
+          }
+        } else {
+          // 'equal' — თანაბარი გაყოფა, რაუნდინგის ნაშთი ბოლო ნაწილს
+          // ერგება, რომ ჯამი ზუსტად totalAmount-ს დაემთხვეს.
+          const evenShare = Math.floor((totalAmount / parsedParts.length) * 100) / 100;
+          let runningSum = 0;
+          parsedParts.forEach((part, index) => {
+            const isLast = index === parsedParts.length - 1;
+            const partAmount = isLast ? Number((totalAmount - runningSum).toFixed(2)) : evenShare;
+            runningSum = Number((runningSum + partAmount).toFixed(2));
+            computedParts.push({
+              seatNumber: null,
+              amount: partAmount,
+              tipAmount: part.tipAmount,
+              paymentMethod: part.paymentMethod,
+              cashReceived: part.cashReceived,
+              changeDue: part.paymentMethod === 'cash' && part.cashReceived !== null
+                ? Number((part.cashReceived - partAmount).toFixed(2))
+                : null,
+              // მთელი itemized სია მხოლოდ პირველ ნაწილს ერთვის ქვემოთ.
+              items: index === 0 ? allItems : [],
+            });
+          });
+        }
+
+        for (const part of computedParts) {
+          if (part.paymentMethod === 'cash' && (part.cashReceived === null || part.cashReceived < part.amount)) {
+            throw new HttpError(400, {
+              error: `მიღებული ნაღდი ფული ნაკლებია გადასახდელ თანხაზე (${part.amount.toFixed(2)} ₾)`,
+            });
+          }
+        }
+
+        // 📉 STEP 3.2-ის იგივე branching (BOM vs ჩვეულებრივი products.stock) —
+        // ერთხელ, მთელი აქტიური item-ების სიაზე, split-ის რეჟიმისგან
+        // დამოუკიდებლად.
+        for (const item of allItems) {
+          if (item.is_recipe_based) {
+            const recipeItems = await client.query<{ ingredient_id: string; quantity_required: number; name: string }>(
+              `SELECT ri.ingredient_id, ri.quantity_required, ing.name
+               FROM recipe_items ri JOIN ingredients ing ON ing.id = ri.ingredient_id
+               WHERE ri.product_id = $1`,
+              [item.product_id]
+            );
+            for (const ri of recipeItems.rows) {
+              const needed = ri.quantity_required * item.quantity;
+              const updateIngredientResult = await client.query(
+                `UPDATE ingredients SET stock = stock - $1 WHERE id = $2 AND stock >= $1`,
+                [needed, ri.ingredient_id]
+              );
+              if (updateIngredientResult.rowCount === 0) {
+                throw new HttpError(400, { error: `არ არის საკმარისი მარაგი ინგრედიენტზე: ${ri.name}` });
+              }
+            }
+          } else {
+            const updateStockResult = await client.query(
+              `UPDATE products SET stock = stock - $1 WHERE id = $2 AND stock >= $1`,
+              [item.quantity, item.product_id]
+            );
+            if (updateStockResult.rowCount === 0) {
+              throw new HttpError(400, { error: `არ არის საკმარისი მარაგი პროდუქტზე: ${item.product_name}` });
+            }
+          }
+        }
+
+        // 💳 N payments row-ის INSERT — ყველა ერთი და იმავე order_id-ით.
+        const paymentIds: string[] = [];
+        for (const part of computedParts) {
+          const paymentResult = await client.query<{ id: string }>(
+            // 🩹 FIX (05.09.2026) — `discount_type` მანამდე ჰარდქოდირებული
+            // 'none' string იყო, მაგრამ migration 002-ის `chk_discount_type`
+            // constraint მხოლოდ NULL-ს ან 'percent'/'fixed'-ს უშვებს
+            // ('none' არასდროს ყოფილა ვალიდური მნიშვნელობა — ჩვეულებრივი,
+            // არა-split checkout ამ ველს ყოველთვის NULL-ად წერს, დისკაუნტის
+            // არარსებობისას). Split checkout დისკაუნტს არ უჭერს მხარს,
+            // ამიტომ აქაც უპირობოდ NULL-ია სწორი მნიშვნელობა.
+            `INSERT INTO payments
+              (cashier_id, shift_id, register_id, subtotal_amount, discount_type, discount_value, total_amount,
+               payment_method, cash_received, created_at, organization_id, waiter_id, tip_amount, order_id)
+             VALUES ($1, $2, $3, $4, NULL, 0, $4, $5, $6, $7, $8, $9, $10, $11)
+             RETURNING id`,
+            [
+              req.user?.id,
+              req.activeShiftId,
+              req.registerId,
+              part.amount,
+              part.paymentMethod,
+              part.cashReceived,
+              createdAtToStore,
+              req.user?.organizationId,
+              req.user?.id,
+              part.tipAmount,
+              orderId,
+            ]
+          );
+          const newPaymentId = paymentResult.rows[0].id;
+          paymentIds.push(newPaymentId);
+
+          for (const item of part.items) {
+            await client.query(
+              `INSERT INTO payment_items (payment_id, product_id, quantity, price) VALUES ($1, $2, $3, $4)`,
+              [newPaymentId, item.product_id, item.quantity, item.unit_price]
+            );
+          }
+        }
+
+        // 🔒 ორდერი მხოლოდ ყველა ნაწილის ჩაწერის შემდეგ იხურება — pointer
+        // (`closed_payment_id`) პირველ payment-ზეა, ისევე როგორც
+        // ჩვეულებრივ (არა-split) checkout-ზე.
+        await client.query(
+          `UPDATE orders SET status = 'closed', closed_at = CURRENT_TIMESTAMP, closed_payment_id = $1
+           WHERE id = $2 AND organization_id = $3 AND status = 'open'`,
+          [paymentIds[0], orderId, req.user?.organizationId]
+        );
+
+        const tableId = orderResult.rows[0].table_id;
+        if (tableId) {
+          await client.query(`UPDATE tables SET status = 'dirty' WHERE id = $1`, [tableId]);
+        }
+
+        return { paymentIds, totalAmount, parts: computedParts };
+      });
+
+      res.status(201).json({
+        success: true,
+        paymentIds: result.paymentIds,
+        totalAmount: result.totalAmount,
+        parts: result.parts.map((p, index) => ({
+          seatNumber: p.seatNumber,
+          amount: p.amount,
+          tipAmount: p.tipAmount,
+          paymentMethod: p.paymentMethod,
+          cashReceived: p.cashReceived,
+          changeDue: p.changeDue,
+          // 🩹 FIX (06.09.2026) — მანამდე `items` საერთოდ არ ერთვოდა
+          // response-ს, ანუ frontend-ს არანაირი გზა არ ჰქონდა ცალკეული
+          // ჩეკის დასაბეჭდად (PrintableReceipt-ს itemized სია სჭირდება).
+          // `p.items` (SplitComputedPart.items) უკვე არსებობდა, უბრალოდ
+          // JSON response-ში არასდროს გადმოცემულა.
+          paymentId: result.paymentIds[index],
+          items: p.items.map((i) => ({ name: i.product_name, price: i.unit_price, quantity: i.quantity })),
+        })),
+        createdAt: createdAtToStore,
+        registerId: req.registerId,
+      });
+    } catch (err: unknown) {
+      if (err instanceof HttpError) return res.status(err.statusCode).json(err.body);
+      // 🩹 დიაგნოსტიკა (05.09.2026) — split checkout-ის ტესტვისას frontend-ზე
+      // ჩნდებოდა მხოლოდ ზოგადი "ჩეკის გაყოფა ვერ მოხერხდა" (axios-ის
+      // catch-ის fallback), backend terminal-ში კი ვერაფერი ჩანდა (აქ
+      // console.error აქამდე საერთოდ არ იყო) — ამიტომ ნამდვილი მიზეზის
+      // დანახვა შეუძლებელი იყო. ახლა სრული stack ყოველთვის იბეჭდება.
+      console.error('❌ POST /payments/split ჩავარდა:', err);
+      const message = err instanceof Error ? err.message : 'უცნობი შეცდომა';
+      res.status(500).json({ error: message });
+    }
+  }
+);
 
 // ==========================================
 // 🚫 2.5 ჩეკის გაუქმება (Void Receipt) — Roadmap ეტაპი 4
@@ -914,7 +1320,7 @@ async function syncSingleOfflineReceipt(
   // ჯერ არ სინქრონდა, სანამ B არ შესულა იმავე Register-ზე), stuck ჩეკის
   // ხელით სინქრონიზაცია მენეჯერს/ადმინს უნდა შეეძლოს — წინააღმდეგ
   // შემთხვევაში ეს ლეგიტიმური გაყიდვა სამუდამოდ დაიკარგებოდა.
-  if (requestingUserRole === 'cashier' && receipt.cashierId !== requestingUserId) {
+  if ((requestingUserRole === 'cashier' || requestingUserRole === 'waiter') && receipt.cashierId !== requestingUserId) {
     throw new Error('ჩეკის cashierId არ ემთხვევა ავტორიზებულ მომხმარებელს');
   }
 
@@ -1437,7 +1843,8 @@ function buildPaymentsFilterQuery(baseSelect: string, query: any, organizationId
 // 🔒 STEP 2.2 (RLS Pilot) — სამივე query (payments/items/splits) ერთ
 // `withOrgContext`-შია, ისე რომ ერთი, კონსისტენტური snapshot-ი დაბრუნდეს.
 router.get('/payments', authenticateToken, async (req: CustomRequest, res: any) => {
-  if (req.user?.role === 'cashier') return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
+  // 🍽 HoReCa STEP 4 — waiter იგივე staff-scope-შია, რაც cashier.
+  if (req.user?.role === 'cashier' || req.user?.role === 'waiter') return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
 
   // 🧾 p.is_voided დამატებულია (Roadmap ეტაპი 4 fix) — Dashboard.tsx-ს სჭირდება
   // ვიცოდეთ, რომელი ჩეკია გაუქმებული, რომ (ა) ისტორიის ცხრილში ვიზუალურად მონიშნოს
@@ -1450,7 +1857,7 @@ router.get('/payments', authenticateToken, async (req: CustomRequest, res: any) 
   // ამიტომ Dashboard.tsx-ის "გაყიდვების ისტორია" ცხრილს არ ჰქონდა საიდან
   // ეჩვენებინა, ნაღდი იყო თუ ბარათი.
   const baseSelect = `
-    SELECT p.id, p.subtotal_amount, p.discount_type, p.discount_value, p.total_amount, p.created_at, p.is_voided, p.payment_method, u.name AS cashier_name
+    SELECT p.id, p.subtotal_amount, p.discount_type, p.discount_value, p.total_amount, p.created_at, p.is_voided, p.payment_method, p.order_id, u.name AS cashier_name
     FROM payments p
     LEFT JOIN users u ON p.cashier_id = u.id
   `;
@@ -1650,7 +2057,8 @@ router.get('/payments/export/excel', async (req: any, res: any) => {
     // 🔒 Role-restriction (Roadmap "23.08.2026") — `GET /payments`-ის იგივე
     // შეზღუდვა: `authenticateToken` აქ არ გამოიყენება (token query param-იდან
     // მოდის), ამიტომ role-იც decoded payload-იდან ცალსახად ვკითხულობთ.
-    if (decoded.role === 'cashier') {
+    // 🍽 HoReCa STEP 4 — waiter იგივე staff-scope-შია, რაც cashier.
+    if (decoded.role === 'cashier' || decoded.role === 'waiter') {
       return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
     }
 
@@ -1727,7 +2135,8 @@ router.get('/payments/export/pdf', async (req: any, res: any) => {
 
     // 🔒 Role-restriction (Roadmap "23.08.2026") — export/excel-ის იგივე
     // შეზღუდვა/მიზეზი.
-    if (decoded.role === 'cashier') {
+    // 🍽 HoReCa STEP 4 — waiter იგივე staff-scope-შია, რაც cashier.
+    if (decoded.role === 'cashier' || decoded.role === 'waiter') {
       return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
     }
 
