@@ -649,7 +649,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
               <span className={styles.cardRowLabel}>უფლებების შეცვლა</span>
               <select
                 value={user.role}
-                disabled={user.username === 'admin'}
+                disabled={user.role === 'admin'}
                 onChange={(e) => handleRoleChange(user.id, user.status, e.target.value as any)}
                 className={styles.roleSelect}
               >
@@ -665,7 +665,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
               <input
                 type="checkbox"
                 checked={user.can_view_history}
-                disabled={user.username === 'admin'}
+                disabled={user.role === 'admin'}
                 onChange={() => toggleHistoryAccess(user)}
                 className={styles.checkbox}
               />
@@ -676,7 +676,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
               <input
                 type="checkbox"
                 checked={!!user.can_use_discount}
-                disabled={user.username === 'admin'}
+                disabled={user.role === 'admin'}
                 onChange={() => toggleDiscountAccess(user)}
                 className={styles.checkbox}
               />
@@ -687,7 +687,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
               <input
                 type="checkbox"
                 checked={!!user.can_void_receipt}
-                disabled={user.username === 'admin'}
+                disabled={user.role === 'admin'}
                 onChange={() => toggleVoidAccess(user)}
                 className={styles.checkbox}
               />
@@ -698,7 +698,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
               <input
                 type="checkbox"
                 checked={!!user.can_clear_cart}
-                disabled={user.username === 'admin'}
+                disabled={user.role === 'admin'}
                 onChange={() => toggleClearCartAccess(user)}
                 className={styles.checkbox}
               />
@@ -707,7 +707,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
             <div className={styles.cardRow}>
               <span className={styles.cardRowLabel}>სტატუსი</span>
               <button
-                disabled={user.username === 'admin'}
+                disabled={user.role === 'admin'}
                 onClick={() => toggleStatus(user)}
                 className={`${styles.statusIconBtn} ${user.status === 'ა ქ ტ ი უ რ ი ' ? styles.statusActive : styles.statusBlocked}`}
                 title={user.status === 'ა ქ ტ ი უ რ ი ' ? 'აქტიურია — დააჭირეთ დასაბლოკად' : 'დაბლოკილია — დააჭირეთ გასააქტიურებლად'}
@@ -732,7 +732,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
                 </button>
               )}
               <button
-                disabled={user.username === 'admin'}
+                disabled={user.role === 'admin'}
                 onClick={() => handleDeleteUser(user.id, user.username)}
                 className={styles.iconBtn}
                 title="მომხმარებლის წაშლა"
@@ -772,7 +772,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
                 <td>
                   <select
                     value={user.role}
-                    disabled={user.username === 'admin'}
+                    disabled={user.role === 'admin'}
                     onChange={(e) => handleRoleChange(user.id, user.status, e.target.value as any)}
                     className={styles.roleSelect}
                   >
@@ -788,7 +788,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
                   <input
                     type="checkbox"
                     checked={user.can_view_history}
-                    disabled={user.username === 'admin'}
+                    disabled={user.role === 'admin'}
                     onChange={() => toggleHistoryAccess(user)}
                     className={styles.checkbox}
                   />
@@ -799,7 +799,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
                   <input
                     type="checkbox"
                     checked={!!user.can_use_discount}
-                    disabled={user.username === 'admin'}
+                    disabled={user.role === 'admin'}
                     onChange={() => toggleDiscountAccess(user)}
                     className={styles.checkbox}
                   />
@@ -810,7 +810,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
                   <input
                     type="checkbox"
                     checked={!!user.can_void_receipt}
-                    disabled={user.username === 'admin'}
+                    disabled={user.role === 'admin'}
                     onChange={() => toggleVoidAccess(user)}
                     className={styles.checkbox}
                   />
@@ -821,7 +821,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
                   <input
                     type="checkbox"
                     checked={!!user.can_clear_cart}
-                    disabled={user.username === 'admin'}
+                    disabled={user.role === 'admin'}
                     onChange={() => toggleClearCartAccess(user)}
                     className={styles.checkbox}
                   />
@@ -829,7 +829,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
 
                 <td>
                   <button
-                    disabled={user.username === 'admin'}
+                    disabled={user.role === 'admin'}
                     onClick={() => toggleStatus(user)}
                     className={`${styles.statusIconBtn} ${user.status === 'ა ქ ტ ი უ რ ი ' ? styles.statusActive : styles.statusBlocked}`}
                     title={user.status === 'ა ქ ტ ი უ რ ი ' ? 'აქტიურია — დააჭირეთ დასაბლოკად' : 'დაბლოკილია — დააჭირეთ გასააქტიურებლად'}
@@ -856,7 +856,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
                       </button>
                     )}
                     <button
-                      disabled={user.username === 'admin'}
+                      disabled={user.role === 'admin'}
                       onClick={() => handleDeleteUser(user.id, user.username)}
                       className={styles.iconBtn}
                       title="მომხმარებლის წაშლა"

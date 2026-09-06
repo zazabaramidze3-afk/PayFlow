@@ -511,8 +511,15 @@ export const writeAuditLog = async (
   organizationId: string | undefined
 ) => {
   try {
+    // 🕐 FIX (migration 025) — created_at ცალსახად UTC-ზეა გამოთვლილი
+    // (`AT TIME ZONE 'UTC'`) INSERT-შივე, column DEFAULT-ზე დამოკიდებულების
+    // მაგივრად: DEFAULT Postgres სესიის timezone-ზეა დამოკიდებული (Render
+    // production-ზე UTC, ლოკალურ Windows Postgres-ზე კი ხშირად Asia/Tbilisi
+    // OS-ის მიხედვით) — ეს განსხვავება formatTbilisiTimestamp()-ის read-time
+    // +4 კონვერტაციასთან ერთად ლოკალურად 4-საათიან ცდომილებას იძლეოდა.
     await db.query(
-      'INSERT INTO audit_logs (actor_id, target_id, action, new_value, organization_id) VALUES ($1, $2, $3, $4, $5)',
+      `INSERT INTO audit_logs (actor_id, target_id, action, new_value, organization_id, created_at)
+       VALUES ($1, $2, $3, $4, $5, TO_CHAR(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))`,
       [actorId, targetId, action, String(newValue), organizationId]
     );
   } catch (logErr: any) {

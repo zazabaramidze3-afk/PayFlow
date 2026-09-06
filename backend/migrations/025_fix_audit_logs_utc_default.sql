@@ -1,0 +1,25 @@
+-- 025_fix_audit_logs_utc_default.sql
+--
+-- 🕐 ბაგი: audit_logs.created_at-ის ნაგულისხმევი მნიშვნელობა
+-- (TO_CHAR(CURRENT_TIMESTAMP, ...), იხ. migration 003) Postgres სესიის
+-- default timezone-ზეა დამოკიდებული. Render production-ზე ეს სესია
+-- UTC-შია (formatTbilisiTimestamp()-ის +4 კონვერტაცია სწორია), მაგრამ
+-- ლოკალურ დეველოპერულ Postgres-ზე (Windows, OS-ის Asia/Tbilisi
+-- timezone-ის მიხედვით) სესიის timezone უკვე Tbilisi-ია — created_at
+-- უკვე ლოკალურ დროს ინახავს ტექსტად, და formatTbilisiTimestamp() მაინც
+-- უმატებს +4 საათს (მას ვარაუდობს, რომ ტექსტი UTC-ია) → ლოკალურად
+-- ისტორიის ლოგები რეალურ დროზე 4 საათით წინ ჩანდა.
+--
+-- ფიქსი: DEFAULT ცალსახად `AT TIME ZONE 'UTC'`-ს იყენებს. timestamptz
+-- შიგნით აბსოლუტურ momentს ინახავს, ამიტომ `CURRENT_TIMESTAMP AT TIME
+-- ZONE 'UTC'` ყოველთვის სწორ UTC wall-clock ტექსტს დააბრუნებს, სესიის
+-- default timezone-ის მიუხედავად (იქნება ეს Render/UTC თუ ლოკალური
+-- Windows Postgres/Asia-Tbilisi) — read-time კონვერტაცია
+-- (formatTbilisiTimestamp) ორივე გარემოზე ერთნაირად სწორი გახდება.
+--
+-- ⚠️ backend/src/routes/auth.ts-ის writeAuditLog()-შიც იგივე გამოსახულება
+-- ცალსახად დაემატა INSERT-ში (column DEFAULT-ზე დამოკიდებულების მაგივრად)
+-- — ეს migration მხოლოდ column-ის DEFAULT-ს აფიქსირებს, დაცვის მეორე
+-- შრედ, ნებისმიერი სხვა/მომავალი ხელით INSERT-ისთვისაც.
+ALTER TABLE audit_logs
+  ALTER COLUMN created_at SET DEFAULT TO_CHAR(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS');

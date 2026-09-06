@@ -30,9 +30,16 @@ router.get(
   requireBusinessType('horeca'),
   async (req: CustomRequest, res: Response) => {
     try {
+      // 🔀 FIX: ადრე `ORDER BY section ASC, name ASC` იყო — მაგიდები
+      // ჯერ სექციის ტექსტის ანბანური თანმიმდევრობით იჯგუფებოდა და მხოლოდ
+      // ჯგუფშივე სახელით, რაც სექციების მიხედვით არეულ, არაპროგნოზირებად
+      // თანმიმდევრობას იძლეოდა (მაგ. "მაგიდა_2"/"დარბაზი" ომდიოდა
+      // "მაგიდა_1"/"ტერასა"-ს წინ, თუმცა 1 უფრო ადრე იყო შექმნილი).
+      // ახლა ქარდები დამატების (შექმნის) თანმიმდევრობით ჩნდება — უფრო
+      // პროგნოზირებადი და მოსალოდნელი UX, სექციის მიუხედავად.
       const result = await withOrgContext(req.user?.organizationId, (client) =>
         client.query<RestaurantTable>(
-          'SELECT * FROM tables WHERE organization_id = $1 ORDER BY section ASC NULLS LAST, name ASC',
+          'SELECT * FROM tables WHERE organization_id = $1 ORDER BY created_at ASC, name ASC',
           [req.user?.organizationId]
         )
       );
