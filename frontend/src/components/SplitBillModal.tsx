@@ -278,15 +278,28 @@ export default function SplitBillModal({ open, orderId, activeItems, totalAmount
               </div>
 
               {part.paymentMethod === 'cash' && (
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder={`მიღებული ნაღდი (მინ. ${previewAmounts[index]?.toFixed(2)} ₾)`}
-                  value={part.cashReceivedInput}
-                  onChange={(e) => updatePart(index, { cashReceivedInput: e.target.value })}
-                  className={styles.inputField}
-                />
+                <>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder={`მიღებული ნაღდი (მინ. ${previewAmounts[index]?.toFixed(2)} ₾)`}
+                    value={part.cashReceivedInput}
+                    onChange={(e) => updatePart(index, { cashReceivedInput: e.target.value })}
+                    className={styles.inputField}
+                  />
+                  {/* 🩹 FIX (06.09.2026) — OrderScreen.tsx-ის ჩვეულებრივ
+                      (non-split) checkout-ს აქვს ცოცხალი "ხურდა" გამოთვლა
+                      cash input-ის ქვეშ, split-მოდალს კი არა — თუ
+                      "მიღებული ნაღდი" გადასახდელზე მეტი შეყვანილიყო, ხურდა
+                      არსად ჩანდა submit-მდე (მხოლოდ დაბეჭდილ ჩეკზე
+                      გამოჩნდებოდა post-factum). იგივე პატერნი აქაც. */}
+                  {Number(part.cashReceivedInput) > 0 && (
+                    <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#166534', fontWeight: 'bold' }}>
+                      ხურდა: {Math.max(0, Number((Number(part.cashReceivedInput) - (previewAmounts[index] ?? 0)).toFixed(2))).toFixed(2)} ₾
+                    </p>
+                  )}
+                </>
               )}
 
               <input
