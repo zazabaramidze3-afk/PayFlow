@@ -66,7 +66,31 @@
 
 .historyBtn {
   @include m.btn-secondary;
-  &.active { background: v.$color-text-primary; color: #fff; border-color: v.$color-text-primary; }
+  // FIX (1): `color: #fff` ჰარდქოდილი იყო, `background`-ად კი
+  // $color-text-primary გამოიყენებოდა — dark თემაზე ეს თითქმის თეთრია
+  // (#E5E7EB), ამიტომ თეთრი წარწერა თეთრ/ღია ფონზე უჩინარდებოდა. `color`
+  // ახლა $color-bg-card-ია — თემის ნამდვილი "საპირისპირო" ფერი
+  // (light: მუქი ტექსტზე თეთრი ფონი / dark: ღია ტექსტზე თითქმის-შავი
+  // ფონი), ორივე თემაზე კონტრასტული.
+  //
+  // FIX (2): active-ს hover-ზე `btn-secondary`-ს ნაგულისხმევი
+  // `&:hover { background: $color-border; }` ერეოდა (subtle outline
+  // იერსახეზე abrupt-ად "აბრუნებდა" active-ის მყარ, ინვერსირებულ
+  // ავსებას) — ვიზუალურად შეუსაბამო/"აცურავებადი" გამოსახულებას
+  // იძლეოდა hover-ის დროს. ახლა `&.active:hover` ცალკეა გამოცხადებული
+  // — იგივე მყარი ფონი/ტექსტის კომბინაცია რჩება, მხოლოდ opacity
+  // მცირდება (ფერების ცვლილების გარეშე), რაც კონტრასტს არასდროს
+  // არღვევს და hover-ის feedback-საც აძლევს თანმიმდევრულად.
+  &.active {
+    background: v.$color-text-primary;
+    color: v.$color-bg-card;
+    border-color: v.$color-text-primary;
+
+    &:hover:not(:disabled) {
+      background: v.$color-text-primary;
+      opacity: 0.85;
+    }
+  }
 }
 
 .addBtn { @include m.btn-primary; }
