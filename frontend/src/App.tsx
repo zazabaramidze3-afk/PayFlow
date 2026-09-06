@@ -22,6 +22,7 @@ import { useTheme } from './hooks/useTheme';
 import ThemeToggleSwitch from './components/ThemeToggleSwitch';
 import { useBackgroundSyncEngine } from './sync/backgroundSync';
 import styles from './App.module.scss';
+import { LogoutIcon } from './components/Icons';
 
 // ==========================================================
 // 🌍 API Base URL (PLAN - Backend Migration to Render, 31.08.2026)
@@ -457,7 +458,10 @@ function App() {
             )}
           </ul>
         </div>
-        <button onClick={handleLogout} className={styles.logoutBtn}>🚪 სისტემიდან გამოსვლა</button>
+        <button onClick={handleLogout} className={styles.logoutBtn}>
+          <LogoutIcon size={15} />
+          სისტემიდან გამოსვლა
+        </button>
       </div>
 
       {/* ძირითადი კონტენტი */}
