@@ -32,6 +32,16 @@
   @include m.card-hover;
   padding: 20px 22px;
   animation: fadeInUp 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+
+  // 💡 FIX (06.09.2026): საერთო card-hover mixin-ის box-shadow პლატფორმის
+  // მასშტაბით გაზიარებულია (plain rgba(0,0,0,...) — dark თემაზე ბნელ
+  // ფონზე პრაქტიკულად უჩინარი), ამიტომ "ნათების" ეფექტი მხოლოდ ამ stat
+  // card-ებზეა დამატებული, არა mixin-შივე (რომ სხვა ყველა card-ს
+  // აპლიკაციაში ეფექტი გაუთვალისწინებლად არ დაემატოს). $color-glow-hover
+  // თემასთან ერთად იცვლება — light-ზე მუქი, dark-ზე თეთრი ნათება.
+  &:hover {
+    box-shadow: v.$shadow-hover, 0 0 24px v.$color-glow-hover;
+  }
 }
 
 .statHeader {

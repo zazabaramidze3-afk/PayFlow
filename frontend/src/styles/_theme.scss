@@ -58,6 +58,12 @@
   // მუშაობდა, dark-ზე კი დაბალკონტრასტული/მძიმე გამოდიოდა.
   --color-role-manager-text: #854D0E;
   --color-role-cashier-text: #166534;
+
+  // 💡 hover-ზე "glow" ჩრდილი (Dashboard stat card-ები) — light თემაზე
+  // მუქი, თბილი ჩრდილი; dark თემაზე კი (იხ. ქვემოთ) თეთრი ნათება, რომ
+  // ბნელ ფონზე საერთოდ ჩანდეს (plain rgba(0,0,0,...) ჩრდილი dark-ზე
+  // უჩინარია).
+  --color-glow-hover: rgba(17, 17, 17, 0.14);
 }
 
 :root[data-theme='dark'] {
@@ -102,4 +108,6 @@
 
   --color-role-manager-text: #E8C273;
   --color-role-cashier-text: #7FD9B5;
+
+  --color-glow-hover: rgba(255, 255, 255, 0.16);
 }

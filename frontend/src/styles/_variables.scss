@@ -50,6 +50,9 @@ $shadow-md: 0 10px 20px rgba(17, 17, 17, 0.06);
 $shadow-lg: 0 20px 40px rgba(17, 17, 17, 0.08);
 $shadow-hover: 0 10px 20px rgba(0, 0, 0, 0.04);
 
+// 💡 hover glow ფერი — light-ზე მუქი, dark-ზე თეთრი (იხ. _theme.scss).
+$color-glow-hover: var(--color-glow-hover);
+
 // ---- დაშორებები ----
 $space-1: 4px;
 $space-2: 8px;

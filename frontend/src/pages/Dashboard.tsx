@@ -3,6 +3,7 @@ import axios from 'axios';
 // 📊 Roadmap ეტაპი 6 — Executive Dashboard (ანალიტიკის ტაბი)
 import ExecutiveDashboard from './ExecutiveDashboard';
 import styles from './Dashboard.module.scss';
+import { DashboardIcon } from '../components/Icons';
 // 🧾 Migration 012 — უკვე დახურული ცვლის Z-Report-ის ხელახლა დაბეჭდვა
 // (Sales.tsx-ის PrintableZReport-ის იგივე კომპონენტი/ფორმატი).
 import PrintableZReport, { PrintableZReportData } from '../components/PrintableZReport';
@@ -235,7 +236,7 @@ export default function Dashboard() {
 
   return (
     <div className={styles.page}>
-      <h2 className={styles.heading}>📊 გაყიდვების მართვის პანელი</h2>
+      <h2 className={styles.heading}><DashboardIcon size={20} /> გაყიდვების მართვის პანელი</h2>
 
       {/* ტაბები — ერთიანი Tab Bar */}
       <div className={styles.tabBar}>

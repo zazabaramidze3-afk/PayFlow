@@ -22,7 +22,17 @@ import { useTheme } from './hooks/useTheme';
 import ThemeToggleSwitch from './components/ThemeToggleSwitch';
 import { useBackgroundSyncEngine } from './sync/backgroundSync';
 import styles from './App.module.scss';
-import { LogoutIcon } from './components/Icons';
+import {
+  LogoutIcon,
+  DashboardIcon,
+  PackageIcon,
+  ShoppingCartIcon,
+  GridIcon,
+  MonitorIcon,
+  SlidersIcon,
+  LayersIcon,
+  UsersIcon,
+} from './components/Icons';
 
 // ==========================================================
 // 🌍 API Base URL (PLAN - Backend Migration to Render, 31.08.2026)
@@ -384,13 +394,13 @@ function App() {
                   onClick={() => navigateTo('dashboard')}
                   className={`${styles.navItem} ${currentPage === 'dashboard' ? styles.active : ''}`}
                 >
-                  📊 Dashboard
+                  <DashboardIcon size={16} /> Dashboard
                 </li>
                 <li
                   onClick={() => navigateTo('products')}
                   className={`${styles.navItem} ${currentPage === 'products' ? styles.active : ''}`}
                 >
-                  📦 Products
+                  <PackageIcon size={16} /> Products
                 </li>
               </>
             )}
@@ -399,7 +409,7 @@ function App() {
                 onClick={() => navigateTo('sales')}
                 className={`${styles.navItem} ${currentPage === 'sales' ? styles.active : ''}`}
               >
-                🛒 Sales (POS)
+                <ShoppingCartIcon size={16} /> Sales (POS)
               </li>
             )}
             {/* 🍽️ HoReCa Module STEP 1 — ყველა როლისთვის, ვინც Sales-საც
@@ -411,7 +421,7 @@ function App() {
                 onClick={() => navigateTo('tables')}
                 className={`${styles.navItem} ${currentPage === 'tables' ? styles.active : ''}`}
               >
-                🍽️ მაგიდები
+                <GridIcon size={16} /> მაგიდები
               </li>
             )}
             {/* 🍳 HoReCa Module STEP 2 — Tables-ის იგივე ხილვადობა
@@ -422,7 +432,7 @@ function App() {
                 onClick={() => navigateTo('kitchen')}
                 className={`${styles.navItem} ${currentPage === 'kitchen' ? styles.active : ''}`}
               >
-                🍳 სამზარეულო
+                <MonitorIcon size={16} /> სამზარეულო
               </li>
             )}
             {/* 🧩 HoReCa Module STEP 3.1 — მოდიფაიერების მართვა (ჯგუფები/
@@ -433,7 +443,7 @@ function App() {
                 onClick={() => navigateTo('modifiers')}
                 className={`${styles.navItem} ${currentPage === 'modifiers' ? styles.active : ''}`}
               >
-                🧩 მოდიფაიერები
+                <SlidersIcon size={16} /> მოდიფაიერები
               </li>
             )}
             {/* 🍲 HoReCa Module STEP 3.2 — ინგრედიენტების მართვა
@@ -445,7 +455,7 @@ function App() {
                 onClick={() => navigateTo('ingredients')}
                 className={`${styles.navItem} ${currentPage === 'ingredients' ? styles.active : ''}`}
               >
-                🍲 ინგრედიენტები
+                <LayersIcon size={16} /> ინგრედიენტები
               </li>
             )}
             {isAdminOrManager && (
@@ -453,7 +463,7 @@ function App() {
                 onClick={() => navigateTo('users_control')}
                 className={`${styles.navItem} ${styles.navDivider} ${styles.navAccent} ${currentPage === 'users_control' ? styles.active : ''}`}
               >
-                👥 Users Control
+                <UsersIcon size={16} /> Users Control
               </li>
             )}
           </ul>

@@ -6,6 +6,9 @@
 }
 
 .heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: v.$color-text-primary;
   font-size: 1.4rem;
   font-weight: 700;
