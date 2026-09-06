@@ -15,6 +15,7 @@ import axios from 'axios';
 import styles from './Ingredients.module.scss';
 import ConfirmModal from '../components/ConfirmModal';
 import { Ingredient } from '../lib/horecaTypes';
+import { EditIcon, TrashIcon, CheckIcon, XIcon, RestockIcon } from '../components/Icons';
 
 type ToastType = 'success' | 'error' | 'info';
 interface ToastItem { id: number; message: string; type: ToastType; }
@@ -219,9 +220,9 @@ export default function Ingredients() {
                 ) : null}
               </div>
               <div className={styles.ingredientActions}>
-                <button className={styles.iconBtn} onClick={() => openRestock(ingredient.id)} aria-label="მარაგის შევსება">📥</button>
-                <button className={styles.iconBtn} onClick={() => openEditModal(ingredient)} aria-label="რედაქტირება">✏️</button>
-                <button className={styles.iconBtn} onClick={() => handleDelete(ingredient)} aria-label="წაშლა">🗑️</button>
+                <button className={styles.iconBtn} onClick={() => openRestock(ingredient.id)} aria-label="მარაგის შევსება"><RestockIcon /></button>
+                <button className={styles.iconBtn} onClick={() => openEditModal(ingredient)} aria-label="რედაქტირება"><EditIcon /></button>
+                <button className={styles.iconBtn} onClick={() => handleDelete(ingredient)} aria-label="წაშლა"><TrashIcon /></button>
               </div>
 
               {restockingId === ingredient.id && (
@@ -238,8 +239,8 @@ export default function Ingredients() {
                     required
                   />
                   <div className={styles.optionActions}>
-                    <button type="submit" disabled={restockSaving} className={styles.iconBtn} aria-label="დამატება">✅</button>
-                    <button type="button" onClick={closeRestock} className={styles.iconBtn} aria-label="გაუქმება">✖️</button>
+                    <button type="submit" disabled={restockSaving} className={styles.iconBtn} aria-label="დამატება"><CheckIcon /></button>
+                    <button type="button" onClick={closeRestock} className={styles.iconBtn} aria-label="გაუქმება"><XIcon /></button>
                   </div>
                 </form>
               )}

@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import styles from './UsersManagement.module.scss';
+import { KeyIcon, TrashIcon, LockIcon, UnlockIcon, PinIcon } from '../components/Icons';
 
 interface UserPermission {
   // 🆔 UUID მიგრაცია (Roadmap STEP 1) — users.id ბექენდზე ახლა UUID
@@ -708,32 +709,36 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
               <button
                 disabled={user.username === 'admin'}
                 onClick={() => toggleStatus(user)}
-                className={`${styles.statusBtn} ${user.status === 'ა ქ ტ ი უ რ ი ' ? styles.statusActive : styles.statusBlocked}`}
+                className={`${styles.statusIconBtn} ${user.status === 'ა ქ ტ ი უ რ ი ' ? styles.statusActive : styles.statusBlocked}`}
+                title={user.status === 'ა ქ ტ ი უ რ ი ' ? 'აქტიურია — დააჭირეთ დასაბლოკად' : 'დაბლოკილია — დააჭირეთ გასააქტიურებლად'}
+                aria-label="სტატუსის შეცვლა"
               >
-                {user.status}
+                {user.status === 'ა ქ ტ ი უ რ ი ' ? <UnlockIcon size={15} /> : <LockIcon size={15} />}
               </button>
             </div>
 
             <div className={styles.cardActions}>
-              <button onClick={() => openPasswordModal(user.id, user.username)} className={`${styles.actionBtn} ${styles.actionBtnPassword}`} title="პაროლის შეცვლა">
-                🔑 პაროლი
+              <button onClick={() => openPasswordModal(user.id, user.username)} className={styles.iconBtn} title="პაროლის შეცვლა" aria-label="პაროლის შეცვლა">
+                <KeyIcon />
               </button>
               {user.role === 'manager' && (
                 <button
                   onClick={() => openPinModal(user.id, user.username)}
-                  className={`${styles.actionBtn} ${user.has_manager_pin ? styles.actionBtnPin : styles.actionBtnPinSet}`}
+                  className={styles.iconBtn}
                   title={user.has_manager_pin ? 'PIN-კოდის შეცვლა' : 'PIN-კოდის დაყენება'}
+                  aria-label={user.has_manager_pin ? 'PIN-კოდის შეცვლა' : 'PIN-კოდის დაყენება'}
                 >
-                  🔢 {user.has_manager_pin ? 'PIN შეცვლა' : 'PIN დაყენება'}
+                  <PinIcon />
                 </button>
               )}
               <button
                 disabled={user.username === 'admin'}
                 onClick={() => handleDeleteUser(user.id, user.username)}
-                className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
+                className={styles.iconBtn}
                 title="მომხმარებლის წაშლა"
+                aria-label="მომხმარებლის წაშლა"
               >
-                🗑 წაშლა
+                <TrashIcon />
               </button>
             </div>
           </div>
@@ -826,34 +831,38 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
                   <button
                     disabled={user.username === 'admin'}
                     onClick={() => toggleStatus(user)}
-                    className={`${styles.statusBtn} ${user.status === 'ა ქ ტ ი უ რ ი ' ? styles.statusActive : styles.statusBlocked}`}
+                    className={`${styles.statusIconBtn} ${user.status === 'ა ქ ტ ი უ რ ი ' ? styles.statusActive : styles.statusBlocked}`}
+                    title={user.status === 'ა ქ ტ ი უ რ ი ' ? 'აქტიურია — დააჭირეთ დასაბლოკად' : 'დაბლოკილია — დააჭირეთ გასააქტიურებლად'}
+                    aria-label="სტატუსის შეცვლა"
                   >
-                    {user.status}
+                    {user.status === 'ა ქ ტ ი უ რ ი ' ? <UnlockIcon size={15} /> : <LockIcon size={15} />}
                   </button>
                 </td>
                 <td>
                   <div className={styles.rowActions}>
-                    <button onClick={() => openPasswordModal(user.id, user.username)} className={`${styles.actionBtn} ${styles.actionBtnPassword}`} title="პაროლის შეცვლა">
-                      🔑 პაროლი
+                    <button onClick={() => openPasswordModal(user.id, user.username)} className={styles.iconBtn} title="პაროლის შეცვლა" aria-label="პაროლის შეცვლა">
+                      <KeyIcon />
                     </button>
                     {/* 🔑 Manager PIN Override (Roadmap ეტაპი 2) — მხოლოდ MANAGER როლისთვის ჩანს,
                         ტექსტი დამოკიდებულია იმაზე, უკვე დაყენებულია თუ არა PIN. */}
                     {user.role === 'manager' && (
                       <button
                         onClick={() => openPinModal(user.id, user.username)}
-                        className={`${styles.actionBtn} ${user.has_manager_pin ? styles.actionBtnPin : styles.actionBtnPinSet}`}
+                        className={styles.iconBtn}
                         title={user.has_manager_pin ? 'PIN-კოდის შეცვლა' : 'PIN-კოდის დაყენება'}
+                        aria-label={user.has_manager_pin ? 'PIN-კოდის შეცვლა' : 'PIN-კოდის დაყენება'}
                       >
-                        🔢 {user.has_manager_pin ? 'PIN შეცვლა' : 'PIN დაყენება'}
+                        <PinIcon />
                       </button>
                     )}
                     <button
                       disabled={user.username === 'admin'}
                       onClick={() => handleDeleteUser(user.id, user.username)}
-                      className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
+                      className={styles.iconBtn}
                       title="მომხმარებლის წაშლა"
+                      aria-label="მომხმარებლის წაშლა"
                     >
-                      🗑 წაშლა
+                      <TrashIcon />
                     </button>
                   </div>
                 </td>

@@ -19,6 +19,7 @@ import axios from 'axios';
 import styles from './Modifiers.module.scss';
 import ConfirmModal from '../components/ConfirmModal';
 import { ModifierGroupWithOptions, ModifierOption, ModifierSelectionType } from '../lib/horecaTypes';
+import { EditIcon, TrashIcon, CheckIcon, XIcon } from '../components/Icons';
 
 type ToastType = 'success' | 'error' | 'info';
 interface ToastItem { id: number; message: string; type: ToastType; }
@@ -304,8 +305,8 @@ export default function Modifiers() {
                   {group.is_required && <span className={styles.badgeRequired}>სავალდებულო</span>}
                 </div>
                 <div className={styles.groupActions}>
-                  <button className={styles.iconBtn} onClick={() => openEditGroupModal(group)} aria-label="რედაქტირება">✏️</button>
-                  <button className={styles.iconBtn} onClick={() => handleDeleteGroup(group)} aria-label="წაშლა">🗑️</button>
+                  <button className={styles.iconBtn} onClick={() => openEditGroupModal(group)} aria-label="რედაქტირება"><EditIcon /></button>
+                  <button className={styles.iconBtn} onClick={() => handleDeleteGroup(group)} aria-label="წაშლა"><TrashIcon /></button>
                 </div>
               </div>
 
@@ -335,8 +336,8 @@ export default function Modifiers() {
                           placeholder="0.00"
                         />
                         <div className={styles.optionActions}>
-                          <button type="submit" disabled={optionSaving} className={styles.iconBtn} aria-label="შენახვა">✅</button>
-                          <button type="button" onClick={cancelEditOption} className={styles.iconBtn} aria-label="გაუქმება">✖️</button>
+                          <button type="submit" disabled={optionSaving} className={styles.iconBtn} aria-label="შენახვა"><CheckIcon /></button>
+                          <button type="button" onClick={cancelEditOption} className={styles.iconBtn} aria-label="გაუქმება"><XIcon /></button>
                         </div>
                       </form>
                     ) : (
@@ -346,8 +347,8 @@ export default function Modifiers() {
                           {option.price_delta > 0 ? `+${option.price_delta.toFixed(2)} ₾` : option.price_delta < 0 ? `${option.price_delta.toFixed(2)} ₾` : '0.00 ₾'}
                         </span>
                         <div className={styles.optionActions}>
-                          <button className={styles.iconBtn} onClick={() => startEditOption(option)} aria-label="რედაქტირება">✏️</button>
-                          <button className={styles.iconBtn} onClick={() => handleDeleteOption(option)} aria-label="წაშლა">🗑️</button>
+                          <button className={styles.iconBtn} onClick={() => startEditOption(option)} aria-label="რედაქტირება"><EditIcon /></button>
+                          <button className={styles.iconBtn} onClick={() => handleDeleteOption(option)} aria-label="წაშლა"><TrashIcon /></button>
                         </div>
                       </div>
                     )
@@ -378,8 +379,8 @@ export default function Modifiers() {
                     placeholder="ფასის ცვლილება (₾)"
                   />
                   <div className={styles.optionActions}>
-                    <button type="submit" disabled={optionSaving} className={styles.iconBtn} aria-label="დამატება">✅</button>
-                    <button type="button" onClick={closeAddOption} className={styles.iconBtn} aria-label="გაუქმება">✖️</button>
+                    <button type="submit" disabled={optionSaving} className={styles.iconBtn} aria-label="დამატება"><CheckIcon /></button>
+                    <button type="button" onClick={closeAddOption} className={styles.iconBtn} aria-label="გაუქმება"><XIcon /></button>
                   </div>
                 </form>
               ) : (

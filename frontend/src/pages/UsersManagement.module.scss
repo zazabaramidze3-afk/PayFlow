@@ -222,8 +222,6 @@
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid v.$color-border;
-
-  .actionBtn { flex: 1; min-width: 100px; }
 }
 
 .username { font-weight: 700; color: v.$color-text-primary; }
@@ -250,15 +248,31 @@
   &:disabled { cursor: not-allowed; }
 }
 
-.statusBtn {
-  @include m.btn-base;
-  padding: 6px 14px;
-  height: auto;
-  font-size: 12.5px;
-  color: #fff;
+// 🎨 ერთგვაროვანი, ბექგრაუნდის-გარეშე icon-ღილაკი — პაროლი/PIN/წაშლა
+// (Tables/Modifiers/Ingredients/Products გვერდების იგივე პატერნი).
+.iconBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: v.$radius-sm;
+  color: v.$color-text-secondary;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: v.$transition-fast;
 
-  &.statusActive { background: v.$color-success; &:hover:not(:disabled) { background: v.$color-success-hover; } }
-  &.statusBlocked { background: v.$color-danger; &:hover:not(:disabled) { background: v.$color-danger-hover; } }
+  &:hover:not(:disabled) { background: v.$color-bg-subtle; color: v.$color-text-primary; }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+
+// 🔓/🔒 სტატუსის toggle — იგივე icon-ღილაკის ზომა, მაგრამ ფერი აქტიური/
+// დაბლოკილი მდგომარეობის მკაფიო ვიზუალურ სიგნალად რჩება.
+.statusIconBtn {
+  @extend .iconBtn;
+
+  &.statusActive { color: v.$color-success; &:hover:not(:disabled) { background: v.$color-success-soft; color: v.$color-success; } }
+  &.statusBlocked { color: v.$color-danger; &:hover:not(:disabled) { background: v.$color-danger-soft; color: v.$color-danger; } }
 }
 
 .rowActions {
@@ -275,9 +289,6 @@
   font-size: 12px;
   color: #fff;
 }
-.actionBtnPassword { background: v.$color-primary; &:hover:not(:disabled) { background: v.$color-primary-hover; } }
-.actionBtnPin { background: v.$color-info; &:hover:not(:disabled) { background: #7C3AED; } }
-.actionBtnPinSet { background: v.$color-warning; &:hover:not(:disabled) { background: #D97706; } }
 .actionBtnDelete { background: v.$color-danger; &:hover:not(:disabled) { background: v.$color-danger-hover; } }
 
 // ==========================================================

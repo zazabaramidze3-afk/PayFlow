@@ -3,6 +3,7 @@ import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import styles from './Products.module.scss';
 import { ModifierGroupWithOptions, Ingredient, ProductRecipe } from '../lib/horecaTypes';
+import { EditIcon, TrashIcon, XIcon } from '../components/Icons';
 
 // 🍳 KDS routing (STEP 2, Roadmap "03.09.2026", migration 020) —
 // 'kitchen'|'bar'|null. Retail-ზეც ჩნდება ტიპის დონეზე (backend-ის
@@ -670,10 +671,10 @@ export default function Products({ businessType }: ProductsProps) {
                       style={{ flex: 1 }}
                       placeholder="რაოდენობა"
                     />
-                    <button type="button" onClick={() => removeRecipeRow(index)} className={styles.deleteBtn}>✖️</button>
+                    <button type="button" onClick={() => removeRecipeRow(index)} className={styles.iconBtn} aria-label="ინგრედიენტის მოხსნა"><XIcon /></button>
                   </div>
                 ))}
-                <button type="button" onClick={addRecipeRow} className={styles.editBtn} style={{ marginBottom: '12px' }}>
+                <button type="button" onClick={addRecipeRow} className={styles.addRowBtn} style={{ marginBottom: '12px' }}>
                   ➕ ინგრედიენტის დამატება
                 </button>
               </>
@@ -725,8 +726,8 @@ export default function Products({ businessType }: ProductsProps) {
                   </td>
                   <td>
                     <div className={styles.rowActions}>
-                      <button onClick={() => startEdit(product)} className={styles.editBtn}>რედაქტირება</button>
-                      <button onClick={() => handleDelete(product.id)} className={styles.deleteBtn}>წაშლა</button>
+                      <button onClick={() => startEdit(product)} className={styles.iconBtn} aria-label="რედაქტირება"><EditIcon /></button>
+                      <button onClick={() => handleDelete(product.id)} className={styles.iconBtn} aria-label="წაშლა"><TrashIcon /></button>
                     </div>
                   </td>
                 </tr>

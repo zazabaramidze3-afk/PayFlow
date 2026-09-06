@@ -210,7 +210,27 @@
   gap: 6px;
 }
 
-.editBtn {
+// 🎨 მინიმალისტური icon-ღილაკები (Cowork session, 06.09.2026) — სავსე
+// ყვითელი/წითელი ღილაკების ნაცვლად, Tables/Modifiers/Ingredients-ის
+// იდენტური სტილი (იხ. frontend/src/components/Icons.tsx).
+.iconBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: v.$radius-sm;
+  color: v.$color-text-secondary;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: v.$transition-fast;
+  &:hover { background: v.$color-bg-subtle; color: v.$color-text-primary; }
+}
+
+// 🍳 რეცეპტის (BOM) builder-ის "ინგრედიენტის დამატება" ღილაკი — ცალკეა
+// .iconBtn-ისგან, რადგან ტექსტიან, warning-ფერად label-ღილაკს
+// წარმოადგენს (არა pure icon-ღილაკს); ძველი .editBtn-ის იდენტური სტილი.
+.addRowBtn {
   @include m.btn-base;
   background: v.$color-warning;
   color: #fff;
@@ -218,16 +238,6 @@
   height: auto;
   font-size: 12.5px;
   &:hover:not(:disabled) { background: #D97706; }
-}
-
-.deleteBtn {
-  @include m.btn-base;
-  background: v.$color-danger;
-  color: #fff;
-  padding: 6px 12px;
-  height: auto;
-  font-size: 12.5px;
-  &:hover:not(:disabled) { background: v.$color-danger-hover; }
 }
 
 // ==========================================================

@@ -19,6 +19,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import styles from './Tables.module.scss';
+import { EditIcon, TrashIcon, UsersIcon } from '../components/Icons';
 import OrderScreen from './OrderScreen';
 import ConfirmModal from '../components/ConfirmModal';
 import { RestaurantTable, TableStatus } from '../lib/horecaTypes';
@@ -73,13 +74,17 @@ const STATUS_CARD_CLASS: Record<TableStatus, string> = {
   dirty: 'statusDirty',
 };
 
-const QUICK_STATUSES: TableStatus[] = ['free', 'reserved', 'dirty'];
-const QUICK_STATUS_LABEL: Record<TableStatus, string> = {
-  free: '🟢 თავისუფალი',
-  occupied: '🔴 დაკავებული',
-  reserved: '🟡 დაჯავშნილი',
-  dirty: '⚪ დასალაგებელი',
+// 🎨 მინიმალისტური სტატუს-წერტილი (badge/quick-status ღილაკებში) — emoji-ის
+// ნაცვლად, რომ OS-ის მიხედვით რენდერი არ იცვლებოდეს და თემასთან
+// (light/dark) თანმიმდევრული დარჩეს.
+const STATUS_DOT_CLASS: Record<TableStatus, string> = {
+  free: 'dotFree',
+  occupied: 'dotOccupied',
+  reserved: 'dotReserved',
+  dirty: 'dotDirty',
 };
+
+const QUICK_STATUSES: TableStatus[] = ['free', 'reserved', 'dirty'];
 
 export default function Tables({ canManage }: TablesProps) {
   const [tables, setTables] = useState<RestaurantTable[]>([]);
@@ -374,15 +379,22 @@ export default function Tables({ canManage }: TablesProps) {
             >
               {canManage && (
                 <div className={styles.cardActions}>
-                  <button className={styles.iconBtn} onClick={e => openEditModal(table, e)} aria-label="რედაქტირება">✏️</button>
-                  <button className={styles.iconBtn} onClick={e => handleDelete(table, e)} aria-label="წაშლა">🗑️</button>
+                  <button className={styles.iconBtn} onClick={e => openEditModal(table, e)} aria-label="რედაქტირება"><EditIcon /></button>
+                  <button className={styles.iconBtn} onClick={e => handleDelete(table, e)} aria-label="წაშლა"><TrashIcon /></button>
                 </div>
               )}
               <div className={styles.cardMain} onClick={() => setSelectedTable(table)}>
                 <span className={styles.tableName}>{table.name}</span>
                 {table.section && <span className={styles.tableMeta}>{table.section}</span>}
-                {table.capacity !== null && <span className={styles.tableMeta}>👥 {table.capacity} ადგილი</span>}
-                <span className={styles[STATUS_BADGE_CLASS[table.status]]}>{STATUS_LABEL[table.status]}</span>
+                {table.capacity !== null && (
+                  <span className={styles.tableMeta}>
+                    <UsersIcon /> {table.capacity} ადგილი
+                  </span>
+                )}
+                <span className={styles[STATUS_BADGE_CLASS[table.status]]}>
+                  <span className={`${styles.dot} ${styles[STATUS_DOT_CLASS[table.status]]}`} />
+                  {STATUS_LABEL[table.status]}
+                </span>
               </div>
               {table.status !== 'occupied' && (
                 <div className={styles.quickStatusRow}>
@@ -392,7 +404,8 @@ export default function Tables({ canManage }: TablesProps) {
                       className={`${styles.quickStatusBtn} ${table.status === status ? styles.active : ''}`}
                       onClick={e => handleQuickStatus(table, status, e)}
                     >
-                      {QUICK_STATUS_LABEL[status]}
+                      <span className={`${styles.dot} ${styles[STATUS_DOT_CLASS[status]]}`} />
+                      {STATUS_LABEL[status]}
                     </button>
                   ))}
                 </div>

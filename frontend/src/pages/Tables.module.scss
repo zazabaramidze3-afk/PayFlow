@@ -2,6 +2,19 @@
 @use '../styles/variables' as v;
 @use '../styles/mixins' as m;
 
+// 🌀 CSS custom property "დარეგისტრირება" ცალკე — animate-adly, რომ
+// --spin-angle-ის ცვლილება (@keyframes spinAngle) გლუვად ინტერპოლირდეს
+// conic-gradient-ის `from`-ში (@property-ის გარეშე browser უბრალოდ ვერ
+// ხვდება, "angle"-ის ტიპია თუ არა custom property — ანიმაცია არ
+// გაეშვება, მაგრამ არც არაფერი გატყდება, static gradient უბრალოდ
+// დარჩება). ეს რეგისტრაცია გლობალურია (CSS Modules custom property-ის
+// სახელს არ ცვლის), ამიტომ ერთხელ საკმარისია.
+@property --spin-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
 .tablesContainer {
   animation: fadeInUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
@@ -27,10 +40,14 @@
 .btnDanger { @include m.btn-danger; }
 .btnGhost { @include m.btn-ghost; }
 
+// 🎨 Card-დიზაინის განახლება (Cowork session, 06.09.2026) — ბარათები
+// გადიდდა (minmax 180px → 240px, padding 16px → 22px) და emoji-icon-ები
+// (✏️/🗑️/👥/🟢🔴🟡⚪) ჩანაცვლდა მინიმალისტური stroke-SVG-ებით/status-dot-ებით
+// (იხ. Tables.tsx-ის EditIcon/TrashIcon/UsersIcon და STATUS_DOT_CLASS).
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 20px;
 }
 
 .emptyState {
@@ -40,37 +57,102 @@
   color: v.$color-text-secondary;
 }
 
+// 🎨 hover-ანიმაცია (Cowork session, 06.09.2026) — mask-composite ტრიქი:
+// ::before ზუსტად .tableCard-ის ზომისაა (inset: 0, არა -Npx), padding-ით
+// განსაზღვრული სისქის conic-gradient "spinner-line" დახატულია, შემდეგ
+// ორშრიანი mask (content-box + border-box, XOR/exclude) გამოჭრის მხოლოდ
+// padding-ის სისქის ჩარჩოს — ცენტრი ყოველთვის სრულად გამჭვირვალეა,
+// კონტენტის სიმაღლის/სტრუქტურის მიუხედავად (ამის გამო ცალკე "inner"
+// wrapper აღარ სჭირდება — წინა ვერსია ამაზე იშლებოდა grid-item-ის
+// stretch-სა და content-ის ბუნებრივ სიმაღლეს შორის შეუსაბამობით).
 .tableCard {
   @include m.card;
-  @include m.card-hover;
-  padding: 16px;
+  padding: 22px;
+  border-radius: v.$radius-lg;
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.28s ease;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 2px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+
+    // ⚠️ აქ განზრახ *არ* ვატრიალებთ `transform: rotate(...)`-ით — ეს
+    // მთელ ::before "სურათს" (mask-ით გამოჭრილ ჩარჩო-ფორმასაც) დაატრიალებდა,
+    // რაც მართკუთხა ბარათზე დამახინჯებულად გამოჩნდებოდა. ამის ნაცვლად
+    // მხოლოდ conic-gradient-ის `from`-კუთხე ("--spin-angle") ტრიალებს
+    // (@keyframes spinAngle) — ჩარჩოს მართკუთხა ფორმა უძრავი რჩება,
+    // მხოლოდ ფერადი "ხაზი" სრიალებს მის გასწვრივ, ზუსტად spinner-ის
+    // მსგავსად.
+    --spin-angle: 0deg;
+    animation: spinAngle 1.6s linear infinite;
+    animation-play-state: paused;
+
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+  }
+
+  &:hover {
+    transform: translateY(-6px) scale(1.02);
+    box-shadow: v.$shadow-lg;
+    z-index: 1;
+
+    &::before {
+      opacity: 1;
+      animation-play-state: running;
+    }
+  }
 
   &.statusFree { border-left: 4px solid v.$color-success; }
   &.statusOccupied { border-left: 4px solid v.$color-danger; }
   &.statusReserved { border-left: 4px solid v.$color-warning; }
   &.statusDirty { border-left: 4px solid v.$color-text-muted; }
+
+  // 🌀 "spinner-line" — მოკლე, ბზუალი რკალი (არა სავსე რგოლი): უმეტესი
+  // წრეწირი გამჭვირვალეა, მხოლოდ ~70°-იან მონაკვეთში ჩნდება ფერი,
+  // --spin-angle-ის ანიმაცია მას მუდმივად ატრიალებს ჩარჩოს გასწვრივ —
+  // იგივე ვიზუალი, რაც ავტორიზაციის გვერდის loading-spinner-ს აქვს.
+  &.statusFree::before { background: conic-gradient(from var(--spin-angle), transparent 0deg, transparent 290deg, v.$color-success 340deg, transparent 360deg); }
+  &.statusOccupied::before { background: conic-gradient(from var(--spin-angle), transparent 0deg, transparent 290deg, v.$color-danger 340deg, transparent 360deg); }
+  &.statusReserved::before { background: conic-gradient(from var(--spin-angle), transparent 0deg, transparent 290deg, v.$color-warning 340deg, transparent 360deg); }
+  &.statusDirty::before { background: conic-gradient(from var(--spin-angle), transparent 0deg, transparent 290deg, v.$color-text-muted 340deg, transparent 360deg); }
+}
+
+@keyframes spinAngle {
+  to { --spin-angle: 360deg; }
 }
 
 .cardMain {
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .tableName {
-  font-size: 17px;
+  font-size: 20px;
   font-weight: 700;
   color: v.$color-text-primary;
 }
 
 .tableMeta {
-  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
   color: v.$color-text-secondary;
+
+  svg { flex-shrink: 0; opacity: 0.8; }
 }
 
 .statusBadgeFree { @include m.badge(v.$color-success-soft, v.$color-success); }
@@ -78,10 +160,24 @@
 .statusBadgeReserved { @include m.badge(v.$color-warning-soft, v.$color-warning); }
 .statusBadgeDirty { @include m.badge(v.$color-bg-subtle, v.$color-text-muted); }
 
+// 🔵 მინიმალისტური სტატუს-წერტილი — badge-შიც და quick-status ღილაკებშიც
+// გამოიყენება (emoji-ის ნაცვლად).
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+.dotFree { background: v.$color-success; }
+.dotOccupied { background: v.$color-danger; }
+.dotReserved { background: v.$color-warning; }
+.dotDirty { background: v.$color-text-muted; }
+
 .cardActions {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 16px;
+  right: 16px;
   display: flex;
   gap: 4px;
 }
@@ -90,11 +186,15 @@
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 14px;
-  padding: 4px;
+  padding: 6px;
   border-radius: v.$radius-sm;
   color: v.$color-text-secondary;
-  &:hover { background: v.$color-bg-subtle; }
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: v.$transition-fast;
+
+  &:hover { background: v.$color-bg-subtle; color: v.$color-text-primary; }
 }
 
 .quickStatusRow {
@@ -105,9 +205,10 @@
 
 .quickStatusBtn {
   @include m.btn-base;
-  padding: 4px 8px;
+  padding: 5px 10px;
   min-height: unset;
-  font-size: 11px;
+  gap: 5px;
+  font-size: 11.5px;
   background: v.$color-bg-subtle;
   color: v.$color-text-secondary;
   border: 1px solid v.$color-border;
