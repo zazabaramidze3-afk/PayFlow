@@ -1,6 +1,6 @@
 # HoReCa მოდულის ღია საკითხები — Roadmap
 
-**სტატუსი:** 🟡 ღია — არც ერთი პუნქტი ჯერ არ გადაწყვეტილა/განხორციელებულა.
+**სტატუსი:** 🟡 ღია — 1/7 პუნქტი დასრულებულია (#4, KDS Realtime, 09.09.2026).
 **თარიღი:** 06.09.2026
 **წყარო:** `ROADMAP - HoReCa Module - 03.09.2026.md`-ის STEP 1-4 (ყველა
 production-ზეა, დასრულებული) — ამ ძირითადი roadmap-ის "ღია საკითხები"
@@ -91,22 +91,50 @@ US-style "pooled/tip-out"). worth ჰკითხოთ რესტორნი
 
 ## 4. KDS-ის realtime latency (STEP 2-დან)
 
-**საკითხი:** v1 (production) 4-წამიან polling-ს იყენებს
-(`KitchenDisplay.tsx`) სამზარეულოს ეკრანის განახლებისთვის.
-ლოკალურ ტესტირებაზე საკმარისად სწრაფი იყო, მაგრამ production-ის
-რეალურ დატვირთვაზე (რამდენიმე ერთდროული device — რამდენიმე waiter
-+ KDS ეკრანი ერთდროულად) ჯერ არ შემოწმებულა.
+**საკითხი (თავდაპირველი):** v1 (production) 4-წამიან polling-ს
+იყენებდა (`KitchenDisplay.tsx`) სამზარეულოს ეკრანის განახლებისთვის —
+production peak load-ზე (რამდენიმე ერთდროული waiter + KDS ეკრანი)
+ჯერ არ ყოფილა შემოწმებული, რისკი იყო WebSocket-ზე გადასვლის
+საჭიროება.
 
-**რისკი:** თუ polling ვერ ასწრებს რეალურ დატვირთვას (ან database-ზე
-ზედმეტი load-ია ბევრი ერთდროული client-ის query-ის გამო), საჭირო
-გახდება WebSocket-ზე გადასვლა.
+**გადაწყვეტა (09.09.2026):** polling WebSocket-ით (Socket.IO)
+ჩანაცვლდა:
+- `backend/src/socket.ts` (ახალი) — Socket.IO server, JWT
+  handshake-auth (იგივე secret, რასაც REST-ის `authenticateToken`),
+  org-scoped room-ები (`org:<organizationId>`). Path
+  `/api/socket.io` — dev-ში vite-ის უკვე არსებულ `/api` proxy-rule-ს
+  ეკვრის (`ws: true` დამატებულია).
+- `backend/src/index.ts` — `app.listen` → `http.createServer(app)` +
+  `initSocket(...)`, იმავე PORT-ზე (ცალკე service/port არ ემატება).
+- `backend/src/routes/orders.ts`, `kitchen.ts` — item-ის დამატება
+  (routed station-ზე), სტატუსის წინსვლა და void — ყველა ცვლილება
+  `emitKdsChanged`-ით ატყობინებს დაკავშირებულ KDS ეკრანებს.
+- `frontend/src/lib/socket.ts` (ახალი) — singleton socket
+  connection, იგივე auth token.
+- `frontend/src/pages/KitchenDisplay.tsx` — `'kds:changed'`-ზე
+  დაუყოვნებელი refetch; polling დარჩა მხოლოდ fallback/safety-net-ად
+  (4წმ → 20წმ, connection-ის დროებითი ჩავარდნისთვის).
 
-**შესამოწმებელი:** production-ის რეალურ პიკ-საათებში (რამდენიმე
-ერთდროული waiter-ი + KDS ეკრანი) დაკვირვება — რამდენად სწრაფად
-აისახება ახალი შეკვეთა სამზარეულოს ეკრანზე, backend-ის query-load
-რამდენიმე ერთდროული client-ისას.
+**Design:** socket მხოლოდ "changed" სიგნალს აგზავნის, არა სრულ
+ticket-payload-ს — client მიღებისთანავე უკვე არსებულ
+`GET /kitchen/tickets`-ს იძახებს (ticket-shape-ის ორმაგი
+წყაროს/დესინქრონიზაციის თავიდან ასაცილებლად).
 
-**სტატუსი:** 🟡 v1 მუშაობს, production load-ტესტი ჯერ არ ჩატარებულა.
+**ტესტირება:** ლოკალურად დადასტურებულია ორ ცალკე ეკრანს შორის —
+real-time განახლება მყისიერია (არა 4-წამიანი დაყოვნებით). WS
+connection დადასტურებულია Chrome DevTools-ში (`101 Switching
+Protocols`, სრული handshake header-ები).
+
+**Commits:** `2c54866` (feat: WebSocket realtime), `5c83351` (fix:
+CRLF line-ending housekeeping, `frontend/package(-lock).json`).
+
+**Deployment:** ✅ Vercel (frontend) და ✅ Render (backend) —
+ორივე production-ზეა (`5c83351`, "Deploy succeeded | Live",
+10.09.2026 — Render-ის პირველი მცდელობა ჩავარდა ქსელური
+`ECONNRESET`-ით `npm ci`-ის დროს, მეორე manual redeploy-მა
+წარმატებით გაიარა).
+
+**სტატუსი:** 🟢 დასრულებულია, production-ზეა.
 
 ---
 
