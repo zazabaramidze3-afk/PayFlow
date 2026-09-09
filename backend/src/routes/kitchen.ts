@@ -19,6 +19,10 @@ import { CustomRequest } from './checkShift';
 import { requireBusinessType } from '../middleware/requireBusinessType';
 import { withOrgContext } from '../db';
 import { KitchenStatus, KitchenTicket, Station, OrderItemModifierSummary } from '../types';
+// 🔌 KDS Realtime (Roadmap "HoReCa Open Items - 06.09.2026.md", #4) —
+// სტატუსის წინსვლაც KDS ტიკეტების სიას ცვლის ყველა დაკავშირებული
+// ეკრანისთვის (socket.ts-ის header-კომენტარი).
+import { emitKdsChanged } from '../socket';
 
 const router = Router();
 
@@ -124,8 +128,8 @@ router.patch(
 
     try {
       const item = await withOrgContext(req.user?.organizationId, async (client) => {
-        const current = await client.query<{ kitchen_status: KitchenStatus; order_status: string }>(
-          `SELECT oi.kitchen_status, o.status AS order_status
+        const current = await client.query<{ kitchen_status: KitchenStatus; order_status: string; station: Station | null }>(
+          `SELECT oi.kitchen_status, o.status AS order_status, oi.station
            FROM order_items oi
            JOIN orders o ON o.id = oi.order_id
            WHERE oi.id = $1 AND o.organization_id = $2`,
@@ -150,8 +154,12 @@ router.patch(
           [nextStatus, req.params.orderItemId]
         );
 
-        return updateResult.rows[0];
+        return { ...updateResult.rows[0], station: current.rows[0].station };
       });
+
+      // 🔌 KDS Realtime — 'served'-ზე გადასვლაც შედის აქ (item KDS-იდან
+      // ქრება ისევე, როგორც წინსვლის ნებისმიერ სხვა საფეხურზე ემატება).
+      emitKdsChanged(req.user?.organizationId, item.station);
 
       res.json(item);
     } catch (err: unknown) {

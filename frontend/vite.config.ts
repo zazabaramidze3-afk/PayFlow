@@ -101,6 +101,12 @@ export default defineConfig({
         target: 'http://localhost:5000',
         changeOrigin: true,
         secure: false,
+        // 🔌 KDS Realtime (Roadmap "HoReCa Open Items - 06.09.2026.md",
+        // #4) — Socket.IO handshake ამავე '/api' proxy-rule-ს გაივლის
+        // (server-მხარეს path: '/api/socket.io', backend/src/socket.ts),
+        // მაგრამ vite-ის http-proxy-middleware-ს ცალკე ws:true სჭირდება,
+        // თორემ HTTP request-ებს პროქსავს, WebSocket Upgrade-ს კი არა.
+        ws: true,
       },
     },
   },

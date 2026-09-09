@@ -21,6 +21,12 @@ import {
   ProductStationLookup,
   OrderItemModifierSummary,
 } from '../types';
+// 🔌 KDS Realtime (Roadmap "HoReCa Open Items - 06.09.2026.md", #4) —
+// item დამატება/გაუქმება KDS ტიკეტების სიას ცვლის, ამიტომ ორივე
+// ადგილას (ქვემოთ) push-ის სიგნალი იგზავნება 4-წამიანი polling-ის
+// ნაცვლად (client-ის თავად GET /kitchen/tickets-ს იძახებს, socket.ts-ის
+// header-კომენტარის მიხედვით).
+import { emitKdsChanged } from '../socket';
 
 const router = Router();
 
@@ -432,6 +438,13 @@ router.post(
         return { ...newItem, modifiers: selectedOptions };
       });
 
+      // 🔌 KDS Realtime — მხოლოდ მაშინ, თუ item მაშინვე 'sent'-ზეა
+      // (station მინიჭებული აქვს პროდუქტს) — 'pending' item KDS-ზე
+      // საერთოდ არ ჩანს, ტყუილი push-ის საჭიროება არ არის.
+      if (item.station) {
+        emitKdsChanged(req.user?.organizationId, item.station);
+      }
+
       res.status(201).json(item);
     } catch (err: unknown) {
       if (err instanceof Error && err.message === 'NOT_FOUND') {
@@ -570,6 +583,14 @@ router.patch(
         );
         return result.rows[0];
       });
+
+      // 🔌 KDS Realtime — void-იც KDS ტიკეტების სიას ცვლის (item ქრება
+      // ეკრანიდან); edit-branch-ის item-ს station არასდროს აქვს
+      // (მხოლოდ 'pending' item რედაქტირდება, რომელსაც station არასდროს
+      // ჰქონია — იხ. ზემოთ, POST /orders/:id/items-ის კომენტარი).
+      if (item.station) {
+        emitKdsChanged(req.user?.organizationId, item.station);
+      }
 
       res.json(item);
     } catch (err: unknown) {

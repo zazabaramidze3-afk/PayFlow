@@ -6,6 +6,7 @@ import * as Sentry from '@sentry/node';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { createServer } from 'http';
 
 // ⚠️ FIX: აქ ადრე იქმნებოდა მეორე, დამოუკიდებელი Pool იმავე ბაზასთან
 // (SSL ლოგიკაც განსხვავებული ჰქონდა db.ts-ისგან). ეს ორი ცალ-ცალკე
@@ -41,6 +42,10 @@ import kitchenRoutes from './routes/kitchen';
 // მოდიფაიერები. იგივე `requireBusinessType('horeca')` გუარდი.
 import modifiersRoutes from './routes/modifiers';
 import ingredientsRoutes from './routes/ingredients';
+
+// 🔌 KDS Realtime (Roadmap "HoReCa Open Items - 06.09.2026.md", #4) —
+// Socket.IO ინიციალიზაცია (იხ. socket.ts-ის თავი კომენტარი დეტალებისთვის).
+import { initSocket } from './socket';
 
 dotenv.config();
 
@@ -164,5 +169,14 @@ app.get('/api/health', (_req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 ბექენდ სერვერი წარმატებით ჩაირთო პორტზე ${PORT}`));
+
+// ⚠️ FIX (Roadmap #4, KDS realtime) — app.listen(PORT) ნაცვლად ცალკე
+// http.Server ვქმნით და ვუთმობთ app-საც (Express request handler-ად)
+// და initSocket-საც (იმავე პორტზე Socket.IO-ს handshake-ისთვის) — ორივე
+// ერთსა და იმავე TCP port-ს იზიარებს, ცალკე port/service არ ემატება
+// (იხ. socket.ts-ის header-კომენტარი).
+const httpServer = createServer(app);
+initSocket(httpServer, ALLOWED_ORIGINS);
+
+httpServer.listen(PORT, () => console.log(`🚀 ბექენდ სერვერი წარმატებით ჩაირთო პორტზე ${PORT} (REST + WebSocket)`));
 export default app;

@@ -19,13 +19,21 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import styles from './KitchenDisplay.module.scss';
 import { KitchenTicket, KitchenStatus, OrderStation } from '../lib/horecaTypes';
+// 🔌 KDS Realtime (Roadmap "HoReCa Open Items - 06.09.2026.md", #4) —
+// push-based განახლება 4-წამიანი polling-ის ნაცვლად (lib/socket.ts-ის
+// header-კომენტარი).
+import { getSocket } from '../lib/socket';
 
 type ToastType = 'success' | 'error' | 'info';
 interface ToastItem { id: number; message: string; type: ToastType; }
 
 type Station = NonNullable<OrderStation>;
 
-const POLL_INTERVAL_MS = 4000;
+// 🔌 KDS Realtime — WebSocket ('kds:changed') ახლა პირველადი წყაროა
+// (თითქმის momentალური განახლება), polling მხოლოდ fallback/safety-net-ია
+// (connection-ის დროებითი ჩავარდნის შემთხვევაზე) — ამიტომ ინტერვალი
+// მნიშვნელოვნად გაზრდილია (4წმ → 20წმ).
+const POLL_INTERVAL_MS = 20000;
 
 const STATION_TABS: { value: Station; label: string }[] = [
   { value: 'kitchen', label: '🍳 სამზარეულო' },
@@ -99,6 +107,41 @@ export default function KitchenDisplay() {
     const interval = window.setInterval(() => fetchTickets(station), POLL_INTERVAL_MS);
     return () => window.clearInterval(interval);
   }, [fetchTickets, station]);
+
+  // 🔌 KDS Realtime — socket 'kds:changed' event-ზე დაუყოვნებელი refetch,
+  // მაგრამ მხოლოდ თუ ცვლილება ამჟამად ღია station-ს ეხება (bar-ის
+  // screen-ს kitchen-ის ცვლილება არ სჭირდება). `stationRef` საჭიროა,
+  // რომ ეს ეფექტი მხოლოდ mount-ზე გაეშვას (socket-ის ხელახლა
+  // subscribe/unsubscribe station-ის ტაბის ყოველ გადართვაზე არ
+  // გვინდა) — მაინც ყოველთვის მიმდინარე station-ს კითხულობს.
+  const stationRef = useRef(station);
+  stationRef.current = station;
+
+  useEffect(() => {
+    const socket = getSocket();
+
+    const handleChanged = (payload: { station: Station }) => {
+      if (payload.station === stationRef.current) {
+        fetchTickets(stationRef.current);
+      }
+    };
+
+    // 'connect' — პირველადი დაკავშირებისასაც და ნებისმიერი reconnect-ის
+    // შემდეგაც (connection ხანმოკლედ რომ ჩავარდეს) — რომ დაკავშირების
+    // წყვეტის დროს გამორჩენილი ცვლილება არ დაიკარგოს (polling-ის
+    // fallback-ს არაუმეტეს 20 წამამდე მოუწევდა ლოდინი).
+    const handleConnect = () => {
+      fetchTickets(stationRef.current);
+    };
+
+    socket.on('kds:changed', handleChanged);
+    socket.on('connect', handleConnect);
+
+    return () => {
+      socket.off('kds:changed', handleChanged);
+      socket.off('connect', handleConnect);
+    };
+  }, [fetchTickets]);
 
   useEffect(() => {
     const tickInterval = window.setInterval(() => forceTick(t => t + 1), 30000);

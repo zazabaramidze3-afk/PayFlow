@@ -21,6 +21,7 @@ import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { useTheme } from './hooks/useTheme';
 import ThemeToggleSwitch from './components/ThemeToggleSwitch';
 import { useBackgroundSyncEngine } from './sync/backgroundSync';
+import { disconnectSocket } from './lib/socket';
 import styles from './App.module.scss';
 import {
   LogoutIcon,
@@ -321,7 +322,12 @@ function App() {
 
   // სისტემიდან გამოსვლის ფუნქცია
   const handleLogout = () => {
-    localStorage.removeItem('token'); 
+    localStorage.removeItem('token');
+    // 🔌 KDS Realtime — ძველი token-ით დამყარებული socket-connection
+    // (თუ KDS ეკრანი ღია ყოფილა) უნდა დაიხუროს, თორემ შემდეგი login-ის
+    // ახალი token ვერასდროს ჩაენაცვლება უკვე დაკავშირებულ socket-ს
+    // (frontend/src/lib/socket.ts-ის header-კომენტარი).
+    disconnectSocket();
     setCurrentUser(null);
   };
 
