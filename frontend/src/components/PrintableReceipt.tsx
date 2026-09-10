@@ -76,7 +76,7 @@ const PAYMENT_METHOD_LABEL: Record<'cash' | 'card' | 'split', string> = {
 function ReceiptBody({ receipt }: PrintableReceiptProps) {
   const hasDiscount = !!receipt.discountAmount && receipt.discountAmount > 0;
   const hasCashReceived = typeof receipt.cashReceived === 'number' && receipt.cashReceived > 0;
-  const hasTip = typeof receipt.tipAmount === 'number' && receipt.tipAmount > 0;
+  const hasTip = Number(receipt.tipAmount ?? 0) > 0;
 
   return (
     <>
@@ -172,7 +172,7 @@ function ReceiptBody({ receipt }: PrintableReceiptProps) {
       {hasTip && (
         <div className="receipt-row" style={{ fontSize: '12px' }}>
           <span>ჯამური (tip):</span>
-          <span>{receipt.tipAmount!.toFixed(2)} ₾</span>
+          <span>{Number(receipt.tipAmount).toFixed(2)} ₾</span>
         </div>
       )}
       <hr />

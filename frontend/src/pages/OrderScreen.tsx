@@ -573,6 +573,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
         splits: response.data.splits,
         cashReceived: response.data.cashReceived,
         changeDue: response.data.changeDue,
+        tipAmount: payload.tipAmount,
       });
 
       showToast(`მაგიდა "${table.name}" — ჩეკი დაიხურა!`, 'success');

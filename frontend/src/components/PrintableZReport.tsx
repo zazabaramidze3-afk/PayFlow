@@ -58,10 +58,10 @@ export default function PrintableZReport({ report }: PrintableZReportProps) {
         <span>ფაქტობრივი თანხა:</span>
         <span>{report.actual.toFixed(2)} ₾</span>
       </div>
-      {typeof report.tipTotal === 'number' && report.tipTotal > 0 && (
+      {Number(report.tipTotal ?? 0) > 0 && (
         <div className="receipt-row">
           <span>ჯამური tip:</span>
-          <span>{report.tipTotal.toFixed(2)} ₾</span>
+          <span>{Number(report.tipTotal).toFixed(2)} ₾</span>
         </div>
       )}
       <hr />

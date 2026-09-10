@@ -63,6 +63,13 @@ interface Shift {
   difference: number | null;
   receipt_count: number | null;
   card_total: number | null;
+  // 🩹 FIX (10.09.2026) — GET /shifts/history (`SELECT s.*`) ამ ველს
+  // უკვე აბრუნებდა (migration 023), მაგრამ Shift interface-ს არ ჰქონდა
+  // განსაზღვრული, ამიტომ "ხელახლა დაბეჭდვა"-ს PrintableZReportData-ში
+  // tipTotal საერთოდ არ გადადიოდა — ხელახლა-დაბეჭდილ Z-Report-ს tip
+  // ეკარგებოდა, თუმცა ცვლის თავდაპირველ (Sales.tsx-ის) დახურვის-
+  // ბეჭდვას სწორად ჰქონდა (roadmap-ის #3-ის discussion-ისას აღმოჩენილი).
+  tip_total: number | null;
   is_amended: boolean;
   last_amended_at: string | null;
 }
@@ -549,6 +556,7 @@ export default function Dashboard() {
             actual: printShift.end_amount_actual ?? 0,
             difference: printShift.difference ?? 0,
             receiptCount: printShift.receipt_count ?? 0,
+            tipTotal: printShift.tip_total ?? 0,
           } satisfies PrintableZReportData}
         />
       )}
