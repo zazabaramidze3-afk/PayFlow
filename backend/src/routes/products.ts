@@ -172,14 +172,17 @@ router.put('/products/:id', authenticateToken, async (req: CustomRequest, res: R
     return res.status(400).json({ error: 'მარაგი უარყოფითი ვერ იქნება' });
   }
 
-  // 🍳 KDS routing (STEP 2) — იგივე COALESCE($N, column) პატერნი, რაც
-  // name/price/stock/barcode-ს ჰქონდა უკვე: თუ station req.body-ში
-  // საერთოდ არ მოვიდა, undefined რჩება → pg driver-ი NULL-ად გადასცემს
-  // → COALESCE ძველ მნიშვნელობას ინარჩუნებს. ⚠️ ცნობილი შეზღუდვა
-  // (იგივეა, რაც უკვე არსებულ barcode-ს აქვს): ერთხელ მინიჭებული
-  // station-ის უკან, "არცერთი"-ზე ხელახლა გასუფთავება ამ endpoint-ით
-  // შეუძლებელია — მხოლოდ kitchen ⇄ bar გადართვა. Un-assign, თუ საჭირო
-  // გახდება, ცალკე მოთხოვნაა.
+  // 🍳 KDS routing (STEP 2) — station ცალკე ეპყრობა name/price/stock/
+  // barcode-ს (ქვემოთ, static COALESCE-ით): თუ station key საერთოდ არ
+  // მოვიდა request body-ში, სვეტს საერთოდ არ ვეხებით (COALESCE-ის
+  // ეკვივალენტი). მაგრამ თუ key მოვიდა — თუნდაც null/ცარიელი
+  // მნიშვნელობით ("არცერთი"-ზე განზრახ გასუფთავება) — პირდაპირ
+  // ვანიჭებთ სვეტს (dynamic SET, ქვემოთ), COALESCE-ის გვერდის ავლით.
+  // 🩹 FIX (10.09.2026) — მანამდე station-იც COALESCE($5, station)-ით
+  // იწერებოდა, რაც ნიშნავდა, რომ "explicit null" (გასუფთავება) და
+  // "საერთოდ არ მოსული" ორივე SQL NULL-ად ხვდებოდა COALESCE-ს და
+  // ძველი მნიშვნელობა ყოველთვის ნარჩუნდებოდა — ერთხელ მინიჭებული
+  // station-ის "არცერთი"-ზე დაბრუნება ფიზიკურად შეუძლებელი იყო.
   let stationValue: StationValue | undefined;
   if (station !== undefined) {
     stationValue = station || null;
@@ -207,16 +210,34 @@ router.put('/products/:id', authenticateToken, async (req: CustomRequest, res: R
       }
     }
 
+    // station-ის dynamic SET — იხ. კომენტარი ზემოთ. name/price/stock/
+    // barcode-ს კვლავ COALESCE ჰყავს (ეს ველები "გასუფთავებას" ფორმიდან
+    // არ საჭიროებენ — ცარიელი name/price ისედაც frontend-ის validation-ს
+    // ვერ გაივლის, ცარიელი barcode-ის ახსნადი "" || null უკვე null-ია
+    // და COALESCE-ის ეგივე შეზღუდვა მასზეც ვრცელდება, მაგრამ ეს ცალკე,
+    // დაბალპრიორიტეტული საკითხია — ამ fix-ის scope station-ია).
+    const setClauses: string[] = [
+      'name = COALESCE($1, name)',
+      'price = COALESCE($2, price)',
+      'stock = COALESCE($3, stock)',
+      'barcode = COALESCE($4, barcode)',
+    ];
+    const values: Array<string | number | null | undefined> = [name?.trim(), price, stock, barcode];
+
+    if (station !== undefined) {
+      values.push(stationValue ?? null);
+      setClauses.push(`station = $${values.length}`);
+    }
+
+    values.push(req.params.id, req.user?.organizationId);
+    const idPlaceholder = `$${values.length - 1}`;
+    const orgPlaceholder = `$${values.length}`;
+
     const result = await withOrgContext(req.user?.organizationId, (client) =>
       client.query(
-        `UPDATE products SET
-          name = COALESCE($1, name),
-          price = COALESCE($2, price),
-          stock = COALESCE($3, stock),
-          barcode = COALESCE($4, barcode),
-          station = COALESCE($5, station)
-         WHERE id = $6 AND organization_id = $7 RETURNING *`,
-        [name?.trim(), price, stock, barcode, stationValue, req.params.id, req.user?.organizationId]
+        `UPDATE products SET ${setClauses.join(', ')}
+         WHERE id = ${idPlaceholder} AND organization_id = ${orgPlaceholder} RETURNING *`,
+        values
       )
     );
 
