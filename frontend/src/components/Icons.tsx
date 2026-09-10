@@ -100,6 +100,18 @@ export function LockIcon({ size = 16 }: IconProps) {
   );
 }
 
+// 💵 ნაღდი ფულის summary/input-ებისთვის (ცვლის დახურვის მოდალი და მისთ.) —
+// მინიმალისტური "ბანკნოტი" ვიზუალი (feather-style).
+export function CashIcon({ size = 16 }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width={size} height={size} aria-hidden="true">
+      <rect x="2" y="6" width="20" height="12" rx="2" />
+      <circle cx="12" cy="12" r="3" />
+      <path d="M6 10v.01M18 14v.01" />
+    </svg>
+  );
+}
+
 // 🔢 მენეჯერის PIN-კოდის დაყენება/შეცვლა — numeric keypad ვიზუალი.
 export function PinIcon({ size = 16 }: IconProps) {
   return (

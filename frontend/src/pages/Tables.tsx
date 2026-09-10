@@ -19,7 +19,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import styles from './Tables.module.scss';
-import { EditIcon, TrashIcon, UsersIcon } from '../components/Icons';
+import { EditIcon, TrashIcon, UsersIcon, DashboardIcon, LockIcon, CashIcon } from '../components/Icons';
 import OrderScreen from './OrderScreen';
 import ConfirmModal from '../components/ConfirmModal';
 import { RestaurantTable, TableStatus } from '../lib/horecaTypes';
@@ -522,11 +522,11 @@ export default function Tables({ canManage }: TablesProps) {
           <div className={styles.modalBody}>
             {!zReport ? (
               <>
-                <h3>🛑 ცვლის დახურვა</h3>
+                <h3 className={styles.modalTitle}><LockIcon size={18} /> ცვლის დახურვა</h3>
                 <p>შეიყვანეთ სალაროში არსებული ფაქტობრივი ნაღდი ფული.</p>
                 <form onSubmit={handleCloseShift}>
                   <div className={styles.formGroup}>
-                    <label>💵 ფაქტობრივი ნაღდი ფული (₾)</label>
+                    <label className={styles.labelIcon}><CashIcon size={14} /> ფაქტობრივი ნაღდი ფული (₾)</label>
                     <input
                       type="number"
                       min="0"
@@ -559,7 +559,7 @@ export default function Tables({ canManage }: TablesProps) {
               </>
             ) : (
               <div style={{ textAlign: 'center' }}>
-                <h3 className={styles.zReportTitle}>📊 ცვლა დაიხურა (Z-Report)</h3>
+                <h3 className={styles.zReportTitle}><DashboardIcon size={18} /> ცვლა დაიხურა (Z-Report)</h3>
                 <div className={styles.zReportBox}>
                   <div className={styles.zReportRow}>
                     <span>საწყისი:</span>

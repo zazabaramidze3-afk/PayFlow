@@ -1,4 +1,5 @@
 import styles from './Sales.module.scss';
+import { LockIcon, CashIcon, DashboardIcon } from '../components/Icons';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 // 🖨 Roadmap ეტაპი 7 — ბეჭდვადი შაბლონები (@media print).
@@ -1346,10 +1347,10 @@ export default function Sales() {
           <div className={styles.modalBody}>
             {!zReport ? (
               <>
-                <h3>ცვლის დახურვა და ინკასაცია</h3>
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><LockIcon size={18} /> ცვლის დახურვა და ინკასაცია</h3>
                 <p>შეიყვანეთ სალაროში არსებული ფაქტობრივი ნაღდი ფული.</p>
                 <form onSubmit={handleCloseShift}>
-                  <div className={styles.formGroup}><label>💵 ფაქტობრივი ნაღდი ფული (₾)</label>
+                  <div className={styles.formGroup}><label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><CashIcon size={14} /> ფაქტობრივი ნაღდი ფული (₾)</label>
                     <input type="number" min="0" step="0.01" value={endAmountActual} onChange={e => setEndAmountActual(e.target.value)} className={styles.inputField} />
                   </div>
                   <div style={{ display: 'flex', gap: '10px', marginTop: '20px', flexWrap: 'wrap' }}>
@@ -1367,28 +1368,25 @@ export default function Sales() {
               </>
             ) : (
               <div style={{ textAlign: 'center' }}>
-                <h3 style={{ color: '#10b981' }}>📊 ცვლა დაიხურა (Z-Report)</h3>
-                <div style={{ background: '#f8fafc', color: '#1e293b', padding: '15px', borderRadius: '8px', margin: '20px 0', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {/* 🩹 FIX (05.09.2026) — ამ box-ს აქვს hardcoded ღია ფონი (#f8fafc),
-                      მაგრამ ტექსტს (span/strong) ცალკე ფერი არ ჰქონდა მინიჭებული —
-                      Dark Mode-ში მემკვიდრეობით ღია/თეთრი ფერი ერგებოდა, ანუ
-                      ციფრები პრაქტიკულად უჩინარდებოდა (თეთრი ტექსტი თეთრ ფონზე).
-                      მხოლოდ "სხვაობა" ჩანდა, რადგან მას აქვს საკუთარი (წითელი/მწვანე)
-                      inline ფერი. ახლა მთელ box-ს ცალსახად მუქი ტექსტის ფერი აქვს,
-                      თემისგან დამოუკიდებლად. */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>საწყისი:</span> <strong>{Number(zReport.start ?? 0).toFixed(2)} ₾</strong></div>
+                <h3 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#10b981', margin: 0 }}><DashboardIcon size={18} /> ცვლა დაიხურა (Z-Report)</h3>
+                <div style={{ background: 'rgba(255, 255, 255, 0.06)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '18px', borderRadius: '12px', margin: '20px 0', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {/* 🩹 FIX (10.09.2026) — hardcoded ღია ფონი (#f8fafc) ჩანაცვლდა
+                      frosted-glass (ბუნდოვანი, ნახევრად გამჭვირვალე) დიზაინით,
+                      Tables.tsx-ის HoReCa close-shift მოდალის იდენტური სტილით —
+                      თემისგან დამოუკიდებელი, მუქ ფონზე ორიენტირებული ვიზუალი. */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '14px' }}><span style={{ color: 'var(--color-text-secondary)' }}>საწყისი:</span> <strong style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{Number(zReport.start ?? 0).toFixed(2)} ₾</strong></div>
                   {/* 🖨 Roadmap ეტაპი 7 — "გაყიდული ჩეკების რაოდენობა", ადრე მოდალშიც კი არ ჩანდა */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>გაყიდული ჩეკები:</span> <strong>{zReport.receiptCount ?? 0}</strong></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>მოსალოდნელი:</span> <strong>{Number(zReport.expected ?? 0).toFixed(2)} ₾</strong></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>ფაქტობრივი:</span> <strong>{Number(zReport.actual ?? 0).toFixed(2)} ₾</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '14px' }}><span style={{ color: 'var(--color-text-secondary)' }}>გაყიდული ჩეკები:</span> <strong style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{zReport.receiptCount ?? 0}</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '14px' }}><span style={{ color: 'var(--color-text-secondary)' }}>მოსალოდნელი:</span> <strong style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{Number(zReport.expected ?? 0).toFixed(2)} ₾</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '14px' }}><span style={{ color: 'var(--color-text-secondary)' }}>ფაქტობრივი:</span> <strong style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{Number(zReport.actual ?? 0).toFixed(2)} ₾</strong></div>
                   {/* 🩹 FIX (06.09.2026) — HoReCa STEP 4: ჯამური tip ცვლაზე,
                       reconciliation/payroll-ისთვის. 0-ზე არ ჩანს (Retail
                       POS checkout-ს tip საერთოდ არ აქვს). */}
                   {Number(zReport.tipTotal ?? 0) > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>ჯამური tip:</span> <strong>{Number(zReport.tipTotal ?? 0).toFixed(2)} ₾</strong></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '14px' }}><span style={{ color: 'var(--color-text-secondary)' }}>ჯამური tip:</span> <strong style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{Number(zReport.tipTotal ?? 0).toFixed(2)} ₾</strong></div>
                   )}
-                  <hr style={{ border: 'none', borderTop: '1px solid #e2e8f0' }} />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: (zReport.difference ?? 0) < 0 ? '#ef4444' : '#10b981' }}><span>სხვაობა:</span> <strong>{Number(zReport.difference ?? 0).toFixed(2)} ₾</strong></div>
+                  <hr style={{ border: 'none', borderTop: '1px solid rgba(255, 255, 255, 0.1)', margin: '2px 0' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '14px' }}><span style={{ color: 'var(--color-text-secondary)' }}>სხვაობა:</span> <strong style={{ fontWeight: 600, color: (zReport.difference ?? 0) < 0 ? '#ef4444' : '#10b981' }}>{Number(zReport.difference ?? 0).toFixed(2)} ₾</strong></div>
                 </div>
                 {/* 🖨 Z-Report ბეჭდვის ღილაკი (Roadmap ეტაპი 7) — ზუსტად ის ციფრები
                     იბეჭდება, რაც ზემოთ მოდალშია ნაჩვენები (PrintableZReport). */}

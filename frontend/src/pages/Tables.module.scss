@@ -251,17 +251,28 @@
 .shiftBadgeOpen { color: v.$color-success; }
 .shiftBadgeClosed { color: v.$color-text-secondary; }
 
-// 🩹 FIX (05.09.2026) — Sales.tsx-ის Z-Report box-ის იგივე ბაგის თავიდან
-// აცილება: hardcoded ღია ფონზე ტექსტს ცალსახად მუქი ფერი უნდა ჰქონდეს,
-// თემისგან დამოუკიდებლად — წინააღმდეგ შემთხვევაში Dark Mode-ში
-// მემკვიდრეობითი ღია ტექსტი ღია ფონზე პრაქტიკულად უჩინარდება.
-.zReportTitle { color: v.$color-success; }
+// 🎨 FIX (10.09.2026) — მინიმალისტური რედიზაინი: ძველი hardcoded ღია
+// box (#f8fafc/#1e293b) დარკ მოდალში მკვეთრად "თეთრ ლაქად" იჩენდა თავს
+// და ცალკე ხელით საჭიროებდა მუქი ტექსტის ფერის ამოწერას (Dark Mode
+// readability fix-ის ისტორია, ქვემოთ). ახლა frosted-glass პანელია —
+// გამჭვირვალე ბექგრაუნდი + backdrop-filter blur, თემაზე დამოკიდებული
+// ტექსტის ფერებით (v.$color-text-*) hardcoded ფერების ნაცვლად.
+.zReportTitle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: v.$color-success;
+  margin: 0;
+}
 
 .zReportBox {
-  background: #f8fafc;
-  color: #1e293b;
-  padding: 15px;
-  border-radius: v.$radius-sm;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 18px;
+  border-radius: v.$radius-md;
   margin: 20px 0;
   text-align: left;
   display: flex;
@@ -272,16 +283,21 @@
 .zReportRow {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
+  font-size: 14px;
+
+  > span { color: v.$color-text-secondary; }
+  > strong { color: v.$color-text-primary; font-weight: 600; }
 }
 
 .zReportDivider {
   border: none;
-  border-top: 1px solid #e2e8f0;
-  margin: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin: 2px 0;
 }
 
-.zReportPositive { color: v.$color-success; }
-.zReportNegative { color: v.$color-danger; }
+.zReportPositive > strong { color: v.$color-success; }
+.zReportNegative > strong { color: v.$color-danger; }
 
 .formGroup {
   margin-bottom: 14px;
@@ -290,6 +306,19 @@
   gap: 6px;
 
   label { font-size: 13px; font-weight: 600; color: v.$color-text-secondary; }
+}
+
+.modalTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+
+.labelIcon {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .inputField { @include m.input-base; width: 100%; }
