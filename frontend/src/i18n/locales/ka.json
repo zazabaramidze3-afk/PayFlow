@@ -181,5 +181,53 @@
       "saleFailed": "გაყიდვა ჩავარდა!"
     },
     "unitPcs": "ც."
+  },
+  "tables": {
+    "pageTitle": "🍽️ მაგიდები",
+    "pageSubtitle": "დააჭირეთ მაგიდას შეკვეთის სანახავად/გასახსნელად",
+    "addTable": "➕ ახალი მაგიდა",
+    "shiftStatusLoading": "ცვლის სტატუსი იტვირთება...",
+    "shiftActiveBadge": "🟢 ცვლა აქტიურია",
+    "shiftOpenedSuffix": " — გახსნილია: {{time}}",
+    "closeShiftBtn": "🛑 ცვლის დახურვა",
+    "shiftClosedBadge": "🔒 ცვლა დახურულია",
+    "openShiftBtn": "🚀 ცვლის გახსნა",
+    "emptyState": "მაგიდები ჯერ არ არის დამატებული.",
+    "emptyStateHint": " დააჭირეთ \"{{addTable}}\"-ს ზემოთ.",
+    "capacityLabel": "{{count}} ადგილი",
+    "editAria": "რედაქტირება",
+    "deleteAria": "წაშლა",
+    "editTableTitle": "✏️ მაგიდის რედაქტირება",
+    "nameLabel": "სახელი",
+    "namePlaceholder": "მაგიდა 5",
+    "sectionLabel": "სექცია (არასავალდებულო)",
+    "sectionPlaceholder": "დარბაზი / ტერასა / ბარი",
+    "capacityFormLabel": "ტევადობა (არასავალდებულო)",
+    "saving": "ინახება...",
+    "save": "შენახვა",
+    "openingShift": "იხსნება...",
+    "openShiftSubmit": "გახსნა",
+    "closeShiftModalTitle": "ცვლის დახურვა",
+    "deleteConfirmTitle": "🗑️ მაგიდის წაშლა",
+    "deleteConfirmMessage": "წავშალოთ მაგიდა \"{{name}}\"?",
+    "status": {
+      "free": "თავისუფალი",
+      "occupied": "დაკავებული",
+      "reserved": "დაჯავშნილი",
+      "dirty": "დასალაგებელი"
+    },
+    "toasts": {
+      "loadFailed": "მაგიდების ჩატვირთვა ვერ მოხერხდა",
+      "statusChangeFailed": "სტატუსის შეცვლა ვერ მოხერხდა",
+      "nameRequired": "მაგიდის სახელი სავალდებულოა",
+      "updated": "მაგიდა განახლდა",
+      "created": "მაგიდა დაემატა",
+      "saveFailed": "შენახვა ვერ მოხერხდა",
+      "deleted": "მაგიდა წაიშალა",
+      "deleteFailed": "წაშლა ვერ მოხერხდა",
+      "shiftOpened": "ცვლა გაიხსნა",
+      "openShiftFailed": "ცვლის გახსნა ვერ მოხერხდა",
+      "closeShiftFailed": "ცვლის დახურვა ვერ მოხერხდა"
+    }
   }
 }

@@ -23,6 +23,8 @@ import { EditIcon, TrashIcon, UsersIcon, DashboardIcon, LockIcon, CashIcon } fro
 import OrderScreen from './OrderScreen';
 import ConfirmModal from '../components/ConfirmModal';
 import { RestaurantTable, TableStatus } from '../lib/horecaTypes';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 
 interface TablesProps {
   canManage: boolean;
@@ -53,12 +55,7 @@ interface ZReportData {
 
 const POLL_INTERVAL_MS = 8000;
 
-const STATUS_LABEL: Record<TableStatus, string> = {
-  free: 'თავისუფალი',
-  occupied: 'დაკავებული',
-  reserved: 'დაჯავშნილი',
-  dirty: 'დასალაგებელი',
-};
+const getStatusLabel = (status: TableStatus): string => i18n.t(`tables.status.${status}`);
 
 const STATUS_BADGE_CLASS: Record<TableStatus, string> = {
   free: 'statusBadgeFree',
@@ -87,6 +84,7 @@ const STATUS_DOT_CLASS: Record<TableStatus, string> = {
 const QUICK_STATUSES: TableStatus[] = ['free', 'reserved', 'dirty'];
 
 export default function Tables({ canManage }: TablesProps) {
+  const { t } = useTranslation();
   const [tables, setTables] = useState<RestaurantTable[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedTable, setSelectedTable] = useState<RestaurantTable | null>(null);
@@ -126,7 +124,7 @@ export default function Tables({ canManage }: TablesProps) {
       setTables(response.data);
     } catch (error: unknown) {
       const message = axios.isAxiosError<{ error?: string }>(error) ? error.response?.data?.error : undefined;
-      showToast(message || 'მაგიდების ჩატვირთვა ვერ მოხერხდა', 'error');
+      showToast(message || t('tables.toasts.loadFailed'), 'error');
     } finally {
       setLoading(false);
     }
@@ -168,7 +166,7 @@ export default function Tables({ canManage }: TablesProps) {
       setTables(prev => prev.map(t => (t.id === table.id ? { ...t, status } : t)));
     } catch (error: unknown) {
       const message = axios.isAxiosError<{ error?: string }>(error) ? error.response?.data?.error : undefined;
-      showToast(message || 'სტატუსის შეცვლა ვერ მოხერხდა', 'error');
+      showToast(message || t('tables.toasts.statusChangeFailed'), 'error');
     }
   };
 
@@ -197,7 +195,7 @@ export default function Tables({ canManage }: TablesProps) {
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim()) {
-      showToast('მაგიდის სახელი სავალდებულოა', 'error');
+      showToast(t('tables.toasts.nameRequired'), 'error');
       return;
     }
 
@@ -211,16 +209,16 @@ export default function Tables({ canManage }: TablesProps) {
     try {
       if (editingTable) {
         await axios.put(`/api/tables/${editingTable.id}`, payload);
-        showToast('მაგიდა განახლდა', 'success');
+        showToast(t('tables.toasts.updated'), 'success');
       } else {
         await axios.post('/api/tables', payload);
-        showToast('მაგიდა დაემატა', 'success');
+        showToast(t('tables.toasts.created'), 'success');
       }
       closeFormModal();
       fetchTables();
     } catch (error: unknown) {
       const message = axios.isAxiosError<{ error?: string }>(error) ? error.response?.data?.error : undefined;
-      showToast(message || 'შენახვა ვერ მოხერხდა', 'error');
+      showToast(message || t('tables.toasts.saveFailed'), 'error');
     } finally {
       setFormSaving(false);
     }
@@ -237,19 +235,19 @@ export default function Tables({ canManage }: TablesProps) {
   const performDelete = async (table: RestaurantTable) => {
     try {
       await axios.delete(`/api/tables/${table.id}`);
-      showToast('მაგიდა წაიშალა', 'success');
+      showToast(t('tables.toasts.deleted'), 'success');
       fetchTables();
     } catch (error: unknown) {
       const message = axios.isAxiosError<{ error?: string }>(error) ? error.response?.data?.error : undefined;
-      showToast(message || 'წაშლა ვერ მოხერხდა', 'error');
+      showToast(message || t('tables.toasts.deleteFailed'), 'error');
     }
   };
 
   const handleDelete = (table: RestaurantTable, e: React.MouseEvent) => {
     e.stopPropagation();
     setConfirmModal({
-      title: '🗑️ მაგიდის წაშლა',
-      message: `წავშალოთ მაგიდა "${table.name}"?`,
+      title: t('tables.deleteConfirmTitle'),
+      message: t('tables.deleteConfirmMessage', { name: table.name }),
       onConfirm: () => {
         closeConfirmModal();
         void performDelete(table);
@@ -269,7 +267,7 @@ export default function Tables({ canManage }: TablesProps) {
     try {
       const parsedStart = parseFloat(startAmount) || 0;
       await axios.post('/api/shifts/open', { start_amount: parsedStart });
-      showToast('ცვლა გაიხსნა', 'success');
+      showToast(t('tables.toasts.shiftOpened'), 'success');
       setShowOpenShiftModal(false);
       setStartAmount('0');
       fetchShiftStatus();
@@ -277,7 +275,7 @@ export default function Tables({ canManage }: TablesProps) {
       const message = axios.isAxiosError<{ error?: string; message?: string }>(error)
         ? error.response?.data?.error ?? error.response?.data?.message
         : undefined;
-      showToast(message || 'ცვლის გახსნა ვერ მოხერხდა', 'error');
+      showToast(message || t('tables.toasts.openShiftFailed'), 'error');
     } finally {
       setOpeningShift(false);
     }
@@ -290,7 +288,7 @@ export default function Tables({ canManage }: TablesProps) {
     e.preventDefault();
     const parsedEndAmount = parseFloat(endAmountActual);
     if (endAmountActual.trim() === '' || !Number.isFinite(parsedEndAmount) || parsedEndAmount < 0) {
-      showToast('შეიყვანეთ სალაროში დათვლილი ფაქტობრივი ნაღდი ფულის ოდენობა', 'error');
+      showToast(t('sales.toasts.enterActualCash'), 'error');
       return;
     }
     setClosingShift(true);
@@ -301,7 +299,7 @@ export default function Tables({ canManage }: TablesProps) {
       const message = axios.isAxiosError<{ error?: string; message?: string }>(error)
         ? error.response?.data?.error ?? error.response?.data?.message
         : undefined;
-      showToast(message || 'ცვლის დახურვა ვერ მოხერხდა', 'error');
+      showToast(message || t('tables.toasts.closeShiftFailed'), 'error');
     } finally {
       setClosingShift(false);
     }
@@ -329,12 +327,12 @@ export default function Tables({ canManage }: TablesProps) {
     <div className={styles.tablesContainer}>
       <div className={styles.topPanel}>
         <div>
-          <h2>🍽️ მაგიდები</h2>
-          <small>დააჭირეთ მაგიდას შეკვეთის სანახავად/გასახსნელად</small>
+          <h2>{t('tables.pageTitle')}</h2>
+          <small>{t('tables.pageSubtitle')}</small>
         </div>
         {canManage && (
           <button onClick={openCreateModal} className={`${styles.btn} ${styles.btnPrimary}`}>
-            ➕ ახალი მაგიდა
+            {t('tables.addTable')}
           </button>
         )}
       </div>
@@ -342,21 +340,21 @@ export default function Tables({ canManage }: TablesProps) {
       {!canManage && (
         <div className={styles.shiftBar}>
           {hasActiveShift === null ? (
-            <span className={styles.shiftLoading}>ცვლის სტატუსი იტვირთება...</span>
+            <span className={styles.shiftLoading}>{t('tables.shiftStatusLoading')}</span>
           ) : hasActiveShift ? (
             <>
               <span className={`${styles.shiftBadge} ${styles.shiftBadgeOpen}`}>
-                🟢 ცვლა აქტიურია{activeShift?.opened_at ? ` — გახსნილია: ${activeShift.opened_at}` : ''}
+                {t('tables.shiftActiveBadge')}{activeShift?.opened_at ? t('tables.shiftOpenedSuffix', { time: activeShift.opened_at }) : ''}
               </span>
               <button type="button" onClick={() => setShowCloseShiftModal(true)} className={`${styles.btn} ${styles.btnDanger}`}>
-                🛑 ცვლის დახურვა
+                {t('tables.closeShiftBtn')}
               </button>
             </>
           ) : (
             <>
-              <span className={`${styles.shiftBadge} ${styles.shiftBadgeClosed}`}>🔒 ცვლა დახურულია</span>
+              <span className={`${styles.shiftBadge} ${styles.shiftBadgeClosed}`}>{t('tables.shiftClosedBadge')}</span>
               <button type="button" onClick={() => setShowOpenShiftModal(true)} className={`${styles.btn} ${styles.btnPrimary}`}>
-                🚀 ცვლის გახსნა
+                {t('tables.openShiftBtn')}
               </button>
             </>
           )}
@@ -364,11 +362,11 @@ export default function Tables({ canManage }: TablesProps) {
       )}
 
       {loading ? (
-        <div className={styles.emptyState}>იტვირთება...</div>
+        <div className={styles.emptyState}>{t('nav.loading')}</div>
       ) : tables.length === 0 ? (
         <div className={styles.emptyState}>
-          მაგიდები ჯერ არ არის დამატებული.
-          {canManage && ' დააჭირეთ "➕ ახალი მაგიდა"-ს ზემოთ.'}
+          {t('tables.emptyState')}
+          {canManage && t('tables.emptyStateHint', { addTable: t('tables.addTable') })}
         </div>
       ) : (
         <div className={styles.grid}>
@@ -379,8 +377,8 @@ export default function Tables({ canManage }: TablesProps) {
             >
               {canManage && (
                 <div className={styles.cardActions}>
-                  <button className={styles.iconBtn} onClick={e => openEditModal(table, e)} aria-label="რედაქტირება"><EditIcon /></button>
-                  <button className={styles.iconBtn} onClick={e => handleDelete(table, e)} aria-label="წაშლა"><TrashIcon /></button>
+                  <button className={styles.iconBtn} onClick={e => openEditModal(table, e)} aria-label={t('tables.editAria')}><EditIcon /></button>
+                  <button className={styles.iconBtn} onClick={e => handleDelete(table, e)} aria-label={t('tables.deleteAria')}><TrashIcon /></button>
                 </div>
               )}
               <div className={styles.cardMain} onClick={() => setSelectedTable(table)}>
@@ -388,12 +386,12 @@ export default function Tables({ canManage }: TablesProps) {
                 {table.section && <span className={styles.tableMeta}>{table.section}</span>}
                 {table.capacity !== null && (
                   <span className={styles.tableMeta}>
-                    <UsersIcon /> {table.capacity} ადგილი
+                    <UsersIcon /> {t('tables.capacityLabel', { count: table.capacity })}
                   </span>
                 )}
                 <span className={styles[STATUS_BADGE_CLASS[table.status]]}>
                   <span className={`${styles.dot} ${styles[STATUS_DOT_CLASS[table.status]]}`} />
-                  {STATUS_LABEL[table.status]}
+                  {getStatusLabel(table.status)}
                 </span>
               </div>
               {table.status !== 'occupied' && (
@@ -405,7 +403,7 @@ export default function Tables({ canManage }: TablesProps) {
                       onClick={e => handleQuickStatus(table, status, e)}
                     >
                       <span className={`${styles.dot} ${styles[STATUS_DOT_CLASS[status]]}`} />
-                      {STATUS_LABEL[status]}
+                      {getStatusLabel(status)}
                     </button>
                   ))}
                 </div>
@@ -418,32 +416,32 @@ export default function Tables({ canManage }: TablesProps) {
       {showFormModal && (
         <div className={styles.modalOverlay}>
           <div className={styles.modalBody}>
-            <h3>{editingTable ? '✏️ მაგიდის რედაქტირება' : '➕ ახალი მაგიდა'}</h3>
+            <h3>{editingTable ? t('tables.editTableTitle') : t('tables.addTable')}</h3>
             <form onSubmit={handleFormSubmit}>
               <div className={styles.formGroup}>
-                <label>სახელი</label>
+                <label>{t('tables.nameLabel')}</label>
                 <input
                   type="text"
                   value={formName}
                   onChange={e => setFormName(e.target.value)}
                   className={styles.inputField}
-                  placeholder="მაგიდა 5"
+                  placeholder={t('tables.namePlaceholder')}
                   autoFocus
                   required
                 />
               </div>
               <div className={styles.formGroup}>
-                <label>სექცია (არასავალდებულო)</label>
+                <label>{t('tables.sectionLabel')}</label>
                 <input
                   type="text"
                   value={formSection}
                   onChange={e => setFormSection(e.target.value)}
                   className={styles.inputField}
-                  placeholder="დარბაზი / ტერასა / ბარი"
+                  placeholder={t('tables.sectionPlaceholder')}
                 />
               </div>
               <div className={styles.formGroup}>
-                <label>ტევადობა (არასავალდებულო)</label>
+                <label>{t('tables.capacityFormLabel')}</label>
                 <input
                   type="number"
                   min="1"
@@ -455,10 +453,10 @@ export default function Tables({ canManage }: TablesProps) {
               </div>
               <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                 <button type="button" onClick={closeFormModal} className={`${styles.btn} ${styles.btnSecondary}`} style={{ flex: 1 }}>
-                  გაუქმება
+                  {t('common.cancel')}
                 </button>
                 <button type="submit" disabled={formSaving} className={`${styles.btn} ${styles.btnPrimary}`} style={{ flex: 1 }}>
-                  {formSaving ? 'ინახება...' : 'შენახვა'}
+                  {formSaving ? t('tables.saving') : t('tables.save')}
                 </button>
               </div>
             </form>
@@ -490,10 +488,10 @@ export default function Tables({ canManage }: TablesProps) {
       {showOpenShiftModal && (
         <div className={styles.modalOverlay}>
           <div className={styles.modalBody}>
-            <h3>🚀 ცვლის გახსნა</h3>
+            <h3>{t('tables.openShiftBtn')}</h3>
             <form onSubmit={handleOpenShift}>
               <div className={styles.formGroup}>
-                <label>საწყისი ნაღდი ფული სალაროში (₾)</label>
+                <label>{t('sales.openingCashLabel')}</label>
                 <input
                   type="number"
                   min="0"
@@ -506,10 +504,10 @@ export default function Tables({ canManage }: TablesProps) {
               </div>
               <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                 <button type="button" onClick={() => setShowOpenShiftModal(false)} disabled={openingShift} className={`${styles.btn} ${styles.btnSecondary}`} style={{ flex: 1 }}>
-                  გაუქმება
+                  {t('common.cancel')}
                 </button>
                 <button type="submit" disabled={openingShift} className={`${styles.btn} ${styles.btnPrimary}`} style={{ flex: 1 }}>
-                  {openingShift ? 'იხსნება...' : 'გახსნა'}
+                  {openingShift ? t('tables.openingShift') : t('tables.openShiftSubmit')}
                 </button>
               </div>
             </form>
@@ -522,11 +520,11 @@ export default function Tables({ canManage }: TablesProps) {
           <div className={styles.modalBody}>
             {!zReport ? (
               <>
-                <h3 className={styles.modalTitle}><LockIcon size={18} /> ცვლის დახურვა</h3>
-                <p>შეიყვანეთ სალაროში არსებული ფაქტობრივი ნაღდი ფული.</p>
+                <h3 className={styles.modalTitle}><LockIcon size={18} /> {t('tables.closeShiftModalTitle')}</h3>
+                <p>{t('sales.closeShiftModalDesc')}</p>
                 <form onSubmit={handleCloseShift}>
                   <div className={styles.formGroup}>
-                    <label className={styles.labelIcon}><CashIcon size={14} /> ფაქტობრივი ნაღდი ფული (₾)</label>
+                    <label className={styles.labelIcon}><CashIcon size={14} /> {t('sales.actualCashLabel')}</label>
                     <input
                       type="number"
                       min="0"
@@ -539,7 +537,7 @@ export default function Tables({ canManage }: TablesProps) {
                   </div>
                   <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                     <button type="button" onClick={() => setShowCloseShiftModal(false)} disabled={closingShift} className={`${styles.btn} ${styles.btnSecondary}`} style={{ flex: 1 }}>
-                      გაუქმება
+                      {t('common.cancel')}
                     </button>
                     <button
                       type="submit"
@@ -552,35 +550,35 @@ export default function Tables({ canManage }: TablesProps) {
                       className={`${styles.btn} ${styles.btnDanger}`}
                       style={{ flex: 1 }}
                     >
-                      {closingShift ? 'მოწმდება...' : 'დახურვა'}
+                      {closingShift ? t('common.verifying') : t('sales.closeShiftButton')}
                     </button>
                   </div>
                 </form>
               </>
             ) : (
               <div style={{ textAlign: 'center' }}>
-                <h3 className={styles.zReportTitle}><DashboardIcon size={18} /> ცვლა დაიხურა (Z-Report)</h3>
+                <h3 className={styles.zReportTitle}><DashboardIcon size={18} /> {t('sales.zReportTitle')}</h3>
                 <div className={styles.zReportBox}>
                   <div className={styles.zReportRow}>
-                    <span>საწყისი:</span>
+                    <span>{t('sales.zStart')}</span>
                     <strong>{Number(zReport.start ?? 0).toFixed(2)} ₾</strong>
                   </div>
                   <div className={styles.zReportRow}>
-                    <span>გაყიდული ჩეკები:</span>
+                    <span>{t('sales.zReceiptCount')}</span>
                     <strong>{zReport.receiptCount ?? 0}</strong>
                   </div>
                   <div className={styles.zReportRow}>
-                    <span>მოსალოდნელი:</span>
+                    <span>{t('sales.zExpected')}</span>
                     <strong>{Number(zReport.expected ?? 0).toFixed(2)} ₾</strong>
                   </div>
                   <div className={styles.zReportRow}>
-                    <span>ფაქტობრივი:</span>
+                    <span>{t('sales.zActual')}</span>
                     <strong>{Number(zReport.actual ?? 0).toFixed(2)} ₾</strong>
                   </div>
                   {/* 🩹 FIX (06.09.2026) — HoReCa STEP 4: ჯამური tip ცვლაზე. */}
                   {Number(zReport.tipTotal ?? 0) > 0 && (
                     <div className={styles.zReportRow}>
-                      <span>ჯამური tip:</span>
+                      <span>{t('sales.zTipTotal')}</span>
                       <strong>{Number(zReport.tipTotal ?? 0).toFixed(2)} ₾</strong>
                     </div>
                   )}
@@ -588,12 +586,12 @@ export default function Tables({ canManage }: TablesProps) {
                   <div
                     className={`${styles.zReportRow} ${Number(zReport.difference ?? 0) < 0 ? styles.zReportNegative : styles.zReportPositive}`}
                   >
-                    <span>სხვაობა:</span>
+                    <span>{t('sales.zDifference')}</span>
                     <strong>{Number(zReport.difference ?? 0).toFixed(2)} ₾</strong>
                   </div>
                 </div>
                 <button type="button" onClick={closeCloseShiftModal} className={`${styles.btn} ${styles.btnPrimary}`} style={{ width: '100%' }}>
-                  დახურვა
+                  {t('common.close')}
                 </button>
               </div>
             )}

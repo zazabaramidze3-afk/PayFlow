@@ -13,6 +13,7 @@
 // იგივე სტილიზებული მოდალია, რაც Retail POS-შია.
 
 import styles from './ConfirmModal.module.scss';
+import i18n from '../i18n';
 
 interface ConfirmModalProps {
   open: boolean;
@@ -29,13 +30,20 @@ export default function ConfirmModal({
   open,
   title,
   message,
-  confirmLabel = 'დიახ',
-  cancelLabel = 'გაუქმება',
+  confirmLabel,
+  cancelLabel,
   danger = true,
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
   if (!open) return null;
+
+  // 🌍 Multi-language support — default-ები i18n.t()-ით (module-level singleton,
+  // Sales.tsx-ის paymentMethodBadge-ის იგივე პატერნით), რადგან prop default
+  // value ერთხელ, module load-ზე კი არ ფასდება, არამედ ყოველ render-ზე ახლიდან,
+  // ასე რომ ენის ცვლილებაც სწორად აისახება, თუ caller-მა label არ გადასცა.
+  const resolvedConfirmLabel = confirmLabel ?? i18n.t('common.yes');
+  const resolvedCancelLabel = cancelLabel ?? i18n.t('common.cancel');
 
   return (
     <div className={styles.modalOverlay}>
@@ -44,14 +52,14 @@ export default function ConfirmModal({
         <p>{message}</p>
         <div className={styles.actions}>
           <button type="button" onClick={onCancel} className={`${styles.btn} ${styles.btnSecondary}`}>
-            {cancelLabel}
+            {resolvedCancelLabel}
           </button>
           <button
             type="button"
             onClick={onConfirm}
             className={`${styles.btn} ${danger ? styles.btnDanger : styles.btnPrimary}`}
           >
-            {confirmLabel}
+            {resolvedConfirmLabel}
           </button>
         </div>
       </div>

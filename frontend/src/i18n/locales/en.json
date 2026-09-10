@@ -181,5 +181,53 @@
       "saleFailed": "Sale failed!"
     },
     "unitPcs": "pcs"
+  },
+  "tables": {
+    "pageTitle": "🍽️ Tables",
+    "pageSubtitle": "Tap a table to view/open its order",
+    "addTable": "➕ New table",
+    "shiftStatusLoading": "Loading shift status...",
+    "shiftActiveBadge": "🟢 Shift is active",
+    "shiftOpenedSuffix": " — opened: {{time}}",
+    "closeShiftBtn": "🛑 Close shift",
+    "shiftClosedBadge": "🔒 Shift is closed",
+    "openShiftBtn": "🚀 Open shift",
+    "emptyState": "No tables added yet.",
+    "emptyStateHint": " Tap \"{{addTable}}\" above.",
+    "capacityLabel": "{{count}} seats",
+    "editAria": "Edit",
+    "deleteAria": "Delete",
+    "editTableTitle": "✏️ Edit table",
+    "nameLabel": "Name",
+    "namePlaceholder": "Table 5",
+    "sectionLabel": "Section (optional)",
+    "sectionPlaceholder": "Hall / Terrace / Bar",
+    "capacityFormLabel": "Capacity (optional)",
+    "saving": "Saving...",
+    "save": "Save",
+    "openingShift": "Opening...",
+    "openShiftSubmit": "Open",
+    "closeShiftModalTitle": "Close shift",
+    "deleteConfirmTitle": "🗑️ Delete table",
+    "deleteConfirmMessage": "Delete table \"{{name}}\"?",
+    "status": {
+      "free": "Free",
+      "occupied": "Occupied",
+      "reserved": "Reserved",
+      "dirty": "Needs cleaning"
+    },
+    "toasts": {
+      "loadFailed": "Failed to load tables",
+      "statusChangeFailed": "Failed to change status",
+      "nameRequired": "Table name is required",
+      "updated": "Table updated",
+      "created": "Table added",
+      "saveFailed": "Failed to save",
+      "deleted": "Table deleted",
+      "deleteFailed": "Failed to delete",
+      "shiftOpened": "Shift opened",
+      "openShiftFailed": "Failed to open shift",
+      "closeShiftFailed": "Failed to close shift"
+    }
   }
 }
