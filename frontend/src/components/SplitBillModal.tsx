@@ -12,6 +12,7 @@
 // OrderScreen.tsx ღილაკს მალავს, თუ discountType !== 'none'.
 
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import styles from './SplitBillModal.module.scss';
 
@@ -71,6 +72,7 @@ interface PartFormState {
 const emptyPart = (): PartFormState => ({ paymentMethod: 'cash', tipAmountInput: '', cashReceivedInput: '' });
 
 export default function SplitBillModal({ open, orderId, activeItems, totalAmount, onClose, onSuccess }: SplitBillModalProps) {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<SplitMode>('equal');
   const [guestCountInput, setGuestCountInput] = useState<string>('2');
   const [parts, setParts] = useState<PartFormState[]>([emptyPart(), emptyPart()]);
@@ -141,7 +143,7 @@ export default function SplitBillModal({ open, orderId, activeItems, totalAmount
     setErrorMessage('');
 
     if (mode === 'byItem' && !byItemAvailable) {
-      setErrorMessage('item-ის მიხედვით გასაყოფად ყველა პროდუქტს სჭირდება მინიჭებული ადგილი (სულ მცირე 2 განსხვავებული).');
+      setErrorMessage(t('orderScreen.splitModal.errors.byItemUnavailable'));
       return;
     }
 
@@ -162,7 +164,7 @@ export default function SplitBillModal({ open, orderId, activeItems, totalAmount
     for (let i = 0; i < requestParts.length; i++) {
       const part = requestParts[i];
       if (part.paymentMethod === 'cash' && (part.cashReceived === undefined || part.cashReceived < previewAmounts[i])) {
-        setErrorMessage(`ნაწილი #${i + 1}-ისთვის მიღებული ნაღდი ფული ნაკლებია გადასახდელ თანხაზე (${previewAmounts[i].toFixed(2)} ₾).`);
+        setErrorMessage(t('orderScreen.splitModal.errors.cashBelowDue', { index: i + 1, amount: previewAmounts[i].toFixed(2) }));
         return;
       }
     }
@@ -200,7 +202,7 @@ export default function SplitBillModal({ open, orderId, activeItems, totalAmount
       const backendMessage = axios.isAxiosError<{ error?: string; message?: string }>(error)
         ? error.response?.data?.error ?? error.response?.data?.message
         : undefined;
-      setErrorMessage(backendMessage ?? 'ჩეკის გაყოფა ვერ მოხერხდა');
+      setErrorMessage(backendMessage ?? t('orderScreen.splitModal.errors.splitFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -212,7 +214,7 @@ export default function SplitBillModal({ open, orderId, activeItems, totalAmount
   return (
     <div className={styles.modalOverlay}>
       <div className={styles.modalBody}>
-        <h3>🧾 ჩეკის გაყოფა</h3>
+        <h3>{t('orderScreen.splitBillButton')}</h3>
 
         <div className={styles.modeSwitch}>
           <button
@@ -220,28 +222,26 @@ export default function SplitBillModal({ open, orderId, activeItems, totalAmount
             onClick={() => setMode('equal')}
             className={`${styles.btn} ${mode === 'equal' ? styles.btnPrimary : styles.btnSecondary}`}
           >
-            თანაბრად
+            {t('orderScreen.splitModal.modeEqual')}
           </button>
           <button
             type="button"
             onClick={() => byItemAvailable && setMode('byItem')}
             disabled={!byItemAvailable}
-            title={!byItemAvailable ? 'ყველა პროდუქტს სჭირდება მინიჭებული ადგილი (სულ მცირე 2 განსხვავებული)' : undefined}
+            title={!byItemAvailable ? t('orderScreen.splitModal.byItemDisabledTooltip') : undefined}
             className={`${styles.btn} ${mode === 'byItem' ? styles.btnPrimary : styles.btnSecondary}`}
           >
-            სტუმრების მიხედვით
+            {t('orderScreen.splitModal.modeBySeat')}
           </button>
         </div>
 
         {mode === 'byItem' && !byItemAvailable && (
-          <p className={styles.hint}>
-            ⚠️ ეს რეჟიმი მოითხოვს, რომ ორდერის ყველა პროდუქტს ჰქონდეს მინიჭებული ადგილი (🪑, "პროდუქტის დამატება" ფორმაში) — მინიმუმ 2 განსხვავებული ადგილით.
-          </p>
+          <p className={styles.hint}>{t('orderScreen.splitModal.byItemHint')}</p>
         )}
 
         {mode === 'equal' && (
           <div className={styles.formGroup}>
-            <label>სტუმრების რაოდენობა</label>
+            <label>{t('orderScreen.guestCountLabel')}</label>
             <input
               type="number"
               min="2"
@@ -256,7 +256,7 @@ export default function SplitBillModal({ open, orderId, activeItems, totalAmount
           {currentParts.map((part, index) => (
             <div key={index} className={styles.partCard}>
               <div className={styles.partHeader}>
-                <strong>{mode === 'byItem' ? `🪑 ადგილი ${distinctSeatNumbers[index]}` : `სტუმარი ${index + 1}`}</strong>
+                <strong>{mode === 'byItem' ? t('orderScreen.splitPartSeatLabel', { seat: distinctSeatNumbers[index] }) : t('orderScreen.splitModal.guestLabel', { index: index + 1 })}</strong>
                 <span>{previewAmounts[index]?.toFixed(2)} ₾</span>
               </div>
 
@@ -266,14 +266,14 @@ export default function SplitBillModal({ open, orderId, activeItems, totalAmount
                   onClick={() => updatePart(index, { paymentMethod: 'cash' })}
                   className={`${styles.btnSmall} ${part.paymentMethod === 'cash' ? styles.btnPrimary : styles.btnSecondary}`}
                 >
-                  💵 ნაღდი
+                  {t('sales.paymentBadge.cash')}
                 </button>
                 <button
                   type="button"
                   onClick={() => updatePart(index, { paymentMethod: 'card' })}
                   className={`${styles.btnSmall} ${part.paymentMethod === 'card' ? styles.btnPrimary : styles.btnSecondary}`}
                 >
-                  💳 ბარათი
+                  {t('sales.paymentBadge.card')}
                 </button>
               </div>
 
@@ -283,7 +283,7 @@ export default function SplitBillModal({ open, orderId, activeItems, totalAmount
                     type="number"
                     min="0"
                     step="0.01"
-                    placeholder={`მიღებული ნაღდი (მინ. ${previewAmounts[index]?.toFixed(2)} ₾)`}
+                    placeholder={t('orderScreen.splitModal.cashReceivedPlaceholder', { amount: previewAmounts[index]?.toFixed(2) })}
                     value={part.cashReceivedInput}
                     onChange={(e) => updatePart(index, { cashReceivedInput: e.target.value })}
                     className={styles.inputField}
@@ -307,11 +307,11 @@ export default function SplitBillModal({ open, orderId, activeItems, totalAmount
                     const diff = Number((received - due).toFixed(2));
                     return diff >= 0 ? (
                       <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#166534', fontWeight: 'bold' }}>
-                        ხურდა: {diff.toFixed(2)} ₾
+                        {t('sales.changeDue', { amount: diff.toFixed(2) })}
                       </p>
                     ) : (
                       <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#dc2626', fontWeight: 'bold' }}>
-                        ⚠️ აკლია {Math.abs(diff).toFixed(2)} ₾
+                        {t('orderScreen.splitModal.cashShort', { amount: Math.abs(diff).toFixed(2) })}
                       </p>
                     );
                   })()}
@@ -322,7 +322,7 @@ export default function SplitBillModal({ open, orderId, activeItems, totalAmount
                 type="number"
                 min="0"
                 step="0.01"
-                placeholder="🪙 tip (₾) — არასავალდებულო"
+                placeholder={t('orderScreen.splitModal.tipPlaceholder')}
                 value={part.tipAmountInput}
                 onChange={(e) => updatePart(index, { tipAmountInput: e.target.value })}
                 className={styles.inputField}
@@ -335,7 +335,7 @@ export default function SplitBillModal({ open, orderId, activeItems, totalAmount
 
         <div className={styles.actions}>
           <button type="button" onClick={onClose} className={`${styles.btn} ${styles.btnSecondary}`}>
-            გაუქმება
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -343,7 +343,7 @@ export default function SplitBillModal({ open, orderId, activeItems, totalAmount
             disabled={submitting || (mode === 'byItem' && !byItemAvailable)}
             className={`${styles.btn} ${styles.btnPrimary}`}
           >
-            {submitting ? 'მუშავდება...' : `დახურვა (${currentParts.length} ჩეკად)`}
+            {submitting ? t('orderScreen.processingButton') : t('orderScreen.splitModal.closeButton', { count: currentParts.length })}
           </button>
         </div>
       </div>

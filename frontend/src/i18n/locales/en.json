@@ -55,7 +55,15 @@
     "confirm": "Confirm",
     "verifying": "Verifying...",
     "managerAuthRequired": "Manager authorization required",
-    "yes": "Yes"
+    "yes": "Yes",
+    "kitchenStatus": {
+      "pending": "Pending",
+      "sent": "Sent",
+      "preparing": "Preparing",
+      "ready": "Ready",
+      "served": "Served",
+      "voided": "Voided"
+    }
   },
   "sales": {
     "paymentBadge": {
@@ -228,6 +236,78 @@
       "shiftOpened": "Shift opened",
       "openShiftFailed": "Failed to open shift",
       "closeShiftFailed": "Failed to close shift"
+    }
+  },
+  "orderScreen": {
+    "orderIdOpened": "Order #{{id}} · Opened: {{time}}",
+    "voidOrderButton": "🚫 Void order",
+    "backToFloorPlan": "🔙 Back to tables",
+    "orderClosedTitle": "✅ Receipt closed",
+    "orderClosedDesc": "Table \"{{name}}\" is marked as \"Needs cleaning\" — after cleaning, manually change its status to \"Free\" (on the 🍽️ Tables page).",
+    "reprintButton": "🖨 Reprint",
+    "reprintSplitButton": "🖨 Reprint receipts ({{count}})",
+    "tableFreeTitle": "Table is free",
+    "tableFreeDesc": "A new order can only be opened by a cashier, from their own open shift — the same as only a cashier can sell in the Retail POS. From here you can only edit/delete the table (on the \"🍽️ Tables\" page) and oversee an already-open order.",
+    "noOpenOrderTitle": "There is no open order",
+    "noOpenOrderDesc": "To open a new order, fill in the number of guests (optional) and press the button.",
+    "guestCountLabel": "Number of guests",
+    "openingOrderButton": "Opening...",
+    "openOrderButton": "🚀 Open order",
+    "addItemTitle": "➕ Add product",
+    "productLabel": "Product",
+    "seatNumberLabel": "🍴 Guest seat (optional)",
+    "seatNumberPlaceholder": "e.g. 1, 2, 3...",
+    "loadingModifiers": "Loading modifiers...",
+    "modifierNone": "None",
+    "notesLabel": "Note (optional)",
+    "notesPlaceholder": "medium rare, no spice...",
+    "addingButton": "Adding...",
+    "addButton": "Add",
+    "currentOrderTitle": "📝 Current order",
+    "noItemsYet": "Nothing added yet",
+    "statusHeader": "Status",
+    "tipLabel": "🍴 Tip (₾) — optional",
+    "processingButton": "Processing...",
+    "checkoutButton": "Close receipt (print)",
+    "splitBillButton": "🧾 Split bill",
+    "pinReasonVoidItem": "Voiding \"{{name}}\" (already sent to the kitchen) requires manager confirmation — enter the 4-digit PIN.",
+    "voidItemConfirmTitle": "🚫 Void product",
+    "voidItemConfirmMessage": "Void \"{{name}}\"?",
+    "voidOrderConfirmMessage": "Void the entire order? This action cannot be undone.",
+    "splitPartSeatLabel": "🪑 Seat {{seat}}",
+    "splitPartGuestLabel": "👤 Part {{index}}/{{count}}",
+    "splitSharedItemsNote": "Above is the full list of the shared order — this receipt represents only a portion of the amount.",
+    "toasts": {
+      "loadProductsFailed": "Failed to load products",
+      "loadOrderFailed": "Failed to load order",
+      "invalidGuestCount": "Invalid number of guests",
+      "openOrderFailed": "Failed to open order",
+      "invalidItemQuantity": "Quantity must be a positive whole number",
+      "modifierGroupRequired": "Select \"{{name}}\" — required",
+      "addItemFailed": "Failed to add product",
+      "itemVoided": "{{name}} voided",
+      "voidFailed": "Void failed",
+      "orderVoided": "Order voided",
+      "noItemsInOrder": "There are no items in the order",
+      "tableClosed": "Table \"{{name}}\" — receipt closed!",
+      "paymentFailed": "Payment failed!",
+      "tableSplitClosed": "Table \"{{name}}\" — receipt split and closed!"
+    },
+    "splitModal": {
+      "modeEqual": "Evenly",
+      "modeBySeat": "By seat",
+      "byItemDisabledTooltip": "Every product needs an assigned seat (at least 2 different ones)",
+      "byItemHint": "⚠️ This mode requires every product in the order to have an assigned seat (🪑, in the \"Add product\" form) — at least 2 different seats.",
+      "guestLabel": "Guest {{index}}",
+      "cashReceivedPlaceholder": "Cash received (min. {{amount}} ₾)",
+      "cashShort": "⚠️ Short by {{amount}} ₾",
+      "tipPlaceholder": "🪙 Tip (₾) — optional",
+      "closeButton": "Close ({{count}} receipts)",
+      "errors": {
+        "byItemUnavailable": "To split by item, every product needs an assigned seat (at least 2 different ones).",
+        "cashBelowDue": "For part #{{index}}, the cash received is less than the amount due ({{amount}} ₾).",
+        "splitFailed": "Failed to split the bill"
+      }
     }
   }
 }

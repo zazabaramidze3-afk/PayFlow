@@ -19,6 +19,7 @@
 //     უბრალო შეცდომის toast ჩანს (Sales.tsx-ის offline queue-ს ნაცვლად).
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import styles from './OrderScreen.module.scss';
 import PrintableReceipt, { PrintableReceiptData, PrintableSplitReceipts } from '../components/PrintableReceipt';
@@ -42,6 +43,7 @@ interface OrderScreenProps {
 }
 
 export default function OrderScreen({ table, canManage, onBack, onOrderChanged }: OrderScreenProps) {
+  const { t } = useTranslation();
   const [loadingOrder, setLoadingOrder] = useState<boolean>(true);
   const [order, setOrder] = useState<OrderWithItems | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -152,7 +154,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
       const response = await axios.get<Product[]>('/api/products');
       setProducts(response.data);
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || 'პროდუქტების ჩატვირთვა ვერ მოხერხდა', 'error');
+      showToast(getErrorMessage(error) || t('orderScreen.toasts.loadProductsFailed'), 'error');
     }
   }, [showToast]);
 
@@ -170,7 +172,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
       const detail = await axios.get<OrderWithItems>(`/api/orders/${match.id}`);
       setOrder(detail.data);
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || 'შეკვეთის ჩატვირთვა ვერ მოხერხდა', 'error');
+      showToast(getErrorMessage(error) || t('orderScreen.toasts.loadOrderFailed'), 'error');
     } finally {
       setLoadingOrder(false);
     }
@@ -235,7 +237,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
     if (guestCountInput.trim() !== '') {
       const parsed = Number(guestCountInput);
       if (!Number.isInteger(parsed) || parsed <= 0) {
-        return showToast('სტუმრების რაოდენობა არავალიდურია', 'error');
+        return showToast(t('orderScreen.toasts.invalidGuestCount'), 'error');
       }
       guestCount = parsed;
     }
@@ -252,7 +254,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
         // მაგიდაზე. უბრალოდ ვცდით არსებულის ჩატვირთვას.
         fetchOrderForTable();
       } else {
-        showToast(message || 'შეკვეთის გახსნა ვერ მოხერხდა', 'error');
+        showToast(message || t('orderScreen.toasts.openOrderFailed'), 'error');
       }
     } finally {
       setOpeningOrder(false);
@@ -279,14 +281,14 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!order) return;
-    if (!selectedProductId) return showToast('აირჩიეთ პროდუქტი', 'error');
+    if (!selectedProductId) return showToast(t('sales.toasts.selectProductFirst'), 'error');
 
     const parsedQuantity = Number(itemQuantity);
     if (!Number.isInteger(parsedQuantity) || parsedQuantity <= 0) {
-      return showToast('რაოდენობა უნდა იყოს დადებითი მთელი რიცხვი', 'error');
+      return showToast(t('orderScreen.toasts.invalidItemQuantity'), 'error');
     }
     if (missingRequiredModifierGroup) {
-      return showToast(`აირჩიეთ "${missingRequiredModifierGroup.name}" — სავალდებულოა`, 'error');
+      return showToast(t('orderScreen.toasts.modifierGroupRequired', { name: missingRequiredModifierGroup.name }), 'error');
     }
 
     setAddingItem(true);
@@ -305,7 +307,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
       setSelectedModifierOptionIds([]);
       await fetchOrderForTable();
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || 'პროდუქტის დამატება ვერ მოხერხდა', 'error');
+      showToast(getErrorMessage(error) || t('orderScreen.toasts.addItemFailed'), 'error');
     } finally {
       setAddingItem(false);
     }
@@ -329,10 +331,10 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
         { void: true },
         overrideToken ? { headers: { 'X-Manager-Override': `Bearer ${overrideToken}` } } : undefined
       );
-      showToast(`${itemName} გაუქმდა`, 'success');
+      showToast(t('orderScreen.toasts.itemVoided', { name: itemName }), 'success');
       await fetchOrderForTable();
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || 'გაუქმება ვერ მოხერხდა', 'error');
+      showToast(getErrorMessage(error) || t('orderScreen.toasts.voidFailed'), 'error');
     }
   };
 
@@ -354,8 +356,8 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
     }
 
     setConfirmModal({
-      title: '🚫 პროდუქტის გაუქმება',
-      message: `გავაუქმოთ "${itemName}"?`,
+      title: t('orderScreen.voidItemConfirmTitle'),
+      message: t('orderScreen.voidItemConfirmMessage', { name: itemName }),
       onConfirm: () => {
         closeConfirmModal();
         void performVoidItem(itemId, itemName);
@@ -367,19 +369,19 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
     if (!order) return;
     try {
       await axios.post(`/api/orders/${order.id}/void`);
-      showToast('შეკვეთა გაუქმდა', 'success');
+      showToast(t('orderScreen.toasts.orderVoided'), 'success');
       onOrderChanged();
       onBack();
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || 'გაუქმება ვერ მოხერხდა', 'error');
+      showToast(getErrorMessage(error) || t('orderScreen.toasts.voidFailed'), 'error');
     }
   };
 
   const handleVoidOrder = () => {
     if (!order) return;
     setConfirmModal({
-      title: '🚫 შეკვეთის გაუქმება',
-      message: 'გავაუქმოთ მთელი შეკვეთა? ეს მოქმედება შეუქცევადია.',
+      title: t('orderScreen.voidOrderButton'),
+      message: t('orderScreen.voidOrderConfirmMessage'),
       onConfirm: () => {
         closeConfirmModal();
         void performVoidOrder();
@@ -466,7 +468,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
   const handleVerifyManagerPin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!/^\d{4}$/.test(pinValue)) {
-      setPinError('PIN-კოდი უნდა შედგებოდეს ზუსტად 4 ციფრისგან!');
+      setPinError(t('sales.toasts.pinLength'));
       return;
     }
     setPinLoading(true);
@@ -486,12 +488,12 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
           setManagerOverrideToken(overrideToken);
           setDiscountType(pendingDiscountType);
           setDiscountValue('');
-          showToast('მენეჯერის ავტორიზაცია დადასტურდა — ფასდაკლება დაშვებულია ამ ჩეკზე', 'success');
+          showToast(t('sales.toasts.discountOverrideGranted'), 'success');
           closePinModal();
         }
       }
     } catch (error: unknown) {
-      setPinError(getErrorMessage(error) || 'PIN-კოდის შემოწმება ვერ მოხერხდა!');
+      setPinError(getErrorMessage(error) || t('sales.toasts.pinVerifyFailed'));
       setPinValue('');
     } finally {
       setPinLoading(false);
@@ -499,25 +501,25 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
   };
 
   const handleCheckout = async () => {
-    if (!order || activeItems.length === 0) return showToast('შეკვეთაში პროდუქტი არ არის', 'error');
+    if (!order || activeItems.length === 0) return showToast(t('orderScreen.toasts.noItemsInOrder'), 'error');
 
     if (!canUseDiscountEffective && discountType !== 'none') {
       setDiscountType('none');
       setDiscountValue('');
-      return showToast('ფასდაკლების გამოყენების უფლება არ გაქვთ', 'error');
+      return showToast(t('sales.toasts.discountNotAllowed'), 'error');
     }
     if (discountType === 'percent' && (parsedDiscountValue < 0 || parsedDiscountValue > 100)) {
-      return showToast('პროცენტული ფასდაკლება უნდა იყოს 0-100 შორის', 'error');
+      return showToast(t('sales.toasts.discountPercentRange'), 'error');
     }
     if (discountType === 'fixed' && parsedDiscountValue > cartSubtotal) {
-      return showToast('ფასდაკლება არ შეიძლება აჭარბებდეს ჯამურ თანხას', 'error');
+      return showToast(t('sales.toasts.discountExceedsTotal'), 'error');
     }
     if (paymentMethod === 'split' && (!splitBothFilled || parsedSplitCash <= 0 || parsedSplitCard <= 0)) {
-      return showToast('შეავსე ორივე ველი — ნაღდი და ბარათი', 'error');
+      return showToast(t('sales.toasts.fillBothSplitFields'), 'error');
     }
     if (paymentMethod === 'split' && splitDiff !== 0) {
       return showToast(
-        `გადახდების ჯამი (${splitSum.toFixed(2)} ₾) არ ემთხვევა ჩეკის თანხას (${cartTotal.toFixed(2)} ₾)`,
+        t('sales.toasts.splitMismatch', { sum: splitSum.toFixed(2), total: cartTotal.toFixed(2) }),
         'error'
       );
     }
@@ -576,13 +578,13 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
         tipAmount: payload.tipAmount,
       });
 
-      showToast(`მაგიდა "${table.name}" — ჩეკი დაიხურა!`, 'success');
+      showToast(t('orderScreen.toasts.tableClosed', { name: table.name }), 'success');
       setOrderClosed(true);
       setManagerOverrideToken(null);
       setTipAmountInput('');
       onOrderChanged();
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || 'გადახდა ჩავარდა!', 'error');
+      showToast(getErrorMessage(error) || t('orderScreen.toasts.paymentFailed'), 'error');
     } finally {
       setCheckingOut(false);
     }
@@ -604,26 +606,26 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
       <div className={styles.topPanel}>
         <div>
           <h2>🍽️ {table.name}</h2>
-          {order && <small>შეკვეთა #{order.id.slice(0, 8)} · გახსნილია: {order.opened_at}</small>}
+          {order && <small>{t('orderScreen.orderIdOpened', { id: order.id.slice(0, 8), time: order.opened_at })}</small>}
         </div>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           {order && !orderClosed && canManage && (
             <button onClick={handleVoidOrder} className={`${styles.btn} ${styles.btnDanger}`}>
-              🚫 შეკვეთის გაუქმება
+              {t('orderScreen.voidOrderButton')}
             </button>
           )}
           <button onClick={handleBackToFloorPlan} className={`${styles.btn} ${styles.btnSecondary}`}>
-            🔙 მაგიდებზე დაბრუნება
+            {t('orderScreen.backToFloorPlan')}
           </button>
         </div>
       </div>
 
       {loadingOrder ? (
-        <div className={styles.card}>იტვირთება...</div>
+        <div className={styles.card}>{t('nav.loading')}</div>
       ) : orderClosed ? (
         <div className={styles.openOrderCard}>
-          <h3>✅ ჩეკი დაიხურა</h3>
-          <p>მაგიდა "{table.name}" მონიშნულია როგორც "დასალაგებელი" — დალაგების შემდეგ ხელით შეცვალეთ სტატუსი "თავისუფალზე" (🍽️ მაგიდები გვერდზე).</p>
+          <h3>{t('orderScreen.orderClosedTitle')}</h3>
+          <p>{t('orderScreen.orderClosedDesc', { name: table.name })}</p>
           {/* 🩹 FIX (06.09.2026) — .openOrderCard-ის max-width: 420px-ში
               (padding 40px-ის გამოკლებით ~340px სივრცე) 2 გრძელტექსტიანი
               ღილაკი (მაგ. "🖨 ჩეკების ხელახლა ბეჭდვა (2)" + "🔙 მაგიდებზე
@@ -635,16 +637,16 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center', marginTop: '10px' }}>
             {lastReceipt && (
               <button onClick={() => window.print()} className={`${styles.btn} ${styles.btnSecondary}`}>
-                🖨 ხელახლა ბეჭდვა
+                {t('orderScreen.reprintButton')}
               </button>
             )}
             {splitReceipts.length > 0 && (
               <button onClick={() => window.print()} className={`${styles.btn} ${styles.btnSecondary}`}>
-                🖨 ჩეკების ხელახლა ბეჭდვა ({splitReceipts.length})
+                {t('orderScreen.reprintSplitButton', { count: splitReceipts.length })}
               </button>
             )}
             <button onClick={handleBackToFloorPlan} className={`${styles.btn} ${styles.btnPrimary}`}>
-              🔙 მაგიდებზე დაბრუნება
+              {t('orderScreen.backToFloorPlan')}
             </button>
           </div>
         </div>
@@ -658,21 +660,16 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
         // "🛒 Sales (POS)" ნავიგაციასთან, რომელიც ასევე მხოლოდ cashier-ს
         // უჩანს (App.tsx).
         <div className={styles.openOrderCard}>
-          <h3>მაგიდა თავისუფალია</h3>
-          <p>
-            ახალი შეკვეთის გახსნა შესაძლებელია მხოლოდ მოლარის (cashier) მიერ,
-            საკუთარი გახსნილი ცვლიდან — ისევე, როგორც Retail POS-ში მხოლოდ
-            cashier ყიდის. აქედან შეგიძლიათ მხოლოდ მაგიდის რედაქტირება/წაშლა
-            ("🍽️ მაგიდები" გვერდზე) და უკვე გახსნილი შეკვეთის ზედამხედველობა.
-          </p>
+          <h3>{t('orderScreen.tableFreeTitle')}</h3>
+          <p>{t('orderScreen.tableFreeDesc')}</p>
         </div>
       ) : !order ? (
         <div className={styles.openOrderCard}>
-          <h3>ღია შეკვეთა არ არსებობს</h3>
-          <p>ახალი შეკვეთის გასახსნელად შეავსეთ სტუმრების რაოდენობა (არასავალდებულო) და დააჭირეთ ღილაკს.</p>
+          <h3>{t('orderScreen.noOpenOrderTitle')}</h3>
+          <p>{t('orderScreen.noOpenOrderDesc')}</p>
           <form onSubmit={handleOpenOrder}>
             <div className={styles.formGroup}>
-              <label>სტუმრების რაოდენობა</label>
+              <label>{t('orderScreen.guestCountLabel')}</label>
               <input
                 type="number"
                 min="1"
@@ -683,37 +680,37 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
               />
             </div>
             <button type="submit" disabled={openingOrder} className={`${styles.btn} ${styles.btnSuccess}`} style={{ width: '100%' }}>
-              {openingOrder ? 'იხსნება...' : '🚀 შეკვეთის გახსნა'}
+              {openingOrder ? t('orderScreen.openingOrderButton') : t('orderScreen.openOrderButton')}
             </button>
           </form>
         </div>
       ) : (
         <div className={styles.mainGrid}>
           <div className={styles.card}>
-            <h3 style={{ marginTop: 0 }}>➕ პროდუქტის დამატება</h3>
+            <h3 style={{ marginTop: 0 }}>{t('orderScreen.addItemTitle')}</h3>
             <form onSubmit={handleAddItem}>
               <div className={styles.formGroup}>
-                <label>პროდუქტი</label>
+                <label>{t('orderScreen.productLabel')}</label>
                 <select value={selectedProductId} onChange={e => setSelectedProductId(e.target.value)} className={styles.inputField}>
-                  <option value="">-- აირჩიეთ სიიდან --</option>
+                  <option value="">{t('sales.selectFromList')}</option>
                   {products.map(p => (
                     <option key={p.id} value={p.id}>{p.name} · {p.price}₾</option>
                   ))}
                 </select>
               </div>
               <div className={styles.formGroup}>
-                <label>რაოდენობა</label>
+                <label>{t('sales.quantity')}</label>
                 <input type="number" min="1" value={itemQuantity} onChange={e => setItemQuantity(e.target.value)} className={styles.inputField} />
               </div>
               <div className={styles.formGroup}>
-                <label>🍴 სტუმრის ადგილი (არასავალდებულო)</label>
+                <label>{t('orderScreen.seatNumberLabel')}</label>
                 <input
                   type="number"
                   min="1"
                   value={itemSeatNumber}
                   onChange={e => setItemSeatNumber(e.target.value)}
                   className={styles.inputField}
-                  placeholder="მაგ. 1, 2, 3..."
+                  placeholder={t('orderScreen.seatNumberPlaceholder')}
                 />
               </div>
 
@@ -721,7 +718,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
                   არჩეულ პროდუქტს აქვს მიბმული ჯგუფი. `single` → radio
                   (+ "არცერთი", თუ არასავალდებულოა), `multiple` → checkbox. */}
               {loadingModifiers ? (
-                <p style={{ color: '#94a3b8', fontSize: '13px' }}>მოდიფაიერები იტვირთება...</p>
+                <p style={{ color: '#94a3b8', fontSize: '13px' }}>{t('orderScreen.loadingModifiers')}</p>
               ) : (
                 productModifierGroups.map(group => (
                   <div key={group.id} className={styles.formGroup}>
@@ -738,7 +735,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
                             checked={!group.options.some(o => selectedModifierOptionIds.includes(o.id))}
                             onChange={() => setSelectedModifierOptionIds(prev => prev.filter(id => !group.options.some(o => o.id === id)))}
                           />
-                          არცერთი
+                          {t('orderScreen.modifierNone')}
                         </label>
                       )}
                       {group.options.map(option => (
@@ -763,31 +760,31 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
               )}
 
               <div className={styles.formGroup}>
-                <label>შენიშვნა (არასავალდებულო)</label>
+                <label>{t('orderScreen.notesLabel')}</label>
                 <input
                   type="text"
                   value={itemNotes}
                   onChange={e => setItemNotes(e.target.value)}
                   className={styles.inputField}
-                  placeholder="medium rare, ცხარის გარეშე..."
+                  placeholder={t('orderScreen.notesPlaceholder')}
                 />
               </div>
               <button type="submit" disabled={addingItem || !!missingRequiredModifierGroup} className={`${styles.btn} ${styles.btnPrimary}`} style={{ width: '100%' }}>
-                {addingItem ? 'ემატება...' : 'დამატება'}
+                {addingItem ? t('orderScreen.addingButton') : t('orderScreen.addButton')}
               </button>
             </form>
           </div>
 
           <div className={styles.card}>
-            <h3 style={{ marginTop: 0 }}>📝 მიმდინარე შეკვეთა</h3>
+            <h3 style={{ marginTop: 0 }}>{t('orderScreen.currentOrderTitle')}</h3>
             {order.items.length === 0 ? (
-              <p style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>ჯერ არაფერია დამატებული</p>
+              <p style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>{t('orderScreen.noItemsYet')}</p>
             ) : (
               <>
                 <div className={styles.itemsTableWrapper}>
                   <table className={styles.itemsTable}>
                     <thead>
-                      <tr><th>დასახელება</th><th>რაოდ.</th><th>ჯამი</th><th>სტატუსი</th><th></th></tr>
+                      <tr><th>{t('sales.tableName')}</th><th>{t('sales.tableQty')}</th><th>{t('sales.tableTotal')}</th><th>{t('orderScreen.statusHeader')}</th><th></th></tr>
                     </thead>
                     <tbody>
                       {order.items.map(item => (
@@ -806,15 +803,15 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
                             )}
                             {item.notes && <div style={{ fontSize: '12px', color: '#94a3b8' }}>{item.notes}</div>}
                           </td>
-                          <td className={styles.nowrapCell}>{item.quantity} ც.</td>
+                          <td className={styles.nowrapCell}>{item.quantity} {t('sales.unitPcs')}</td>
                           <td className={styles.nowrapCell}>{(item.unit_price * item.quantity).toFixed(2)} ₾</td>
-                          <td className={styles.nowrapCell}><span className={kitchenStatusClass(item.kitchen_status)}>{item.kitchen_status}</span></td>
+                          <td className={styles.nowrapCell}><span className={kitchenStatusClass(item.kitchen_status)}>{t(`common.kitchenStatus.${item.kitchen_status}`)}</span></td>
                           <td>
                             {item.kitchen_status !== 'voided' && (
                               <button
                                 onClick={() => handleVoidItem(item.id, item.product_name, item.kitchen_status)}
                                 style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
-                                title="გაუქმება"
+                                title={t('common.cancel')}
                               >
                                 ❌
                               </button>
@@ -828,21 +825,21 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
 
                 <div style={{ display: 'flex', gap: '10px', margin: '15px 0 5px 0', alignItems: 'flex-end', flexWrap: 'wrap' }}>
                   <div className={styles.formGroup} style={{ flex: 1, minWidth: '160px', marginBottom: 0 }}>
-                    <label>🏷️ ფასდაკლება</label>
+                    <label>{t('sales.discountLabel')}</label>
                     <select
                       value={discountType}
                       onChange={e => handleDiscountTypeChange(e.target.value as DiscountType)}
                       className={styles.inputField}
-                      title={!canUseDiscountEffective ? 'საჭიროა მენეჯერის ავტორიზაცია' : undefined}
+                      title={!canUseDiscountEffective ? t('common.managerAuthRequired') : undefined}
                     >
-                      <option value="none">არ არის</option>
-                      <option value="percent">პროცენტული %</option>
-                      <option value="fixed">ფიქსირებული ₾</option>
+                      <option value="none">{t('sales.discountNone')}</option>
+                      <option value="percent">{t('sales.discountPercent')}</option>
+                      <option value="fixed">{t('sales.discountFixed')}</option>
                     </select>
                   </div>
                   {canUseDiscountEffective && discountType !== 'none' && (
                     <div className={styles.formGroup} style={{ flex: 1, minWidth: '140px', marginBottom: 0 }}>
-                      <label>{discountType === 'percent' ? 'ოდენობა (%)' : 'ოდენობა (₾)'}</label>
+                      <label>{discountType === 'percent' ? t('sales.discountAmountPercent') : t('sales.discountAmountFixed')}</label>
                       <input
                         type="number"
                         min="0"
@@ -858,7 +855,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
                 </div>
                 {!canUseDiscountEffective && (
                   <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0 0 10px 0' }}>
-                    🔒 ფასდაკლების გამოყენების უფლება არ გაქვთ — ტიპის არჩევისას მოგეთხოვებათ მენეჯერის PIN-ავტორიზაცია.
+                    {t('sales.discountLockedNote')}
                   </p>
                 )}
 
@@ -866,29 +863,29 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
                   {discountAmount > 0 && (
                     <>
                       <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', fontSize: '14px' }}>
-                        <span>ჯამი ფასდაკლებამდე:</span>
+                        <span>{t('sales.subtotalBeforeDiscount')}</span>
                         <span>{cartSubtotal.toFixed(2)} ₾</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', color: '#b45309', fontSize: '14px' }}>
-                        <span>ფასდაკლება{discountType === 'percent' ? ` (${parsedDiscountValue}%)` : ''}:</span>
+                        <span>{t('sales.discountRow', { percent: discountType === 'percent' ? ` (${parsedDiscountValue}%)` : '' })}</span>
                         <span>-{discountAmount.toFixed(2)} ₾</span>
                       </div>
                     </>
                   )}
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span className={styles.totalLabel}>სულ გადასახდელი:</span>
+                    <span className={styles.totalLabel}>{t('sales.totalDue')}</span>
                     <span className={styles.totalValue}>{cartTotal.toFixed(2)} ₾</span>
                   </div>
                 </div>
 
                 <div style={{ margin: '15px 0 5px 0' }}>
-                  <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600, color: '#475569' }}>💰 გადახდის მეთოდი</label>
-                  <div role="radiogroup" aria-label="გადახდის მეთოდი" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600, color: '#475569' }}>{t('sales.paymentMethodLabel')}</label>
+                  <div role="radiogroup" aria-label={t('sales.paymentMethodLabel')} style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     {(
                       [
-                        { value: 'cash', label: '💵 ნაღდი' },
-                        { value: 'card', label: '💳 ბარათი' },
-                        { value: 'split', label: '🔀 შერეული' },
+                        { value: 'cash', label: t('sales.paymentBadge.cash') },
+                        { value: 'card', label: t('sales.paymentBadge.card') },
+                        { value: 'split', label: t('sales.paymentBadge.split') },
                       ] as const
                     ).map(({ value, label }) => (
                       <button
@@ -915,7 +912,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
 
                 {paymentMethod === 'cash' && (
                   <div className={styles.formGroup} style={{ marginTop: '10px' }}>
-                    <label>მიღებული ნაღდი ფული (₾) — არასავალდებულო</label>
+                    <label>{t('sales.cashReceivedLabel')}</label>
                     <input
                       type="number"
                       min="0"
@@ -927,7 +924,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
                     />
                     {parsedCashReceived > 0 && (
                       <p style={{ margin: '6px 0 0 0', fontSize: '13px', color: '#166534', fontWeight: 'bold' }}>
-                        ხურდა: {changeDueNow.toFixed(2)} ₾
+                        {t('sales.changeDue', { amount: changeDueNow.toFixed(2) })}
                       </p>
                     )}
                   </div>
@@ -935,7 +932,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
 
                 {paymentMethod === 'card' && (
                   <p style={{ margin: '10px 0 0 0', fontSize: '13px', color: '#64748b' }}>
-                    მთლიანი თანხა {cartTotal.toFixed(2)} ₾ ჩამოიჭრება ბარათიდან.
+                    {t('sales.cardFullAmountNote', { amount: cartTotal.toFixed(2) })}
                   </p>
                 )}
 
@@ -943,28 +940,28 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
                   <div style={{ marginTop: '10px' }}>
                     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                       <div className={styles.formGroup} style={{ flex: 1, minWidth: '140px' }}>
-                        <label>ნაღდი ნაწილი (₾)</label>
+                        <label>{t('sales.splitCashLabel')}</label>
                         <input type="number" min="0" step="0.01" value={splitCashInput} onChange={e => handleSplitCashChange(e.target.value)} className={styles.inputField} />
                       </div>
                       <div className={styles.formGroup} style={{ flex: 1, minWidth: '140px' }}>
-                        <label>ბარათის ნაწილი (₾)</label>
+                        <label>{t('sales.splitCardLabel')}</label>
                         <input type="number" min="0" step="0.01" value={splitCardInput} onChange={e => handleSplitCardChange(e.target.value)} className={styles.inputField} />
                       </div>
                     </div>
                     <p style={{ margin: '6px 0 0 0', fontSize: '13px', fontWeight: 'bold', color: !splitBothFilled ? '#94a3b8' : paymentMethodValid ? '#166534' : '#ef4444' }}>
                       {!splitBothFilled
-                        ? 'შეავსე ორივე ველი'
+                        ? t('sales.splitFillBoth')
                         : paymentMethodValid
-                        ? '✓ ჯამი ემთხვევა ჩეკის თანხას'
+                        ? t('sales.splitMatches')
                         : parsedSplitCash <= 0 || parsedSplitCard <= 0
-                        ? 'ორივე ნაწილი დადებითი უნდა იყოს (0.01 ₾-ზე მეტი)'
-                        : `სხვაობა: ${splitDiff > 0 ? '+' : ''}${splitDiff.toFixed(2)} ₾`}
+                        ? t('sales.splitBothPositive')
+                        : t('sales.splitDifference', { sign: splitDiff > 0 ? '+' : '', amount: splitDiff.toFixed(2) })}
                     </p>
                   </div>
                 )}
 
                 <div className={styles.formGroup} style={{ marginTop: '10px' }}>
-                  <label>🍴 ჯამური (tip, ₾) — არასავალდებულო</label>
+                  <label>{t('orderScreen.tipLabel')}</label>
                   <input
                     type="number"
                     min="0"
@@ -982,7 +979,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
                   className={`${styles.btn} ${styles.btnSuccess}`}
                   style={{ width: '100%', padding: '14px', fontSize: '16px', marginTop: '10px', opacity: paymentMethodValid ? 1 : 0.6, whiteSpace: 'normal' }}
                 >
-                  {checkingOut ? 'მუშავდება...' : 'ჩეკის დახურვა (ბეჭდვა)'}
+                  {checkingOut ? t('orderScreen.processingButton') : t('orderScreen.checkoutButton')}
                 </button>
 
                 {activeItems.length >= 2 && discountType === 'none' && (
@@ -992,7 +989,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
                     className={`${styles.btn} ${styles.btnSecondary}`}
                     style={{ width: '100%', padding: '12px', fontSize: '14px', marginTop: '8px' }}
                   >
-                    🧾 ჩეკის გაყოფა
+                    {t('orderScreen.splitBillButton')}
                   </button>
                 )}
               </>
@@ -1004,15 +1001,15 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
       {showPinModal && (
         <div className={styles.modalOverlay}>
           <div className={styles.modalBody}>
-            <h3>🔑 საჭიროა მენეჯერის ავტორიზაცია</h3>
+            <h3>{t('sales.managerPinModalTitle')}</h3>
             <p style={{ color: '#64748b', fontSize: '14px', marginTop: 0 }}>
               {pendingVoidItem
-                ? `"${pendingVoidItem.name}"-ის გაუქმებას (უკვე სამზარეულოშია გაგზავნილი) მენეჯერის დადასტურება სჭირდება — შეიყვანეთ 4-ციფრიანი PIN-კოდი.`
-                : 'ფასდაკლების გამოსაყენებლად მენეჯერმა უნდა შეიყვანოს თავისი 4-ციფრიანი PIN-კოდი.'}
+                ? t('orderScreen.pinReasonVoidItem', { name: pendingVoidItem.name })
+                : t('sales.pinReasonDiscount')}
             </p>
             <form onSubmit={handleVerifyManagerPin}>
               <div className={styles.formGroup}>
-                <label>PIN-კოდი</label>
+                <label>{t('sales.pinCodeLabel')}</label>
                 <input
                   type="password"
                   inputMode="numeric"
@@ -1028,10 +1025,10 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
               {pinError && <p style={{ color: '#ef4444', fontSize: '13px', margin: '-8px 0 12px 0' }}>{pinError}</p>}
               <div style={{ display: 'flex', gap: '10px', marginTop: '10px', flexWrap: 'wrap' }}>
                 <button type="button" onClick={closePinModal} className={`${styles.btn} ${styles.btnSecondary}`} style={{ flex: 1, minWidth: '120px' }}>
-                  გაუქმება
+                  {t('common.cancel')}
                 </button>
                 <button type="submit" disabled={pinLoading || pinValue.length !== 4} className={`${styles.btn} ${styles.btnPrimary}`} style={{ flex: 1, minWidth: '120px' }}>
-                  {pinLoading ? 'მოწმდება...' : 'დადასტურება'}
+                  {pinLoading ? t('common.verifying') : t('common.confirm')}
                 </button>
               </div>
             </form>
@@ -1104,16 +1101,16 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
               tipAmount: part.tipAmount,
               partLabel:
                 result.mode === 'byItem'
-                  ? `🪑 ადგილი ${part.seatNumber}`
-                  : `👤 ნაწილი ${index + 1}/${partsCount}`,
+                  ? t('orderScreen.splitPartSeatLabel', { seat: part.seatNumber })
+                  : t('orderScreen.splitPartGuestLabel', { index: index + 1, count: partsCount }),
               sharedItemsNote:
                 result.mode === 'equal'
-                  ? 'ზემოთ საერთო შეკვეთის სრული ჩამონათვალია — ეს ჩეკი მხოლოდ თანხის წილს წარმოადგენს.'
+                  ? t('orderScreen.splitSharedItemsNote')
                   : undefined,
             }));
             setSplitReceipts(receipts);
             setShowSplitModal(false);
-            showToast(`მაგიდა "${table.name}" — ჩეკი გაიყო და დაიხურა!`, 'success');
+            showToast(t('orderScreen.toasts.tableSplitClosed', { name: table.name }), 'success');
             setOrderClosed(true);
             onOrderChanged();
           }}

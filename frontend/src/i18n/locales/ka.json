@@ -55,7 +55,15 @@
     "confirm": "დადასტურება",
     "verifying": "მოწმდება...",
     "managerAuthRequired": "საჭიროა მენეჯერის ავტორიზაცია",
-    "yes": "დიახ"
+    "yes": "დიახ",
+    "kitchenStatus": {
+      "pending": "მოლოდინში",
+      "sent": "გაგზავნილია",
+      "preparing": "მზადდება",
+      "ready": "მზადაა",
+      "served": "მიტანილია",
+      "voided": "გაუქმებული"
+    }
   },
   "sales": {
     "paymentBadge": {
@@ -228,6 +236,78 @@
       "shiftOpened": "ცვლა გაიხსნა",
       "openShiftFailed": "ცვლის გახსნა ვერ მოხერხდა",
       "closeShiftFailed": "ცვლის დახურვა ვერ მოხერხდა"
+    }
+  },
+  "orderScreen": {
+    "orderIdOpened": "შეკვეთა #{{id}} · გახსნილია: {{time}}",
+    "voidOrderButton": "🚫 შეკვეთის გაუქმება",
+    "backToFloorPlan": "🔙 მაგიდებზე დაბრუნება",
+    "orderClosedTitle": "✅ ჩეკი დაიხურა",
+    "orderClosedDesc": "მაგიდა \"{{name}}\" მონიშნულია როგორც \"დასალაგებელი\" — დალაგების შემდეგ ხელით შეცვალეთ სტატუსი \"თავისუფალზე\" (🍽️ მაგიდები გვერდზე).",
+    "reprintButton": "🖨 ხელახლა ბეჭდვა",
+    "reprintSplitButton": "🖨 ჩეკების ხელახლა ბეჭდვა ({{count}})",
+    "tableFreeTitle": "მაგიდა თავისუფალია",
+    "tableFreeDesc": "ახალი შეკვეთის გახსნა შესაძლებელია მხოლოდ მოლარის (cashier) მიერ, საკუთარი გახსნილი ცვლიდან — ისევე, როგორც Retail POS-ში მხოლოდ cashier ყიდის. აქედან შეგიძლიათ მხოლოდ მაგიდის რედაქტირება/წაშლა (\"🍽️ მაგიდები\" გვერდზე) და უკვე გახსნილი შეკვეთის ზედამხედველობა.",
+    "noOpenOrderTitle": "ღია შეკვეთა არ არსებობს",
+    "noOpenOrderDesc": "ახალი შეკვეთის გასახსნელად შეავსეთ სტუმრების რაოდენობა (არასავალდებულო) და დააჭირეთ ღილაკს.",
+    "guestCountLabel": "სტუმრების რაოდენობა",
+    "openingOrderButton": "იხსნება...",
+    "openOrderButton": "🚀 შეკვეთის გახსნა",
+    "addItemTitle": "➕ პროდუქტის დამატება",
+    "productLabel": "პროდუქტი",
+    "seatNumberLabel": "🍴 სტუმრის ადგილი (არასავალდებულო)",
+    "seatNumberPlaceholder": "მაგ. 1, 2, 3...",
+    "loadingModifiers": "მოდიფაიერები იტვირთება...",
+    "modifierNone": "არცერთი",
+    "notesLabel": "შენიშვნა (არასავალდებულო)",
+    "notesPlaceholder": "medium rare, ცხარის გარეშე...",
+    "addingButton": "ემატება...",
+    "addButton": "დამატება",
+    "currentOrderTitle": "📝 მიმდინარე შეკვეთა",
+    "noItemsYet": "ჯერ არაფერია დამატებული",
+    "statusHeader": "სტატუსი",
+    "tipLabel": "🍴 ჯამური (tip, ₾) — არასავალდებულო",
+    "processingButton": "მუშავდება...",
+    "checkoutButton": "ჩეკის დახურვა (ბეჭდვა)",
+    "splitBillButton": "🧾 ჩეკის გაყოფა",
+    "pinReasonVoidItem": "\"{{name}}\"-ის გაუქმებას (უკვე სამზარეულოშია გაგზავნილი) მენეჯერის დადასტურება სჭირდება — შეიყვანეთ 4-ციფრიანი PIN-კოდი.",
+    "voidItemConfirmTitle": "🚫 პროდუქტის გაუქმება",
+    "voidItemConfirmMessage": "გავაუქმოთ \"{{name}}\"?",
+    "voidOrderConfirmMessage": "გავაუქმოთ მთელი შეკვეთა? ეს მოქმედება შეუქცევადია.",
+    "splitPartSeatLabel": "🪑 ადგილი {{seat}}",
+    "splitPartGuestLabel": "👤 ნაწილი {{index}}/{{count}}",
+    "splitSharedItemsNote": "ზემოთ საერთო შეკვეთის სრული ჩამონათვალია — ეს ჩეკი მხოლოდ თანხის წილს წარმოადგენს.",
+    "toasts": {
+      "loadProductsFailed": "პროდუქტების ჩატვირთვა ვერ მოხერხდა",
+      "loadOrderFailed": "შეკვეთის ჩატვირთვა ვერ მოხერხდა",
+      "invalidGuestCount": "სტუმრების რაოდენობა არავალიდურია",
+      "openOrderFailed": "შეკვეთის გახსნა ვერ მოხერხდა",
+      "invalidItemQuantity": "რაოდენობა უნდა იყოს დადებითი მთელი რიცხვი",
+      "modifierGroupRequired": "აირჩიეთ \"{{name}}\" — სავალდებულოა",
+      "addItemFailed": "პროდუქტის დამატება ვერ მოხერხდა",
+      "itemVoided": "{{name}} გაუქმდა",
+      "voidFailed": "გაუქმება ვერ მოხერხდა",
+      "orderVoided": "შეკვეთა გაუქმდა",
+      "noItemsInOrder": "შეკვეთაში პროდუქტი არ არის",
+      "tableClosed": "მაგიდა \"{{name}}\" — ჩეკი დაიხურა!",
+      "paymentFailed": "გადახდა ჩავარდა!",
+      "tableSplitClosed": "მაგიდა \"{{name}}\" — ჩეკი გაიყო და დაიხურა!"
+    },
+    "splitModal": {
+      "modeEqual": "თანაბრად",
+      "modeBySeat": "სტუმრების მიხედვით",
+      "byItemDisabledTooltip": "ყველა პროდუქტს სჭირდება მინიჭებული ადგილი (სულ მცირე 2 განსხვავებული)",
+      "byItemHint": "⚠️ ეს რეჟიმი მოითხოვს, რომ ორდერის ყველა პროდუქტს ჰქონდეს მინიჭებული ადგილი (🪑, \"პროდუქტის დამატება\" ფორმაში) — მინიმუმ 2 განსხვავებული ადგილით.",
+      "guestLabel": "სტუმარი {{index}}",
+      "cashReceivedPlaceholder": "მიღებული ნაღდი (მინ. {{amount}} ₾)",
+      "cashShort": "⚠️ აკლია {{amount}} ₾",
+      "tipPlaceholder": "🪙 tip (₾) — არასავალდებულო",
+      "closeButton": "დახურვა ({{count}} ჩეკად)",
+      "errors": {
+        "byItemUnavailable": "item-ის მიხედვით გასაყოფად ყველა პროდუქტს სჭირდება მინიჭებული ადგილი (სულ მცირე 2 განსხვავებული).",
+        "cashBelowDue": "ნაწილი #{{index}}-ისთვის მიღებული ნაღდი ფული ნაკლებია გადასახდელ თანხაზე ({{amount}} ₾).",
+        "splitFailed": "ჩეკის გაყოფა ვერ მოხერხდა"
+      }
     }
   }
 }
