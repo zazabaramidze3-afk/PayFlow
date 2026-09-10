@@ -1,14 +1,17 @@
 import { useTranslation } from 'react-i18next';
 import styles from './LanguageSwitcher.module.scss';
 import { persistLanguage, SupportedLanguage } from '../i18n';
+import { GlobeIcon } from './Icons';
 
 // ==========================================
-// 🌍 LanguageSwitcher — ქარ/EN pill-გადამრთველი
+// 🌍 LanguageSwitcher — მინიმალისტური globe-toggle
 // ==========================================
-// ThemeToggleSwitch-ის იგივე მსუბუქი, controlled-by-hook პატერნი, მაგრამ
-// 2 ტექსტური ვარიანტით (არა binary icon-crossfade) — ორზე მეტი ენის
-// დამატებისას (მომავალში) კომპონენტი უცვლელად მუშაობს, `LANGUAGES`
-// მასივის გაფართოებით საკმარისია.
+// FIX (10.09.2026, მომხმარებლის მოთხოვნით): ორსეგმენტიანი "GE | EN"
+// pill (რომელიც sidebar/mobile-topbar-ში ცუდად ეტეოდა) შეიცვალა ერთი
+// წრიული ღილაკით — მინიმალისტური globe SVG (Icons.tsx) + მიმდინარე
+// ენის მოკლე კოდი პატარა ტექსტად გვერდით. დაჭერაზე ენა უბრალოდ
+// გადაერთვება მეორეზე (ka<->en) — ორზე მეტი ენის დამატებისას
+// (მომავალში) ეს toggle-ლოგიკა dropdown/cycle-ზე გადასაკეთებელი იქნება.
 //
 // `onChange` optional prop: Login/Register-ზე (ავტორიზაციამდე) DB-კონტექსტი
 // არ არსებობს — მხოლოდ localStorage-ში ინახება. App.tsx-ის sidebar-ში კი
@@ -21,36 +24,33 @@ interface LanguageSwitcherProps {
   onChange?: (language: SupportedLanguage) => void;
 }
 
-const LANGUAGES: ReadonlyArray<{ code: SupportedLanguage; labelKey: string }> = [
-  { code: 'ka', labelKey: 'language.ka' },
-  { code: 'en', labelKey: 'language.en' },
-];
+// ბეჯის/tooltip-ის ენის კოდი განზრახ არ თარგმნება (`t()`-ის ნაცვლად
+// ფიქსირებული მასივი) — ყოველთვის ლათინური "GE"/"EN" უნდა დარჩეს,
+// მიუხედავად იმისა, ინტერფეისი ქართულადაა თუ ინგლისურად.
+const LANG_CODE: Record<SupportedLanguage, string> = { ka: 'GE', en: 'EN' };
 
 function LanguageSwitcher({ className, onChange }: LanguageSwitcherProps) {
   const { t, i18n } = useTranslation();
   const current = (i18n.language?.split('-')[0] as SupportedLanguage) || 'ka';
+  const next: SupportedLanguage = current === 'ka' ? 'en' : 'ka';
 
-  const handleSelect = (code: SupportedLanguage) => {
-    if (code === current) return;
-    void i18n.changeLanguage(code);
-    persistLanguage(code);
-    onChange?.(code);
+  const handleToggle = () => {
+    void i18n.changeLanguage(next);
+    persistLanguage(next);
+    onChange?.(next);
   };
 
   return (
-    <div className={`${styles.langSwitch} ${className ?? ''}`} role="group" aria-label={t('language.label')}>
-      {LANGUAGES.map(({ code, labelKey }) => (
-        <button
-          key={code}
-          type="button"
-          onClick={() => handleSelect(code)}
-          className={`${styles.langOption} ${current === code ? styles.langOptionActive : ''}`}
-          aria-pressed={current === code}
-        >
-          {t(labelKey)}
-        </button>
-      ))}
-    </div>
+    <button
+      type="button"
+      onClick={handleToggle}
+      className={`${styles.langSwitch} ${className ?? ''}`}
+      aria-label={t('language.label')}
+      title={LANG_CODE[next]}
+    >
+      <GlobeIcon size={15} />
+      <span className={styles.langCode}>{LANG_CODE[current]}</span>
+    </button>
   );
 }
 

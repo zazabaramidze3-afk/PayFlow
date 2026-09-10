@@ -1,48 +1,41 @@
 @use '../styles/variables' as v;
 
 // ==========================================
-// 🌍 LanguageSwitcher — pill-სეგმენტირებული გადამრთველი
+// 🌍 LanguageSwitcher — მინიმალისტური globe-ღილაკი
 // ==========================================
-// ThemeToggleSwitch-ისგან განსხვავებით (რომელიც *არის* თემის ვიზუალი,
-// ამიტომ ჰარდქოდილი შავი/თეთრია) — ეს კომპონენტი თემის ტოკენებზეა
-// აგებული (v.$color-bg-subtle და მისთ.), რომ light/dark-ში ავტომატურად
-// ერგებოდეს გარემომცველ sidebar/card-ს.
+// FIX (10.09.2026): ორსეგმენტიანი pill (ორი active/inactive ღილაკი,
+// box-shadow-იანი highlight) შეიცვალა ერთი წრიულთან მიახლოებული
+// icon-ღილაკით — ThemeToggleSwitch-ის იგივე 24px სიმაღლით, რომ
+// sidebar/mobile-topbar-ში გვერდიგვერდ თანაბრად "ჯდებოდეს".
 // ==========================================
 
 .langSwitch {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  padding: 2px;
+  gap: 5px;
+  height: 24px;
+  padding: 0 8px;
   border-radius: v.$radius-pill;
-  background: v.$color-bg-subtle;
-  border: 1px solid v.$color-border;
-  flex-shrink: 0;
-}
-
-.langOption {
-  border: none;
   background: transparent;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  padding: 4px 9px;
-  border-radius: v.$radius-pill;
-  cursor: pointer;
+  border: 1px solid v.$color-border;
   color: v.$color-text-secondary;
+  cursor: pointer;
+  flex-shrink: 0;
   transition: v.$transition-fast;
 
   &:hover {
+    background: v.$color-bg-subtle;
     color: v.$color-text-primary;
+  }
+
+  &:focus-visible {
+    outline: 2px solid v.$color-primary;
+    outline-offset: 2px;
   }
 }
 
-.langOptionActive {
-  background: v.$color-bg-card;
-  color: v.$color-primary;
-  box-shadow: v.$shadow-xs;
-
-  &:hover {
-    color: v.$color-primary;
-  }
+.langCode {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }

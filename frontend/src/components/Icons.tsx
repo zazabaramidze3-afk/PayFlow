@@ -161,6 +161,19 @@ export function SunIcon({ size = 16 }: IconProps) {
   );
 }
 
+// 🌍 LanguageSwitcher-ისთვის — მინიმალისტური globe აიკონი (ენის
+// გადამრთველის GE/EN pill-ის ჩანაცვლება, 10.09.2026 მომხმარებლის
+// მოთხოვნით).
+export function GlobeIcon({ size = 16 }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width={size} height={size} aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="2" y1="12" x2="22" y2="12" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </svg>
+  );
+}
+
 // ==========================================
 // 🧭 Sidebar ნავიგაციის აიკონები (06.09.2026) — ფერადი emoji-ების
 // ჩანაცვლება მინიმალისტური, currentColor-ზე დამოკიდებული SVG-ებით
