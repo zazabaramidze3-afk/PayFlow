@@ -122,6 +122,12 @@ router.post(
 // ==========================================
 // 🟢 GET /orders — ღია (ან სხვა სტატუსის) შეკვეთების სია
 // ==========================================
+// INTENTIONAL (ROADMAP - HoReCa Open Items - 06.09.2026.md, #1):
+// არ ფილტრავს opened_by-ზე — ნებისმიერ ავტორიზებულ waiter-ს ყველა ღია
+// მაგიდის/შეკვეთის ნახვა შეუძლია org-ის ფარგლებში (cross-waiter,
+// ვარიანტი ბ). opened_by რჩება მხოლოდ audit/tip-attribution-ისთვის —
+// არ დაამატოთ `AND opened_by = req.user.id` restriction ამ endpoint-ზე
+// კონკრეტული, დოკუმენტირებული გადაწყვეტილების გარეშე.
 router.get(
   '/orders',
   authenticateToken,
