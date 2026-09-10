@@ -81,7 +81,7 @@ router.post('/login', async (req: Request, res: Response) => {
     // ამ org-ის შიგნით (Roadmap "24.08.2026", STEP 7-ის წინაპირობა).
     const result = await db.query(
       `SELECT u.id, u.name AS username, u.password_hash, u.role, u.status, u.can_view_history,
-              u.requires_password_reset, u.organization_id, o.status AS organization_status, o.name AS organization_name
+              u.requires_password_reset, u.organization_id, u.language, o.status AS organization_status, o.name AS organization_name
        FROM users u
        JOIN organizations o ON o.id = u.organization_id
        WHERE o.slug = LOWER($1) AND LOWER(u.name) = LOWER($2) LIMIT 1`,
@@ -131,7 +131,11 @@ router.post('/login', async (req: Request, res: Response) => {
         role: user.role,
         status: user.status,
         can_view_history: user.can_view_history,
-        requires_password_reset: user.requires_password_reset
+        requires_password_reset: user.requires_password_reset,
+        // 🌍 Multi-language support STEP 1 — login-ის მომენტში ხელმისაწვდომი
+        // ენა (App.tsx-ის GET /api/me session-restore-ზე ისევ ფრეშად
+        // გადამოწმდება, businessType-ის იგივე "not from JWT" პრინციპით).
+        language: user.language
       }
     });
 
@@ -185,7 +189,7 @@ router.post('/auth/reset-password-initial', async (req: Request, res: Response) 
       `UPDATE users
        SET password_hash = $1, requires_password_reset = false
        WHERE id = $2
-       RETURNING id, name AS username, role, status, can_view_history, can_use_discount, requires_password_reset, organization_id`,
+       RETURNING id, name AS username, role, status, can_view_history, can_use_discount, requires_password_reset, organization_id, language`,
       [hashedPassword, userId]
     );
 
@@ -218,13 +222,34 @@ router.post('/auth/reset-password-initial', async (req: Request, res: Response) 
 router.get('/me', authenticateToken, async (req: CustomRequest, res: Response) => {
   try {
     const result = await db.query(
-      'SELECT id, name AS username, role, status, can_view_history, can_use_discount, can_void_receipt, can_clear_cart, requires_password_reset FROM users WHERE id = $1',
+      'SELECT id, name AS username, role, status, can_view_history, can_use_discount, can_void_receipt, can_clear_cart, requires_password_reset, language FROM users WHERE id = $1',
       [req.user?.id]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა!' });
     }
     res.json(result.rows[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 🌍 Multi-language support STEP 1 — მომხმარებლის საკუთარი ენის არჩევანის
+// შენახვა (per-user, DB-ში — არა org-level, არა localStorage-ონლი).
+// ⚠️ IDOR-safe: language ყოველთვის `req.user.id`-ს ეწერება — არავითარი
+// :id URL-პარამეტრი არ არსებობს, ანუ user-ს ფიზიკურადაც კი არ შეუძლია
+// სხვისი ენის შეცვლის მცდელობა (განსხვავებით admin-ონლი `/users/:id`
+// endpoint-ებისგან ამ ფაილში).
+router.patch('/me/language', authenticateToken, async (req: CustomRequest, res: Response) => {
+  const { language } = req.body;
+
+  if (language !== 'ka' && language !== 'en') {
+    return res.status(400).json({ error: "language უნდა იყოს 'ka' ან 'en'!" });
+  }
+
+  try {
+    await db.query('UPDATE users SET language = $1 WHERE id = $2', [language, req.user?.id]);
+    res.json({ language });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

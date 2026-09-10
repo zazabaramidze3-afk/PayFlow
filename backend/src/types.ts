@@ -56,6 +56,11 @@ export interface User {
   // ავალდებულებს (routes/organizations.ts). უნიკალურია მთელი
   // პლატფორმის მასშტაბით (`uq_users_email`), არა per-org.
   email: string | null;
+  // 🌍 Multi-language support STEP 1 (migration 027) — per-user UI ენა.
+  // ტიპი მკაცრი union-ია (არა `status`-ის თავისუფალი string), რადგან
+  // ბაზის CHECK constraint-იც ('ka'|'en') ზუსტად ამ ორ მნიშვნელობას
+  // უშვებს — გაფართოება (მე-3 ენა) ორივეს ერთდროულად მოითხოვს.
+  language: 'ka' | 'en';
 }
 
 // ==========================================

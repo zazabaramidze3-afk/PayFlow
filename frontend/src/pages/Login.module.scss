@@ -138,3 +138,12 @@
   white-space: normal;
   line-height: 1.4;
 }
+
+// 🌍 Multi-language support STEP 1 — LanguageSwitcher, card-ის ზედა-მარჯვენა
+// კუთხეში (`.card` position: relative-ია ზემოთ). ავტორიზაციამდე DB-context
+// არ არსებობს, ამიტომ onChange prop არ გადაეცემა — localStorage-ონლი.
+.langSwitcherCorner {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}

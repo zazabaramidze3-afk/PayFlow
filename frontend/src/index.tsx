@@ -16,6 +16,10 @@ import './styles/global.scss';
 // ჩატვირთვისთანავე ყველა გვერდზე მოქმედებდეს — ჩეკიც, Z-Report-იც,
 // მომავალში სხვა ბეჭდვადი შაბლონებიც იმავე წესებს გამოიყენებენ.
 import './print.css';
+// 🌍 Multi-language support STEP 1 — i18next-ის init, გლობალურად ერთხელ,
+// App/PlatformAdminApp-ის mount-მდე (global.scss/print.css-ის იგივე
+// placement-პრინციპი).
+import './i18n';
 // 📴 Roadmap STEP 3 — Service Worker რეგისტრაცია (Workbox Precaching) +
 // Persistent Storage API. აპლიკაციის ჩატვირთვისთანავე ერთხელ ეშვება.
 import { initServiceWorker, requestPersistentStorage } from './pwa';

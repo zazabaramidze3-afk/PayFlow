@@ -20,6 +20,13 @@ import { Toaster } from 'react-hot-toast';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { useTheme } from './hooks/useTheme';
 import ThemeToggleSwitch from './components/ThemeToggleSwitch';
+// 🌍 Multi-language support STEP 1 — `i18n` singleton-ს პირდაპირ ვიყენებთ
+// (არა useTranslation() hook-ს), რადგან App.tsx-ს ჯერ არაფერი აქვს
+// translated (`t()` არ სჭირდება ამ ეტაპზე) — მხოლოდ imperatively ვცვლით
+// ენას login/session-restore-ზე.
+import i18n, { persistLanguage, SupportedLanguage } from './i18n';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from './components/LanguageSwitcher';
 import { useBackgroundSyncEngine } from './sync/backgroundSync';
 import { disconnectSocket } from './lib/socket';
 import styles from './App.module.scss';
@@ -201,6 +208,20 @@ function getUserFromStoredToken(): UserPermission | null {
 // ორგანიზაციაშია შესაძლებელი შექმნილიყო (იხ. UsersManagement.tsx-ის
 // role-selector, businessType-ის მიხედვით დაცული) — ამიტომ 'tables'-ზე
 // უპირობო გადამისამართება businessType-ის cross-check-ის გარეშეც უსაფრთხოა.
+// 🌍 Multi-language support STEP 1 — login/register/password-reset,
+// სამივეს ერთი და იგივე მოქმედება სჭირდება: მიღებული `user.language`
+// დაუყოვნებლივ გადაეცეს i18next-ს (რომ დეშბორდზე გადასვლისას თვალშისაცემი
+// "flash" არ იყოს არასწორ ენაზე) + localStorage-შიც შენახოს (Login-ის
+// მომდევნო ჩატვირთვისთვის ამ browser-ზე). App.tsx-ის ქვემოთა
+// session-restore useEffect (`isLoggedIn` dependency) იმავე ენას მერე
+// GET /api/me-დანაც ფრეშად გადაამოწმებს.
+function applyUserLanguage(language: unknown): void {
+  if (language === 'ka' || language === 'en') {
+    void i18n.changeLanguage(language);
+    persistLanguage(language);
+  }
+}
+
 function getDefaultPageForRole(role: string): string {
   if (role === 'cashier') return 'sales';
   if (role === 'waiter') return 'tables';
@@ -253,6 +274,41 @@ function App() {
     };
   }, [isLoggedIn]);
 
+  // 🌍 Multi-language support STEP 1 — businessType-ის ზემოთა effect-ის
+  // იდენტური პატერნი: ყოველ login-ზე/session-restore-ზე (JWT-ს language
+  // არ აქვს) ფრეშად ვითხოვთ GET /api/me-დან. ეს არის "წყარო-ჭეშმარიტება"
+  // ენისთვის — applyUserLanguage-ით login-ზე დაყენებული მნიშვნელობა
+  // მხოლოდ "დაუყოვნებელი UX"-ისთვისაა (flash-ის თავიდან ასაცილებლად),
+  // ეს effect-ი კი დარწმუნდება, რომ სხვა device-ზე შეცვლილი ენაც
+  // საბოლოოდ სწორად აისახება.
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    let cancelled = false;
+    axios
+      .get('/api/me')
+      .then(response => {
+        if (!cancelled) applyUserLanguage(response.data?.language);
+      })
+      .catch(() => {
+        // 🛟 non-critical — თუ ეს fetch ჩავარდა, login-ზე უკვე დაყენებული
+        // ენა (ან localStorage-ის ძველი მნიშვნელობა) მაინც რჩება ძალაში.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoggedIn]);
+
+  // 🌍 Multi-language support STEP 1 — LanguageSwitcher-ის onChange:
+  // i18next-ის ცვლილება უკვე მომენტალურია (კომპონენტში), აქ მხოლოდ
+  // DB-ში ვინახავთ (per-user, IDOR-safe — PATCH /api/me/language
+  // `req.user.id`-ს იყენებს, არა URL-პარამეტრს).
+  const handleLanguageChange = (language: SupportedLanguage) => {
+    axios.patch('/api/me/language', { language }).catch(() => {
+      // 🛟 non-critical — UI-ში ენა უკვე შეიცვალა (i18next), მხოლოდ
+      // შემდეგ device/სესიაზე ვერ გადაეცემა, თუ ეს request ჩავარდა.
+    });
+  };
+
   // ==========================================
   // 📴 Roadmap STEP 5 — Background Sync Engine
   // ==========================================
@@ -265,6 +321,7 @@ function App() {
   useNetworkStatus();
   useBackgroundSyncEngine();
   const { theme, toggleTheme } = useTheme();
+  const { t } = useTranslation();
 
   // ავტორიზაცია ბეკენდის SQL ბაზის მეშვეობით
   // 🏢 Multi-Tenant SaaS — `users.name` per-org unique გახდა (migration 016,
@@ -296,13 +353,17 @@ function App() {
       localStorage.setItem('token', token);
 
       setCurrentUser(user);
+      applyUserLanguage(user.language);
       setCurrentPage(getDefaultPageForRole(user.role));
       callback({});
     } catch (error: any) {
       if (error.response && error.response.data.error) {
         callback({ error: error.response.data.error });
       } else {
-        callback({ error: 'სერვერთან კავშირი ვერ დამყარდა!' });
+        // 🌍 Multi-language support STEP 1 — i18n.t() იმპერატიულად (არა
+        // useTranslation() hook), რადგან App.tsx-ს ჯერ არაფერი აქვს reactively
+        // translated — ეს ერთადერთი fallback-სტრიქონია Login-ის flow-დან.
+        callback({ error: i18n.t('login.connectionFailed') });
       }
     }
   };
@@ -313,6 +374,7 @@ function App() {
   const handlePasswordResetComplete = (token: string, user: any) => {
     localStorage.setItem('token', token);
     setCurrentUser(user);
+    applyUserLanguage(user.language);
     setCurrentPage(getDefaultPageForRole(user.role));
   };
 
@@ -322,6 +384,7 @@ function App() {
   const handleRegisterSuccess = (token: string, user: any) => {
     localStorage.setItem('token', token);
     setCurrentUser(user);
+    applyUserLanguage(user.language);
     setShowRegister(false);
     setCurrentPage(getDefaultPageForRole(user.role));
   };
@@ -373,11 +436,12 @@ function App() {
         <button
           className={styles.hamburgerBtn}
           onClick={() => setMobileNavOpen(o => !o)}
-          aria-label="მენიუს გახსნა"
+          aria-label={t('nav.openMenu')}
         >
           {mobileNavOpen ? '✕' : '☰'}
         </button>
         <span className={styles.brandTitle}>PayFlow</span>
+        <LanguageSwitcher onChange={handleLanguageChange} />
         <ThemeToggleSwitch theme={theme} onToggle={toggleTheme} className={styles.mobileThemeSwitch} />
       </div>
 
@@ -394,7 +458,10 @@ function App() {
               <span className={styles.brandDot} />
               <span className={styles.brandTitle}>PayFlow</span>
             </span>
-            <ThemeToggleSwitch theme={theme} onToggle={toggleTheme} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <LanguageSwitcher onChange={handleLanguageChange} />
+              <ThemeToggleSwitch theme={theme} onToggle={toggleTheme} />
+            </div>
           </div>
           <p className={styles.userMeta}>
             {currentUser?.username} · {userRole}
@@ -406,13 +473,13 @@ function App() {
                   onClick={() => navigateTo('dashboard')}
                   className={`${styles.navItem} ${currentPage === 'dashboard' ? styles.active : ''}`}
                 >
-                  <DashboardIcon size={16} /> Dashboard
+                  <DashboardIcon size={16} /> {t('nav.dashboard')}
                 </li>
                 <li
                   onClick={() => navigateTo('products')}
                   className={`${styles.navItem} ${currentPage === 'products' ? styles.active : ''}`}
                 >
-                  <PackageIcon size={16} /> Products
+                  <PackageIcon size={16} /> {t('nav.products')}
                 </li>
               </>
             )}
@@ -421,7 +488,7 @@ function App() {
                 onClick={() => navigateTo('sales')}
                 className={`${styles.navItem} ${currentPage === 'sales' ? styles.active : ''}`}
               >
-                <ShoppingCartIcon size={16} /> Sales (POS)
+                <ShoppingCartIcon size={16} /> {t('nav.salesPos')}
               </li>
             )}
             {/* 🍽️ HoReCa Module STEP 1 — ყველა როლისთვის, ვინც Sales-საც
@@ -433,7 +500,7 @@ function App() {
                 onClick={() => navigateTo('tables')}
                 className={`${styles.navItem} ${currentPage === 'tables' ? styles.active : ''}`}
               >
-                <GridIcon size={16} /> მაგიდები
+                <GridIcon size={16} /> {t('nav.tables')}
               </li>
             )}
             {/* 🍳 HoReCa Module STEP 2 — Tables-ის იგივე ხილვადობა
@@ -444,7 +511,7 @@ function App() {
                 onClick={() => navigateTo('kitchen')}
                 className={`${styles.navItem} ${currentPage === 'kitchen' ? styles.active : ''}`}
               >
-                <MonitorIcon size={16} /> სამზარეულო
+                <MonitorIcon size={16} /> {t('nav.kitchen')}
               </li>
             )}
             {/* 🧩 HoReCa Module STEP 3.1 — მოდიფაიერების მართვა (ჯგუფები/
@@ -455,7 +522,7 @@ function App() {
                 onClick={() => navigateTo('modifiers')}
                 className={`${styles.navItem} ${currentPage === 'modifiers' ? styles.active : ''}`}
               >
-                <SlidersIcon size={16} /> მოდიფაიერები
+                <SlidersIcon size={16} /> {t('nav.modifiers')}
               </li>
             )}
             {/* 🍲 HoReCa Module STEP 3.2 — ინგრედიენტების მართვა
@@ -467,7 +534,7 @@ function App() {
                 onClick={() => navigateTo('ingredients')}
                 className={`${styles.navItem} ${currentPage === 'ingredients' ? styles.active : ''}`}
               >
-                <LayersIcon size={16} /> ინგრედიენტები
+                <LayersIcon size={16} /> {t('nav.ingredients')}
               </li>
             )}
             {/* ⚙️ Settings (Roadmap #3) — Modifiers/Ingredients-ის იგივე
@@ -477,7 +544,7 @@ function App() {
                 onClick={() => navigateTo('settings')}
                 className={`${styles.navItem} ${currentPage === 'settings' ? styles.active : ''}`}
               >
-                <SettingsIcon size={16} /> პარამეტრები
+                <SettingsIcon size={16} /> {t('nav.settings')}
               </li>
             )}
             {isAdminOrManager && (
@@ -485,14 +552,14 @@ function App() {
                 onClick={() => navigateTo('users_control')}
                 className={`${styles.navItem} ${styles.navDivider} ${styles.navAccent} ${currentPage === 'users_control' ? styles.active : ''}`}
               >
-                <UsersIcon size={16} /> Users Control
+                <UsersIcon size={16} /> {t('nav.usersControl')}
               </li>
             )}
           </ul>
         </div>
         <button onClick={handleLogout} className={styles.logoutBtn}>
           <LogoutIcon size={15} />
-          სისტემიდან გამოსვლა
+          {t('nav.logout')}
         </button>
       </div>
 
@@ -501,7 +568,7 @@ function App() {
         {/* 🚧 Suspense — React.lazy()-ით დაშლილი გვერდების chunk-ის
             ჩამოტვირთვის ხანმოკლე ფანჯარაში ჩანს (dist-ში ეს chunk
             ცალკე ფაილია, პირველივე ვიზიტზე ერთხელ იტვირთება). */}
-        <Suspense fallback={<div className={styles.pageLoadingFallback}>იტვირთება...</div>}>
+        <Suspense fallback={<div className={styles.pageLoadingFallback}>{t('nav.loading')}</div>}>
           {currentPage === 'dashboard' && isAdminOrManager && <Dashboard />}
           {currentPage === 'products' && isAdminOrManager && <Products businessType={businessType} />}
           {/* 🖥️ Device Pairing (Roadmap STEP 2) — მხოლოდ POS/Sales გვერდზეა

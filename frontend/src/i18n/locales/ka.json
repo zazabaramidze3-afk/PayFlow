@@ -1,0 +1,52 @@
+{
+  "login": {
+    "brandTitle": "PayFlow",
+    "slugPrompt": "თქვენი კომპანიის subdomain",
+    "slugLabel": "Subdomain (slug)",
+    "slugPlaceholder": "magaliti-magazia",
+    "slugRequired": "გთხოვთ ჩაწეროთ კომპანიის subdomain!",
+    "companyNotFound": "კომპანია ვერ მოიძებნა!",
+    "continue": "გაგრძელება",
+    "loading": "მიმდინარეობს...",
+    "noCompany": "კომპანია არ გაქვთ დარეგისტრირებული? დაარეგისტრირეთ აქ",
+    "signInTitle": "სისტემაში შესვლა",
+    "username": "მომხმარებელი",
+    "usernamePlaceholder": "admin, manager ან cashier",
+    "password": "პაროლი",
+    "passwordPlaceholder": "ჩაწერეთ 1234",
+    "signIn": "შესვლა",
+    "changeCompany": "← სხვა კომპანია?",
+    "fillAllFields": "გთხოვთ შეავსოთ ყველა ველი!",
+    "resetTitle": "🔒 უსაფრთხოების წესები: გთხოვთ შეცვალოთ საწყისი პაროლი",
+    "resetSubtitle": "[ {{username}} ], გასაგრძელებლად საჭიროა ახალი პაროლის დაყენება",
+    "newPassword": "ახალი პაროლი",
+    "newPasswordPlaceholder": "მინიმუმ 4 სიმბოლო",
+    "confirmPassword": "გაიმეორეთ ახალი პაროლი",
+    "confirmPasswordPlaceholder": "დაადასტურეთ ახალი პაროლი",
+    "passwordTooShort": "პაროლი უნდა შედგებოდეს მინიმუმ 4 სიმბოლოსგან!",
+    "passwordMismatch": "პაროლები არ ემთხვევა!",
+    "sessionExpired": "სესია ვადაგასულია — გთხოვთ სცადოთ თავიდან შესვლა.",
+    "updatePasswordAndSignIn": "პაროლის განახლება და შესვლა",
+    "resetFailed": "პაროლის განახლება ჩავარდა",
+    "connectionFailed": "სერვერთან კავშირი ვერ დამყარდა!"
+  },
+  "language": {
+    "label": "ენის არჩევა",
+    "ka": "ქარ",
+    "en": "EN"
+  },
+  "nav": {
+    "dashboard": "მთავარი",
+    "products": "პროდუქტები",
+    "salesPos": "გაყიდვები (POS)",
+    "tables": "მაგიდები",
+    "kitchen": "სამზარეულო",
+    "modifiers": "მოდიფაიერები",
+    "ingredients": "ინგრედიენტები",
+    "settings": "პარამეტრები",
+    "usersControl": "თანამშრომლები",
+    "logout": "სისტემიდან გამოსვლა",
+    "loading": "იტვირთება...",
+    "openMenu": "მენიუს გახსნა"
+  }
+}

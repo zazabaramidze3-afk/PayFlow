@@ -1,0 +1,52 @@
+{
+  "login": {
+    "brandTitle": "PayFlow",
+    "slugPrompt": "Your company's subdomain",
+    "slugLabel": "Subdomain (slug)",
+    "slugPlaceholder": "example-store",
+    "slugRequired": "Please enter your company's subdomain!",
+    "companyNotFound": "Company not found!",
+    "continue": "Continue",
+    "loading": "Loading...",
+    "noCompany": "Don't have a company registered? Register here",
+    "signInTitle": "Sign in",
+    "username": "Username",
+    "usernamePlaceholder": "admin, manager or cashier",
+    "password": "Password",
+    "passwordPlaceholder": "Enter 1234",
+    "signIn": "Sign in",
+    "changeCompany": "← Different company?",
+    "fillAllFields": "Please fill in all fields!",
+    "resetTitle": "🔒 Security policy: please change your initial password",
+    "resetSubtitle": "[ {{username}} ], a new password is required to continue",
+    "newPassword": "New password",
+    "newPasswordPlaceholder": "At least 4 characters",
+    "confirmPassword": "Confirm new password",
+    "confirmPasswordPlaceholder": "Confirm new password",
+    "passwordTooShort": "Password must be at least 4 characters!",
+    "passwordMismatch": "Passwords do not match!",
+    "sessionExpired": "Session expired — please sign in again.",
+    "updatePasswordAndSignIn": "Update password and sign in",
+    "resetFailed": "Password update failed",
+    "connectionFailed": "Could not connect to the server!"
+  },
+  "language": {
+    "label": "Select language",
+    "ka": "GE",
+    "en": "EN"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "products": "Products",
+    "salesPos": "Sales (POS)",
+    "tables": "Tables",
+    "kitchen": "Kitchen",
+    "modifiers": "Modifiers",
+    "ingredients": "Ingredients",
+    "settings": "Settings",
+    "usersControl": "Users Control",
+    "logout": "Log out",
+    "loading": "Loading...",
+    "openMenu": "Open menu"
+  }
+}

@@ -1,0 +1,48 @@
+@use '../styles/variables' as v;
+
+// ==========================================
+// 🌍 LanguageSwitcher — pill-სეგმენტირებული გადამრთველი
+// ==========================================
+// ThemeToggleSwitch-ისგან განსხვავებით (რომელიც *არის* თემის ვიზუალი,
+// ამიტომ ჰარდქოდილი შავი/თეთრია) — ეს კომპონენტი თემის ტოკენებზეა
+// აგებული (v.$color-bg-subtle და მისთ.), რომ light/dark-ში ავტომატურად
+// ერგებოდეს გარემომცველ sidebar/card-ს.
+// ==========================================
+
+.langSwitch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: v.$radius-pill;
+  background: v.$color-bg-subtle;
+  border: 1px solid v.$color-border;
+  flex-shrink: 0;
+}
+
+.langOption {
+  border: none;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 4px 9px;
+  border-radius: v.$radius-pill;
+  cursor: pointer;
+  color: v.$color-text-secondary;
+  transition: v.$transition-fast;
+
+  &:hover {
+    color: v.$color-text-primary;
+  }
+}
+
+.langOptionActive {
+  background: v.$color-bg-card;
+  color: v.$color-primary;
+  box-shadow: v.$shadow-xs;
+
+  &:hover {
+    color: v.$color-primary;
+  }
+}

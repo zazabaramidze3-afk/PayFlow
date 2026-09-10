@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import gsap from 'gsap';
+import { useTranslation } from 'react-i18next';
 import styles from './Login.module.scss';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
 interface LoginResult {
   error?: string;
@@ -40,6 +42,8 @@ interface LoginProps {
 const LAST_SLUG_STORAGE_KEY = 'payflow_last_org_slug';
 
 export default function Login({ onLoginAttempt, onPasswordResetComplete, onNavigateToRegister }: LoginProps) {
+  const { t } = useTranslation();
+
   // 🏢 Step 1 — კომპანიის slug-ის დადასტურება.
   const [step, setStep] = useState<'slug' | 'credentials'>('slug');
   const [slugInput, setSlugInput] = useState('');
@@ -121,7 +125,7 @@ export default function Login({ onLoginAttempt, onPasswordResetComplete, onNavig
 
     const trimmedSlug = slugInput.trim().toLowerCase();
     if (!trimmedSlug) {
-      setSlugError('გთხოვთ ჩაწეროთ კომპანიის subdomain!');
+      setSlugError(t('login.slugRequired'));
       return;
     }
 
@@ -138,7 +142,7 @@ export default function Login({ onLoginAttempt, onPasswordResetComplete, onNavig
       }
       setStep('credentials');
     } catch (err: any) {
-      setSlugError(err.response?.data?.error || 'კომპანია ვერ მოიძებნა!');
+      setSlugError(err.response?.data?.error || t('login.companyNotFound'));
     } finally {
       setSlugLoading(false);
     }
@@ -159,7 +163,7 @@ export default function Login({ onLoginAttempt, onPasswordResetComplete, onNavig
       setStep('slug');
       return;
     }
-    if (!username.trim() || !password) return setError('გთხოვთ შეავსოთ ყველა ველი!');
+    if (!username.trim() || !password) return setError(t('login.fillAllFields'));
 
     // ვუგზავნით მონაცემებს App.tsx-ს შესამოწმებლად
     onLoginAttempt(resolvedOrg.slug, username, password, (result) => {
@@ -179,15 +183,15 @@ export default function Login({ onLoginAttempt, onPasswordResetComplete, onNavig
     setResetError('');
 
     if (newPassword.trim().length < 4) {
-      setResetError('პაროლი უნდა შედგებოდეს მინიმუმ 4 სიმბოლოსგან!');
+      setResetError(t('login.passwordTooShort'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      setResetError('პაროლები არ ემთხვევა!');
+      setResetError(t('login.passwordMismatch'));
       return;
     }
     if (!resetUserId) {
-      setResetError('სესია ვადაგასულია — გთხოვთ სცადოთ თავიდან შესვლა.');
+      setResetError(t('login.sessionExpired'));
       setNeedsReset(false);
       return;
     }
@@ -201,7 +205,7 @@ export default function Login({ onLoginAttempt, onPasswordResetComplete, onNavig
       const { token, user } = response.data;
       onPasswordResetComplete(token, user);
     } catch (err: any) {
-      setResetError(err.response?.data?.error || 'პაროლის განახლება ჩავარდა');
+      setResetError(err.response?.data?.error || t('login.resetFailed'));
     } finally {
       setResetLoading(false);
     }
@@ -210,24 +214,25 @@ export default function Login({ onLoginAttempt, onPasswordResetComplete, onNavig
   return (
     <div className={styles.wrapper}>
       <div className={styles.card} ref={cardRef}>
+        <LanguageSwitcher className={styles.langSwitcherCorner} />
         {needsReset ? (
           <>
             <h2 className={styles.title} style={{ fontSize: '18px', lineHeight: 1.4 }} data-gsap-field>
-              🔒 უსაფრთხოების წესები: გთხოვთ შეცვალოთ საწყისი პაროლი
+              {t('login.resetTitle')}
             </h2>
             <p className={styles.subtitle} data-gsap-field>
-              [ {username} ], გასაგრძელებლად საჭიროა ახალი პაროლის დაყენება
+              {t('login.resetSubtitle', { username })}
             </p>
 
             <form onSubmit={handleResetSubmit} className={styles.form}>
               <div className={styles.field} data-gsap-field>
-                <label className={styles.label}>ახალი პაროლი</label>
-                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="მინიმუმ 4 სიმბოლო" className={styles.input} autoFocus />
+                <label className={styles.label}>{t('login.newPassword')}</label>
+                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder={t('login.newPasswordPlaceholder')} className={styles.input} autoFocus />
               </div>
 
               <div className={styles.field} data-gsap-field>
-                <label className={styles.label}>გაიმეორეთ ახალი პაროლი</label>
-                <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="დაადასტურეთ ახალი პაროლი" className={styles.input} />
+                <label className={styles.label}>{t('login.confirmPassword')}</label>
+                <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder={t('login.confirmPasswordPlaceholder')} className={styles.input} />
               </div>
 
               {resetError && <p className={styles.error}>⚠️ {resetError}</p>}
@@ -238,23 +243,23 @@ export default function Login({ onLoginAttempt, onPasswordResetComplete, onNavig
                 className={styles.submitBtn}
                 data-gsap-field
               >
-                {resetLoading ? 'მიმდინარეობს...' : 'პაროლის განახლება და შესვლა'}
+                {resetLoading ? t('login.loading') : t('login.updatePasswordAndSignIn')}
               </button>
             </form>
           </>
         ) : step === 'slug' ? (
           <>
-            <h2 className={styles.title} data-gsap-field>PayFlow</h2>
-            <p className={styles.subtitle} data-gsap-field>თქვენი კომპანიის subdomain</p>
+            <h2 className={styles.title} data-gsap-field>{t('login.brandTitle')}</h2>
+            <p className={styles.subtitle} data-gsap-field>{t('login.slugPrompt')}</p>
 
             <form onSubmit={handleSlugSubmit} className={styles.form}>
               <div className={styles.field} data-gsap-field>
-                <label className={styles.label}>Subdomain (slug)</label>
+                <label className={styles.label}>{t('login.slugLabel')}</label>
                 <input
                   type="text"
                   value={slugInput}
                   onChange={e => setSlugInput(e.target.value)}
-                  placeholder="magaliti-magazia"
+                  placeholder={t('login.slugPlaceholder')}
                   className={styles.input}
                   autoFocus
                 />
@@ -263,7 +268,7 @@ export default function Login({ onLoginAttempt, onPasswordResetComplete, onNavig
               {slugError && <p className={styles.error}>⚠️ {slugError}</p>}
 
               <button type="submit" disabled={slugLoading} className={styles.submitBtn} data-gsap-field>
-                {slugLoading ? 'მიმდინარეობს...' : 'გაგრძელება'}
+                {slugLoading ? t('login.loading') : t('login.continue')}
               </button>
 
               <button
@@ -272,29 +277,29 @@ export default function Login({ onLoginAttempt, onPasswordResetComplete, onNavig
                 className={styles.registerLink}
                 data-gsap-field
               >
-                კომპანია არ გაქვთ დარეგისტრირებული? დაარეგისტრირეთ აქ
+                {t('login.noCompany')}
               </button>
             </form>
           </>
         ) : (
           <>
             <h2 className={styles.title} data-gsap-field>{resolvedOrg?.name}</h2>
-            <p className={styles.subtitle} data-gsap-field>სისტემაში შესვლა</p>
+            <p className={styles.subtitle} data-gsap-field>{t('login.signInTitle')}</p>
 
             <form onSubmit={handleSubmit} className={styles.form}>
               <div className={styles.field} data-gsap-field>
-                <label className={styles.label}>მომხმარებელი</label>
-                <input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder="admin, manager ან cashier" className={styles.input} autoFocus />
+                <label className={styles.label}>{t('login.username')}</label>
+                <input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder={t('login.usernamePlaceholder')} className={styles.input} autoFocus />
               </div>
 
               <div className={styles.field} data-gsap-field>
-                <label className={styles.label}>პაროლი</label>
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="ჩაწერეთ 1234" className={styles.input} />
+                <label className={styles.label}>{t('login.password')}</label>
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={t('login.passwordPlaceholder')} className={styles.input} />
               </div>
 
               {error && <p className={styles.error}>⚠️ {error}</p>}
 
-              <button type="submit" className={styles.submitBtn} data-gsap-field>შესვლა</button>
+              <button type="submit" className={styles.submitBtn} data-gsap-field>{t('login.signIn')}</button>
 
               <button
                 type="button"
@@ -302,7 +307,7 @@ export default function Login({ onLoginAttempt, onPasswordResetComplete, onNavig
                 className={styles.registerLink}
                 data-gsap-field
               >
-                ← სხვა კომპანია?
+                {t('login.changeCompany')}
               </button>
             </form>
           </>

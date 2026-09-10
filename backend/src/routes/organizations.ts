@@ -175,6 +175,10 @@ router.post('/organizations/register', async (req: Request, res: Response) => {
         status: 'active',
         can_view_history: true,
         requires_password_reset: false,
+        // 🌍 Multi-language support STEP 1 (migration 027) — users.language
+        // DEFAULT 'ka'-ს ემთხვევა (ეს INSERT language-ს ცალსახად არ
+        // აწერს), ამიტომ response-შიც იგივე მნიშვნელობა ჩანს.
+        language: 'ka',
       },
       organization: { id: organizationId, name: trimmedCompanyName, slug, businessType },
     });
