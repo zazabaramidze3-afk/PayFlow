@@ -49,30 +49,55 @@
   line-height: 1.5;
 }
 
-// 🍽️ Register.tsx-ის businessType-სეგმენტირებული radiogroup-ის იგივე
-// ვიზუალური პატერნი — ორ-ღილაკიანი toggle (individual/pooled).
-.segmentedGroup {
+.optionList {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.segmentedBtn {
-  @include m.btn-secondary;
-  flex: 1;
-  min-width: 160px;
-  font-size: 13px;
-  white-space: normal;
-  line-height: 1.3;
+.optionRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: v.$radius-md;
+  border: 1px solid v.$color-border;
+  background: v.$color-bg-subtle;
+  cursor: pointer;
+  transition: v.$transition-fast;
+
+  &:hover { border-color: v.$color-primary; }
 }
 
-.segmentedBtnActive {
-  @include m.btn-primary;
-  flex: 1;
-  min-width: 160px;
-  font-size: 13px;
-  white-space: normal;
-  line-height: 1.3;
+.optionText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.optionTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: v.$color-text-primary;
+}
+
+.optionDesc {
+  font-size: 12px;
+  color: v.$color-text-secondary;
+  line-height: 1.5;
+}
+
+// radio (არა checkbox) — ურთიერთგამომრიცხავი არჩევანია
+// (tipDistributionMode-ს ერთი მნიშვნელობა აქვს), ამიტომ ბრაუზერიც
+// native-ად უზრუნველყოფს ერთდროულად მხოლოდ ერთის მონიშვნას (name=
+// "tipDistributionMode" საერთოა ორივე input-ზე, Settings.tsx).
+.radio {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  cursor: pointer;
+  accent-color: v.$color-primary;
 }
 
 .btn { @include m.btn-base; }

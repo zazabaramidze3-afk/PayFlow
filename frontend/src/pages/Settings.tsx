@@ -102,32 +102,42 @@ export default function Settings() {
           (pooled — ცვლის ბოლოს თანაბრად ნაწილდება აქტიურ ვეითერებზე).
         </p>
 
-        <div className={styles.segmentedGroup} role="radiogroup" aria-label="Tips-ის განაწილება">
-          <button
-            type="button"
-            role="radio"
-            aria-checked={tipDistributionMode === 'individual'}
-            onClick={() => setTipDistributionMode('individual')}
-            className={`${styles.segmentedBtn} ${tipDistributionMode === 'individual' ? styles.segmentedBtnActive : ''}`}
-          >
-            👤 ინდივიდუალური
-          </button>
-          <button
-            type="button"
-            role="radio"
-            aria-checked={tipDistributionMode === 'pooled'}
-            onClick={() => setTipDistributionMode('pooled')}
-            className={`${styles.segmentedBtn} ${tipDistributionMode === 'pooled' ? styles.segmentedBtnActive : ''}`}
-          >
-            🤝 საერთო (Pooled)
-          </button>
-        </div>
+        <div className={styles.optionList}>
+          <label className={styles.optionRow}>
+            <input
+              type="radio"
+              name="tipDistributionMode"
+              checked={tipDistributionMode === 'individual'}
+              onChange={() => setTipDistributionMode('individual')}
+              className={styles.radio}
+            />
+            <span className={styles.optionText}>
+              <span className={styles.optionTitle}>👤 ინდივიდუალური</span>
+              <span className={styles.optionDesc}>
+                ამჟამინდელი (და ნაგულისხმევი) ქცევა — checkout-ზე მთელი tip
+                იმ ვეითერს/მოლარეს ეკუთვნის, ვინც checkout გაატარა.
+              </span>
+            </span>
+          </label>
 
-        <p className={styles.hint}>
-          {tipDistributionMode === 'pooled'
-            ? '⚠️ ეს პარამეტრი ჯერჯერობით მხოლოდ არჩევანს ინახავს — ფაქტობრივი გადანაწილების ალგორითმი მომავალ ეტაპზეა დაგეგმილი, checkout-ის ლოგიკა ჯერ არ იცვლება.'
-            : 'ამჟამინდელი (და ნაგულისხმევი) ქცევა — checkout-ზე მთელი tip იმ ვეითერს/მოლარეს ეკუთვნის, ვინც checkout გაატარა.'}
-        </p>
+          <label className={styles.optionRow}>
+            <input
+              type="radio"
+              name="tipDistributionMode"
+              checked={tipDistributionMode === 'pooled'}
+              onChange={() => setTipDistributionMode('pooled')}
+              className={styles.radio}
+            />
+            <span className={styles.optionText}>
+              <span className={styles.optionTitle}>🤝 საერთო (Pooled)</span>
+              <span className={styles.optionDesc}>
+                ⚠️ ეს პარამეტრი ჯერჯერობით მხოლოდ არჩევანს ინახავს —
+                ფაქტობრივი გადანაწილების ალგორითმი მომავალ ეტაპზეა
+                დაგეგმილი, checkout-ის ლოგიკა ჯერ არ იცვლება.
+              </span>
+            </span>
+          </label>
+        </div>
 
         <button
           type="button"
