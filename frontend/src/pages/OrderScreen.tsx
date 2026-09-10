@@ -88,12 +88,18 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
   const [checkingOut, setCheckingOut] = useState<boolean>(false);
   const [showSplitModal, setShowSplitModal] = useState<boolean>(false);
 
-  // 🔑 Manager PIN Override — მხოლოდ ფასდაკლების გეითისთვის (item-ის void-ს
-  // აქ PIN არ სჭირდება, orders.ts-ის PATCH /orders/items/:id ნებისმიერ
-  // ავტორიზებულ HoReCa-ორგანიზაციის user-ს დაუშვებს).
+  // 🔑 Manager PIN Override — ორი დამოუკიდებელი gate იზიარებს ერთსა და
+  // იმავე PIN-modal-ს: (ა) ფასდაკლება (pendingDiscountType), (ბ) item-level
+  // void 'pending'-ზე მეტ kitchen_status-ზე (pendingVoidItem — ROADMAP
+  // "HoReCa Open Items - 06.09.2026.md", #2). ორივესთვის ცალკე token
+  // მოიპოვება (single-use, backend-ზე consumeOverrideToken-ით იჭრება),
+  // ამიტომ void-token არ ინახება managerOverrideToken-ში, რომ ერთხელ
+  // მოხმარებული ტოკენი შემთხვევით ხელახლა (discount/checkout-ზე) არ
+  // ეცადოს გამოყენებას.
   const [managerOverrideToken, setManagerOverrideToken] = useState<string | null>(null);
   const [showPinModal, setShowPinModal] = useState<boolean>(false);
   const [pendingDiscountType, setPendingDiscountType] = useState<DiscountType>('none');
+  const [pendingVoidItem, setPendingVoidItem] = useState<{ id: string; name: string } | null>(null);
   const [pinValue, setPinValue] = useState<string>('');
   const [pinError, setPinError] = useState<string>('');
   const [pinLoading, setPinLoading] = useState<boolean>(false);
@@ -316,9 +322,13 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
   );
   const closeConfirmModal = () => setConfirmModal(null);
 
-  const performVoidItem = async (itemId: string, itemName: string) => {
+  const performVoidItem = async (itemId: string, itemName: string, overrideToken?: string) => {
     try {
-      await axios.patch(`/api/orders/items/${itemId}`, { void: true });
+      await axios.patch(
+        `/api/orders/items/${itemId}`,
+        { void: true },
+        overrideToken ? { headers: { 'X-Manager-Override': `Bearer ${overrideToken}` } } : undefined
+      );
       showToast(`${itemName} გაუქმდა`, 'success');
       await fetchOrderForTable();
     } catch (error: unknown) {
@@ -326,7 +336,23 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
     }
   };
 
-  const handleVoidItem = (itemId: string, itemName: string) => {
+  // 🔐 ROADMAP "HoReCa Open Items - 06.09.2026.md", #2 — PIN საჭიროა
+  // მხოლოდ მაშინ, თუ item უკვე 'pending'-ზე მეტშია (სამზარეულოში
+  // გაგზავნილი/მომზადებული/მიტანილი) და მიმდინარე user არც admin/manager-ია
+  // (`canManage`, backend-ზე იგივე შემოწმებაა `orders.ts`-ში). Pending
+  // item-ის წაშლა (jერ გაგზავნილი არ არის) ჩვეულებრივი order-შესწორებაა —
+  // PIN-ის გარეშე.
+  const handleVoidItem = (itemId: string, itemName: string, kitchenStatus: string) => {
+    const needsManagerOverride = kitchenStatus !== 'pending' && !canManage;
+
+    if (needsManagerOverride) {
+      setPendingVoidItem({ id: itemId, name: itemName });
+      setPinValue('');
+      setPinError('');
+      setShowPinModal(true);
+      return;
+    }
+
     setConfirmModal({
       title: '🚫 პროდუქტის გაუქმება',
       message: `გავაუქმოთ "${itemName}"?`,
@@ -434,6 +460,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
     setPinValue('');
     setPinError('');
     setPendingDiscountType('none');
+    setPendingVoidItem(null);
   };
 
   const handleVerifyManagerPin = async (e: React.FormEvent) => {
@@ -448,11 +475,20 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
       const response = await axios.post('/api/auth/verify-manager-pin', { pin: pinValue });
       const overrideToken: string | undefined = response.data?.managerOverrideToken;
       if (response.data?.success && overrideToken) {
-        setManagerOverrideToken(overrideToken);
-        setDiscountType(pendingDiscountType);
-        setDiscountValue('');
-        showToast('მენეჯერის ავტორიზაცია დადასტურდა — ფასდაკლება დაშვებულია ამ ჩეკზე', 'success');
-        closePinModal();
+        if (pendingVoidItem) {
+          // Void-ტოკენს შეგნებულად არ ვინახავთ managerOverrideToken-ში
+          // (იხ. state-ის კომენტარი ზემოთ) — პირდაპირ ვიყენებთ ამ
+          // ერთჯერად void-request-ზე.
+          const { id, name } = pendingVoidItem;
+          closePinModal();
+          await performVoidItem(id, name, overrideToken);
+        } else {
+          setManagerOverrideToken(overrideToken);
+          setDiscountType(pendingDiscountType);
+          setDiscountValue('');
+          showToast('მენეჯერის ავტორიზაცია დადასტურდა — ფასდაკლება დაშვებულია ამ ჩეკზე', 'success');
+          closePinModal();
+        }
       }
     } catch (error: unknown) {
       setPinError(getErrorMessage(error) || 'PIN-კოდის შემოწმება ვერ მოხერხდა!');
@@ -775,7 +811,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
                           <td>
                             {item.kitchen_status !== 'voided' && (
                               <button
-                                onClick={() => handleVoidItem(item.id, item.product_name)}
+                                onClick={() => handleVoidItem(item.id, item.product_name, item.kitchen_status)}
                                 style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
                                 title="გაუქმება"
                               >
@@ -969,7 +1005,9 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
           <div className={styles.modalBody}>
             <h3>🔑 საჭიროა მენეჯერის ავტორიზაცია</h3>
             <p style={{ color: '#64748b', fontSize: '14px', marginTop: 0 }}>
-              ფასდაკლების გამოსაყენებლად მენეჯერმა უნდა შეიყვანოს თავისი 4-ციფრიანი PIN-კოდი.
+              {pendingVoidItem
+                ? `"${pendingVoidItem.name}"-ის გაუქმებას (უკვე სამზარეულოშია გაგზავნილი) მენეჯერის დადასტურება სჭირდება — შეიყვანეთ 4-ციფრიანი PIN-კოდი.`
+                : 'ფასდაკლების გამოსაყენებლად მენეჯერმა უნდა შეიყვანოს თავისი 4-ციფრიანი PIN-კოდი.'}
             </p>
             <form onSubmit={handleVerifyManagerPin}>
               <div className={styles.formGroup}>

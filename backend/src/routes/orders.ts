@@ -7,11 +7,17 @@
 // არასავალდებულო `orderId`-ის გადაცემით (იხ. იქაური კომენტარი).
 
 import { Router, Response } from 'express';
-import { authenticateToken } from './auth';
+import { authenticateToken, writeAuditLog } from './auth';
 import { checkActiveShift, CustomRequest } from './checkShift';
 import { requireRegister } from '../middleware/registerAuth';
 import { requireAnyRole } from '../middleware/requireRole';
 import { requireBusinessType } from '../middleware/requireBusinessType';
+import {
+  extractBearerToken,
+  verifyManagerOverrideToken,
+  consumeOverrideToken,
+  ManagerOverridePayload,
+} from '../middleware/managerOverride';
 import { withOrgContext } from '../db';
 import {
   Order,
@@ -489,6 +495,19 @@ router.post(
 // რედაქტირება დაშვებულია მხოლოდ 'pending' item-ზე (jერ სამზარეულოში არ
 // გაგზავნილა — STEP 2-ის "sent" სტატუსის შემდეგ ცვლილება staleness-ს
 // გამოიწვევდა KDS-ზე).
+//
+// 🔐 Manager PIN Override item-level void-ზე (ROADMAP - HoReCa Open
+// Items - 06.09.2026.md, #2) — თუ item ჯერ 'pending'-ია (jერ არ
+// გაგზავნილა სამზარეულოში), waiter/cashier თავად წაშლის, PIN არ
+// სჭირდება (ჩვეულებრივი order-შესწორებაა, food cost არ გაწეულა).
+// თუ item უკვე 'sent'/'preparing'/'ready'/'served'-ია, თეფტის რისკი
+// რეალურია (დაემატა → მომზადდა/მიირთვა → checkout-მდე ჩუმად წაიშალა),
+// ამიტომ სავალდებულოა ან (ა) req.user.role ∈ {admin, manager}
+// (თავად უკვე პრივილეგირებულია — self-override არ სჭირდება, იგივე
+// წესი, რაც POST /orders/:id/void-ზეა), ან (ბ) POST
+// /auth/verify-manager-pin-იდან მიღებული X-Manager-Override:
+// Bearer <token> ჰედერი (იგივე pattern, რაც sales.ts-ის
+// discount-override-სა და cart/confirm-override-ზეა).
 router.patch(
   '/orders/items/:id',
   authenticateToken,
@@ -502,6 +521,8 @@ router.patch(
       seatNumber?: unknown;
       courseNumber?: unknown;
     };
+
+    let managerOverrideUsed: ManagerOverridePayload | null = null;
 
     try {
       const item = await withOrgContext(req.user?.organizationId, async (client) => {
@@ -521,6 +542,20 @@ router.patch(
         }
 
         if (body.void === true) {
+          const kitchenStatus = itemCheck.rows[0].kitchen_status;
+          const isPrivilegedRole = req.user?.role === 'admin' || req.user?.role === 'manager';
+
+          if (kitchenStatus !== 'pending' && !isPrivilegedRole) {
+            const overrideToken = extractBearerToken(req.headers['x-manager-override']);
+            const overridePayload = overrideToken ? verifyManagerOverrideToken(overrideToken) : null;
+            managerOverrideUsed =
+              overridePayload && overridePayload.cashierId === req.user?.id ? overridePayload : null;
+
+            if (!managerOverrideUsed) {
+              throw new Error('MANAGER_OVERRIDE_REQUIRED');
+            }
+          }
+
           const voidReasonValue =
             typeof body.voidReason === 'string' && body.voidReason.trim().length > 0 ? body.voidReason.trim() : null;
 
@@ -598,6 +633,26 @@ router.patch(
         emitKdsChanged(req.user?.organizationId, item.station);
       }
 
+      // 🔑 Manager PIN Override გამოყენებული იყო ამ void-ზე — ტოკენს ვნიშნავთ
+      // მოხმარებულად (single-use) და ვწერთ აუდიტ-ლოგს, COMMIT-ის შემდეგ
+      // (იგივე pattern, რაც sales.ts-ის checkout/cart-override-ზეა — თუ
+      // ტრანზაქცია ROLLBACK-ზე წავიდა, override ტყუილად არ იწვის).
+      // 📎 TS cast: managerOverrideUsed-ს პირდაპირი მინიჭება მხოლოდ
+      // withOrgContext-ის nested callback-შია (runtime-ზე closure-ით
+      // სწორად მუშაობს), მაგრამ TS-ის CFA ამ closure-ს მიღმა ვერ
+      // ტრექავს ცვლილებას სწორად — ამიტომ აქ ცხადადაა ტიპი დაფიქსირებული.
+      const overrideUsed = managerOverrideUsed as ManagerOverridePayload | null;
+      if (overrideUsed) {
+        consumeOverrideToken(overrideUsed.jti);
+        await writeAuditLog(
+          overrideUsed.managerId,
+          req.user?.id ?? overrideUsed.managerId,
+          'item-void-override-used',
+          `order_item:${req.params.id}`,
+          req.user?.organizationId
+        );
+      }
+
       res.json(item);
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -608,6 +663,10 @@ router.patch(
             return res.status(400).json({ error: 'შეკვეთა უკვე დახურულია' });
           case 'NOT_EDITABLE':
             return res.status(400).json({ error: 'ეს item უკვე გაგზავნილია/მომზადებულია — რედაქტირება შეუძლებელია' });
+          case 'MANAGER_OVERRIDE_REQUIRED':
+            return res
+              .status(403)
+              .json({ error: 'გაგზავნილი/მომზადებული პროდუქტის წაშლა მოითხოვს მენეჯერის PIN-ავტორიზაციას' });
           case 'NO_FIELDS':
             return res.status(400).json({ error: 'განსაახლებელი ველი არ არის მითითებული' });
           case 'INVALID_QUANTITY':

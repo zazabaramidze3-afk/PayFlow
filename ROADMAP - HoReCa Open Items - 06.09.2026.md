@@ -1,6 +1,6 @@
 # HoReCa მოდულის ღია საკითხები — Roadmap
 
-**სტატუსი:** 🟡 ღია — 2/7 პუნქტი დასრულებულია (#1, Waiter Access Scope, 10.09.2026; #4, KDS Realtime, 09.09.2026).
+**სტატუსი:** 🟡 ღია — 3/7 პუნქტი დასრულებულია (#1, Waiter Access Scope, 10.09.2026; #2, Item Void Authorization, 10.09.2026; #4, KDS Realtime, 09.09.2026).
 **თარიღი:** 06.09.2026
 **წყარო:** `ROADMAP - HoReCa Module - 03.09.2026.md`-ის STEP 1-4 (ყველა
 production-ზეა, დასრულებული) — ამ ძირითადი roadmap-ის "ღია საკითხები"
@@ -60,23 +60,43 @@ column რჩება მხოლოდ tracking/audit/tip-attribution-ის�
 დამატებითი ავტორიზაცია?
 
 - **ვარიანტი ა — cashier/waiter თავად:** არავითარი დამატებითი
-  დადასტურება (ამჟამინდელი v1 ქცევა — Dashboard-ის screenshot-ებში
-  ჩანს, რომ item-ი უბრალო ❌ ღილაკით იშლება).
-  ⚠️ **უცნობია — შესამოწმებელია:** ეს ამჟამად ასეა თუ არა, საჭიროა
-  `orders.ts`/`order_items`-ის void-ლოგიკის გადამოწმება, სანამ
-  ეს პუნქტი "ამჟამინდელი ქცევა"-დ ჩაითვლება.
+  დადასტურება.
 - **ვარიანტი ბ — Manager PIN Override:** Discount-permission-ის
-  ანალოგიური pattern (`verify-manager-pin` endpoint უკვე არსებობს,
-  `backend/src/routes/auth.ts:335`-ის მიდამოში) — item-ის წაშლა
-  სავალდებულოდ მოითხოვს მენეჯერის PIN-ს, აუდიტისთვის.
+  ანალოგიური pattern — item-ის წაშლა სავალდებულოდ მოითხოვს
+  მენეჯერის PIN-ს, აუდიტისთვის.
 
-**რატომ არის მნიშვნელოვანი:** item-level void-ი ჩვეულებრივ "ქურდობის
-საშუალებაა" (waiter-მა დაამატა, სტუმარმა შეჭამა, შემდეგ waiter-მა
-წაშალა, სანამ checkout მოხდებოდა — ფული ჯიბეში, ჩეკზე კვალი არ
-რჩება). ამიტომ ბევრ real-world POS-ში ეს manager-override-ს
-მოითხოვს.
+**გადაწყვეტილება (10.09.2026): ჰიბრიდი — PIN საჭიროა მხოლოდ
+`kitchen_status !== 'pending'`-ზე.**
 
-**სტატუსი:** 🔴 გადაწყვეტილება არ არის მიღებული.
+**დასაბუთება:** 'pending' item (jერ არ გაგზავნილა სამზარეულოში) —
+food cost არ გაწეულა, ჩვეულებრივი order-შესწორებაა, PIN აქ
+სუფთა friction იქნებოდა. 'sent'/'preparing'/'ready'/'served' — real
+fraud vector (დაემატა → მომზადდა/მიირთვა → checkout-მდე ჩუმად
+წაიშალა), აქ manager-ის დადასტურება რეალურ ღირებულებას მატებს.
+Admin/manager როლს (`canManage`) PIN არ სჭირდება — თავად უკვე
+პრივილეგირებულია, იგივე წესი, რაც `POST /orders/:id/void`-ზეა.
+
+**იმპლემენტაცია (10.09.2026):**
+- **Backend** (`backend/src/routes/orders.ts`, `PATCH
+  /orders/items/:id`) — void-branch ახლა ამოწმებს `kitchen_status`-ს;
+  თუ `!== 'pending'` და `req.user.role ∉ {admin, manager}`, სავალდე-
+  ბულოა ვალიდური `X-Manager-Override: Bearer <token>` header
+  (იგივე `verifyManagerOverrideToken`/`consumeOverrideToken`
+  infrastructure, რაც Retail-ის discount-override-სა და
+  `cart/confirm-override`-ზეა, `middleware/managerOverride.ts`).
+  წარმატებული override-ის გამოყენება COMMIT-ის შემდეგ
+  `writeAuditLog(..., 'item-void-override-used', ...)`-ით ჩაიწერება.
+- **Frontend** (`frontend/src/pages/OrderScreen.tsx`) — `handleVoidItem`
+  item-ის `kitchen_status`-ის მიხედვით პირდაპირ void-ს
+  (`performVoidItem`) ან წინასწარ PIN-modal-ს (`pendingVoidItem`
+  state, არსებული discount-PIN-modal-ის გაზიარებით) იძახებს;
+  წარმატებული PIN-ვერიფიკაციის შემდეგ override-token ერთჯერადად
+  (`X-Manager-Override` header) გამოიყენება — არ ინახება
+  `managerOverrideToken`-ში, რომ discount/checkout-ის flow-ს
+  შემთხვევით არ გადაეკვეთოს (token single-use-ია backend-ზე).
+- ორივე მხარეს TypeScript compile სუფთაა (`tsc --noEmit`).
+
+**სტატუსი:** 🟢 დასრულებულია, code-ცვლილება შესრულებულია.
 
 ---
 
