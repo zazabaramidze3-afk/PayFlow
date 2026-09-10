@@ -1,5 +1,7 @@
 import styles from './Sales.module.scss';
 import { LockIcon, CashIcon, DashboardIcon } from '../components/Icons';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 // 🖨 Roadmap ეტაპი 7 — ბეჭდვადი შაბლონები (@media print).
@@ -114,20 +116,21 @@ const TOAST_ICON: Record<ToastType, string> = { success: '✅', error: '⚠️',
 // გვერდის სტილის დუბლირების გარეშე გაზიარება ამ ორ page-ს შორის ამ ეტაპზე
 // ზედმეტი აბსტრაქციაა).
 const paymentMethodBadge = (method: PosPaymentMethod | undefined): { text: string; bg: string; color: string } => {
-  if (method === 'card') return { text: '💳 ბარათი', bg: '#dbeafe', color: '#1d4ed8' };
-  if (method === 'split') return { text: '🔀 შერეული', bg: '#ede9fe', color: '#6d28d9' };
-  return { text: '💵 ნაღდი', bg: '#dcfce7', color: '#15803d' };
+  if (method === 'card') return { text: i18n.t('sales.paymentBadge.card'), bg: '#dbeafe', color: '#1d4ed8' };
+  if (method === 'split') return { text: i18n.t('sales.paymentBadge.split'), bg: '#ede9fe', color: '#6d28d9' };
+  return { text: i18n.t('sales.paymentBadge.cash'), bg: '#dcfce7', color: '#15803d' };
 };
 
 function ToastContainer({ toasts, onDismiss }: { toasts: ToastItem[]; onDismiss: (id: number) => void }) {
+  const { t } = useTranslation();
   if (toasts.length === 0) return null;
   return (
     <div className={styles.toastContainer}>
-      {toasts.map(t => (
-        <div key={t.id} className={`${styles.toast} ${styles[`toast${t.type[0].toUpperCase()}${t.type.slice(1)}`]}`}>
-          <span className={styles.toastIcon}>{TOAST_ICON[t.type]}</span>
-          <span className={styles.toastMessage}>{t.message}</span>
-          <button className={styles.toastClose} onClick={() => onDismiss(t.id)} aria-label="დახურვა">×</button>
+      {toasts.map(toast => (
+        <div key={toast.id} className={`${styles.toast} ${styles[`toast${toast.type[0].toUpperCase()}${toast.type.slice(1)}`]}`}>
+          <span className={styles.toastIcon}>{TOAST_ICON[toast.type]}</span>
+          <span className={styles.toastMessage}>{toast.message}</span>
+          <button className={styles.toastClose} onClick={() => onDismiss(toast.id)} aria-label={t('common.close')}>×</button>
         </div>
       ))}
     </div>
@@ -135,6 +138,7 @@ function ToastContainer({ toasts, onDismiss }: { toasts: ToastItem[]; onDismiss:
 }
 
 export default function Sales() {
+  const { t } = useTranslation();
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProductId, setSelectedProductId] = useState('');
   const [quantity, setQuantity] = useState('1');
@@ -390,11 +394,11 @@ export default function Sales() {
         {},
         { headers: overrideToken ? { 'X-Manager-Override': `Bearer ${overrideToken}` } : undefined }
       );
-      showToast('ჩეკი გაუქმდა და მარაგი ავტომატურად დაბრუნდა', 'success');
+      showToast(t('sales.toasts.voidSuccess'), 'success');
       fetchMyHistory(); // სია განახლდეს — გაუქმებული ჩეკი ახლა is_voided: true-ით უნდა ჩანდეს
     } catch (error: unknown) {
       const serverMessage = axios.isAxiosError<{ error?: string }>(error) ? error.response?.data?.error : undefined;
-      showToast(serverMessage || 'ჩეკის გაუქმება ვერ მოხერხდა', 'error');
+      showToast(serverMessage || t('sales.toasts.voidFailed'), 'error');
     }
   };
 
@@ -415,7 +419,7 @@ export default function Sales() {
       );
     } catch (error: unknown) {
       console.error('აუდიტ-ლოგის ჩაწერა ჩავარდა:', error);
-      showToast('მოქმედება შესრულდა, მაგრამ აუდიტ-ლოგის ჩაწერა ჩავარდა', 'error');
+      showToast(t('sales.toasts.overrideLoggedButFailed'), 'error');
     }
   };
 
@@ -424,7 +428,7 @@ export default function Sales() {
   // PIN-ით დადასტურდა — მაშინ ცალკე ვწერთ 'clear-cart-override' აუდიტ-ლოგს.
   const performClearCart = async (overrideToken?: string) => {
     setCart([]);
-    showToast('კალათა გასუფთავდა', 'success');
+    showToast(t('sales.toasts.cartCleared'), 'success');
     if (overrideToken) {
       await logCartOverride('clear-cart-override', overrideToken);
     }
@@ -435,7 +439,7 @@ export default function Sales() {
   // 'remove-item-override' აუდიტ-ლოგის new_value-სთვის.
   const performRemoveItem = async (productId: number, itemName: string, overrideToken?: string) => {
     setCart(prev => prev.filter(i => i.productId !== productId));
-    showToast(`${itemName} წაიშალა კალათიდან`, 'success');
+    showToast(t('sales.toasts.itemRemoved', { name: itemName }), 'success');
     if (overrideToken) {
       await logCartOverride('remove-item-override', overrideToken, itemName);
     }
@@ -449,7 +453,7 @@ export default function Sales() {
   const handleVerifyManagerPin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!/^\d{4}$/.test(pinValue)) {
-      setPinError('PIN-კოდი უნდა შედგებოდეს ზუსტად 4 ციფრისგან!');
+      setPinError(t('sales.toasts.pinLength'));
       return;
     }
 
@@ -470,14 +474,14 @@ export default function Sales() {
           setManagerOverrideToken(overrideToken);
           setDiscountType(pendingDiscountType);
           setDiscountValue('');
-          showToast('მენეჯერის ავტორიზაცია დადასტურდა — ფასდაკლება დაშვებულია ამ ჩეკზე', 'success');
+          showToast(t('sales.toasts.discountOverrideGranted'), 'success');
         }
         closePinModal();
       }
     } catch (error: unknown) {
       // "any"-ის ნაცვლად axios.isAxiosError ტიპის დამცველი — Clean Architecture წესი.
       const serverMessage = axios.isAxiosError<{ error?: string }>(error) ? error.response?.data?.error : undefined;
-      setPinError(serverMessage || 'PIN-კოდის შემოწმება ვერ მოხერხდა!');
+      setPinError(serverMessage || t('sales.toasts.pinVerifyFailed'));
       setPinValue('');
     } finally {
       setPinLoading(false);
@@ -605,7 +609,7 @@ export default function Sales() {
       await axios.post('/api/shifts/open', { start_amount: parseFloat(startAmount) });
       checkShiftStatus();
     } catch (error: any) {
-      showToast(error.response?.data?.message || 'შეცდომა', 'error');
+      showToast(error.response?.data?.message || t('sales.toasts.genericError'), 'error');
     }
   };
 
@@ -617,7 +621,7 @@ export default function Sales() {
     // ჩუმად 0-დ აღარ ითვლება.
     const parsedEndAmount = parseFloat(endAmountActual);
     if (endAmountActual.trim() === '' || !Number.isFinite(parsedEndAmount) || parsedEndAmount < 0) {
-      return showToast('შეიყვანეთ სალაროში დათვლილი ფაქტობრივი ნაღდი ფულის ოდენობა', 'error');
+      return showToast(t('sales.toasts.enterActualCash'), 'error');
     }
 
     // ==========================================
@@ -640,18 +644,18 @@ export default function Sales() {
     try {
       const unsyncedBeforeSync = await countUnsyncedOfflineReceipts();
       if (unsyncedBeforeSync > 0) {
-        showToast(`⏳ ${unsyncedBeforeSync} ოფლაინ ჩეკი სინქრონიზდება, სანამ ცვლა დაიხურება...`, 'info');
+        showToast(t('sales.toasts.syncingOffline', { count: unsyncedBeforeSync }), 'info');
         await syncOfflineReceipts();
 
         const stillUnsynced = await countUnsyncedOfflineReceipts();
         if (stillUnsynced > 0) {
           showToast(
-            `🚫 ცვლის დახურვა ვერ მოხერხდება — ${stillUnsynced} ოფლაინ ჩეკი ჯერ არ დასინქრონებულა. დაელოდეთ ინტერნეტის დაბრუნებას და სცადეთ ხელახლა.`,
+            t('sales.toasts.closeShiftBlocked', { count: stillUnsynced }),
             'error'
           );
           return;
         }
-        showToast('✅ ყველა ოფლაინ ჩეკი დასინქრონდა', 'success');
+        showToast(t('sales.toasts.allOfflineSynced'), 'success');
       }
 
       const response = await axios.put('/api/shifts/close', { end_amount_actual: parsedEndAmount });
@@ -661,7 +665,7 @@ export default function Sales() {
       // მნიშვნელოვანია: არ ვცვლით hasActiveShift-ს ხელით აქ, რათა ეკრანი არ დაიბლოკოს მოდალის გამოჩენამდე
     } catch (error: any) {
       console.error('ცვლის დახურვის შეცდომა:', error.response?.data || error.message);
-      showToast(error.response?.data?.message || error.response?.data?.error || 'შეცდომა ცვლის დახურვისას', 'error');
+      showToast(error.response?.data?.message || error.response?.data?.error || t('sales.toasts.closeShiftError'), 'error');
     } finally {
       setClosingShift(false);
     }
@@ -672,29 +676,29 @@ export default function Sales() {
     // გამოძახებულია mount-ზე ერთხელ დარეგისტრირებული keydown listener-იდან
     // (იხ. ზემოთ useEffect-ის კომენტარი) და closure-ში ძველი state-ი არ უნდა დარჩეს.
     const prod = productsRef.current.find(p => p.barcode === scannedCode);
-    if (!prod) return showToast(`პროდუქტი კოდით [${scannedCode}] ვერ მოიძებნა!`, 'error');
-    if (prod.stock <= 0) return showToast('მარაგში აღარ არის!', 'error');
+    if (!prod) return showToast(t('sales.toasts.productNotFoundByCode', { code: scannedCode }), 'error');
+    if (prod.stock <= 0) return showToast(t('sales.toasts.outOfStock'), 'error');
     const currentCart = cartRef.current;
     const existing = currentCart.find(item => item.productId === prod.id);
     const currentQty = existing ? existing.quantity : 0;
-    if (prod.stock < currentQty + 1) return showToast('მარაგი არ არის საკმარისი!', 'error');
+    if (prod.stock < currentQty + 1) return showToast(t('sales.toasts.insufficientStock'), 'error');
 
     if (existing) {
       setCart(currentCart.map(item => item.productId === prod.id ? { ...item, quantity: item.quantity + 1 } : item));
     } else {
       setCart([...currentCart, { productId: prod.id, name: prod.name, price: prod.price, quantity: 1, maxStock: prod.stock }]);
     }
-    showToast(`${prod.name} დაემატა კალათაში`, 'success');
+    showToast(t('sales.toasts.addedToCart', { name: prod.name }), 'success');
   };
 
   const handleAddToCart = (e: React.FormEvent) => {
     e.preventDefault();
     const prod = products.find(p => p.id === Number(selectedProductId));
-    if (!prod) return showToast('აირჩიეთ პროდუქტი', 'error');
+    if (!prod) return showToast(t('sales.toasts.selectProductFirst'), 'error');
     const qty = parseInt(quantity);
-    if (qty <= 0 || isNaN(qty)) return showToast('არავალიდური რაოდენობა', 'error');
+    if (qty <= 0 || isNaN(qty)) return showToast(t('sales.toasts.invalidQuantity'), 'error');
     const currentQty = cart.find(item => item.productId === prod.id)?.quantity || 0;
-    if (prod.stock < currentQty + qty) return showToast('მარაგი არ არის საკმარისი', 'error');
+    if (prod.stock < currentQty + qty) return showToast(t('sales.toasts.insufficientStockNoExcl'), 'error');
 
     if (currentQty > 0) {
       setCart(cart.map(item => item.productId === prod.id ? { ...item, quantity: item.quantity + qty } : item));
@@ -717,9 +721,9 @@ export default function Sales() {
       if (error?.response?.status === 403) {
         setCanViewHistory(false); // ღილაკიც დაუყოვნებლივ დაიმალოს, თუ უფლება იმ წამს გამორთეს
         setShowHistoryModal(false);
-        showToast('ისტორიის ნახვის უფლება გამორთულია', 'error');
+        showToast(t('sales.toasts.historyPermissionOff'), 'error');
       } else {
-        showToast('ისტორიის ჩატვირთვა ვერ მოხერხდა', 'error');
+        showToast(t('sales.toasts.historyLoadFailed'), 'error');
       }
     } finally {
       setHistoryLoading(false);
@@ -821,7 +825,7 @@ export default function Sales() {
     const registerId = getStoredRegisterId();
 
     if (!shiftId || !registerId || !myUserId) {
-      showToast('ოფლაინ გაყიდვისთვის საჭიროა აქტიური ცვლა, დაწყვილებული სალარო და ავტორიზაცია', 'error');
+      showToast(t('sales.toasts.offlineRequirements'), 'error');
       return;
     }
 
@@ -856,7 +860,7 @@ export default function Sales() {
       await queueOfflineReceipt(offlineReceipt);
     } catch (err) {
       console.error('ოფლაინ ჩეკის ლოკალურად შენახვა ჩავარდა:', err);
-      showToast('ოფლაინ ჩეკის შენახვა ვერ მოხერხდა', 'error');
+      showToast(t('sales.toasts.offlineSaveFailed'), 'error');
       return;
     }
 
@@ -871,7 +875,7 @@ export default function Sales() {
       })
     );
 
-    showToast('📴 ინტერნეტი არ არის — ჩეკი შენახულია ლოკალურად და დასინქრონდება კავშირის აღდგენისას', 'info');
+    showToast(t('sales.toasts.offlineSaved'), 'info');
 
     setLastReceipt({
       paymentId: receiptId,
@@ -903,7 +907,7 @@ export default function Sales() {
   };
 
   const handleCheckout = async () => {
-    if (cart.length === 0) return showToast('კალათა ცარიელია!', 'error');
+    if (cart.length === 0) return showToast(t('sales.toasts.cartEmpty'), 'error');
 
     // 🔐 თუ მოლარეს (და არც მენეჯერის დადასტურებული override-ს) ფასდაკლების
     // უფლება არ აქვს, checkout-ი უნდა ჩაიშალოს მაშინაც კი, თუ UI state
@@ -912,25 +916,25 @@ export default function Sales() {
     if (!canUseDiscountEffective && discountType !== 'none') {
       setDiscountType('none');
       setDiscountValue('');
-      return showToast('ფასდაკლების გამოყენების უფლება არ გაქვთ', 'error');
+      return showToast(t('sales.toasts.discountNotAllowed'), 'error');
     }
 
     if (discountType === 'percent' && (parsedDiscountValue < 0 || parsedDiscountValue > 100)) {
-      return showToast('პროცენტული ფასდაკლება უნდა იყოს 0-100 შორის', 'error');
+      return showToast(t('sales.toasts.discountPercentRange'), 'error');
     }
     if (discountType === 'fixed' && parsedDiscountValue > cartSubtotal) {
-      return showToast('ფასდაკლება არ შეიძლება აჭარბებდეს ჯამურ თანხას', 'error');
+      return showToast(t('sales.toasts.discountExceedsTotal'), 'error');
     }
 
     // 💰 Roadmap ეტაპი 8 — SPLIT-ის ვალიდაცია checkout-ის დაჭერისას. ღილაკი
     // ისედაც დაბლოკილია (paymentMethodValid), მაგრამ ეს არის frontend-ის
     // ბოლო ბარიერი, ისევე როგორც ფასდაკლების შემოწმება ზემოთ.
     if (paymentMethod === 'split' && (!splitBothFilled || parsedSplitCash <= 0 || parsedSplitCard <= 0)) {
-      return showToast('შეავსე ორივე ველი — ნაღდი და ბარათი', 'error');
+      return showToast(t('sales.toasts.fillBothSplitFields'), 'error');
     }
     if (paymentMethod === 'split' && splitDiff !== 0) {
       return showToast(
-        `გადახდების ჯამი (${splitSum.toFixed(2)} ₾) არ ემთხვევა ჩეკის თანხას (${cartTotal.toFixed(2)} ₾)`,
+        t('sales.toasts.splitMismatch', { sum: splitSum.toFixed(2), total: cartTotal.toFixed(2) }),
         'error'
       );
     }
@@ -976,7 +980,7 @@ export default function Sales() {
       const response = await axios.post('/api/payments', payload, {
         headers: usedOverrideToken ? { 'X-Manager-Override': `Bearer ${managerOverrideToken}` } : undefined,
       });
-      showToast('გაყიდვა დასრულდა!', 'success');
+      showToast(t('sales.toasts.saleCompleted'), 'success');
 
       // 🖨 Roadmap ეტაპი 7 — ჩეკის ბეჭდვა. ვიღებთ response.data-დან (არა
       // ხელახლა ვთვლით cart-იდან), რომ დაბეჭდილი ჩეკი ზუსტად ემთხვეოდეს
@@ -1030,7 +1034,7 @@ export default function Sales() {
         await handleOfflineCheckout(payload);
         return;
       }
-      showToast(error.response?.data?.error || 'გაყიდვა ჩავარდა!', 'error');
+      showToast(error.response?.data?.error || t('sales.toasts.saleFailed'), 'error');
     }
   };
 
@@ -1041,14 +1045,14 @@ export default function Sales() {
         <ToastContainer toasts={toasts} onDismiss={dismissToast} />
         <div className={styles.blockedScreen}>
           <div className={styles.blockedCard}>
-            <h2>🔒 სალარო ბლოკირებულია</h2>
-            <p>მუშაობის დასაწყებად აუცილებელია მიმდინარე დღის ცვლის გახსნა.</p>
+            <h2>{t('sales.blockedTitle')}</h2>
+            <p>{t('sales.blockedDesc')}</p>
             <form onSubmit={handleOpenShift}>
               <div className={styles.formGroup}>
-                <label>საწყისი ნაღდი ფული სალაროში (₾)</label>
+                <label>{t('sales.openingCashLabel')}</label>
                 <input type="number" min="0" step="0.01" value={startAmount} onChange={e => setStartAmount(e.target.value)} className={styles.inputField} />
               </div>
-              <button type="submit" className={`${styles.btn} ${styles.btnSuccess}`} style={{ width: '100%', marginTop: '10px' }}>🚀 ცვლის გახსნა</button>
+              <button type="submit" className={`${styles.btn} ${styles.btnSuccess}`} style={{ width: '100%', marginTop: '10px' }}>{t('sales.openShift')}</button>
             </form>
           </div>
         </div>
@@ -1062,44 +1066,44 @@ export default function Sales() {
       {hasActiveShift && (
         <>
           <div className={styles.topPanel}>
-            <div><h2>🛒 გაყიდვების პანელი (POS)</h2><small>ცვლა #{activeShift?.id} | გახსნილია: {activeShift?.opened_at}</small></div>
+            <div><h2>{t('sales.panelTitle')}</h2><small>{t('sales.shiftMeta', { id: activeShift?.id, time: activeShift?.opened_at })}</small></div>
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               {canViewHistory && (
-                <button onClick={handleOpenHistory} className={`${styles.btn} ${styles.btnSecondary}`}>📜 ჩემი ისტორია</button>
+                <button onClick={handleOpenHistory} className={`${styles.btn} ${styles.btnSecondary}`}>{t('sales.myHistory')}</button>
               )}
               {/* 🖨 Roadmap ეტაპი 7 — ბოლო ჩეკის ხელახლა დაბეჭდვა (მაგ. პრინტერი
                   checkout-ის მომენტში მზად არ იყო). ჩანს მხოლოდ მას შემდეგ, რაც
                   ამ სესიაში სულ მცირე ერთი გაყიდვა შედგა. */}
               {lastReceipt && (
-                <button onClick={() => triggerPrint('receipt')} className={`${styles.btn} ${styles.btnSecondary}`}>🖨 ბოლო ჩეკის ბეჭდვა</button>
+                <button onClick={() => triggerPrint('receipt')} className={`${styles.btn} ${styles.btnSecondary}`}>{t('sales.reprintLastReceipt')}</button>
               )}
-              <button onClick={() => setShowCloseModal(true)} className={`${styles.btn} ${styles.btnDanger}`}>🛑 ცვლის დახურვა (Z-Report)</button>
+              <button onClick={() => setShowCloseModal(true)} className={`${styles.btn} ${styles.btnDanger}`}>{t('sales.closeShift')}</button>
             </div>
           </div>
 
           <div className={styles.mainGrid}>
             <div className={styles.leftSide}>
-              <h3 style={{ marginTop: 0, color: '#475569' }}>პროდუქტის დამატება ჩეკში</h3>
+              <h3 style={{ marginTop: 0, color: '#475569' }}>{t('sales.addProductTitle')}</h3>
               <form onSubmit={handleAddToCart}>
-                <div className={styles.formGroup}><label>აირჩიეთ პროდუქტი</label>
+                <div className={styles.formGroup}><label>{t('sales.selectProduct')}</label>
                   <select value={selectedProductId} onChange={e => setSelectedProductId(e.target.value)} className={styles.inputField}>
-                    <option value="">-- აირჩიეთ სიიდან --</option>
+                    <option value="">{t('sales.selectFromList')}</option>
                     {/* 📱 შემოკლებული ფორმატი (name · price · stock) — გრძელი ტექსტი
                         native <select>-ის dropdown popup-ს ეკრანზე გადმოსცემდა
                         ვიწრო/მობილურ ეკრანებზე. */}
-                    {products.map(p => <option key={p.id} value={p.id} disabled={p.stock <= 0}>{p.name} · {p.price}₾ · {p.stock} ც.</option>)}
+                    {products.map(p => <option key={p.id} value={p.id} disabled={p.stock <= 0}>{p.name} · {p.price}₾ · {p.stock} {t('sales.unitPcs')}</option>)}
                   </select>
                 </div>
-                <div className={styles.formGroup}><label>რაოდენობა</label>
+                <div className={styles.formGroup}><label>{t('sales.quantity')}</label>
                   <input type="number" min="1" value={quantity} onChange={e => setQuantity(e.target.value)} className={styles.inputField} />
                 </div>
-                <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`} style={{ width: '100%' }}>კალათაში დამატება</button>
+                <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`} style={{ width: '100%' }}>{t('sales.addToCart')}</button>
               </form>
             </div>
 
             <div className={styles.rightSide}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                <h3 style={{ marginTop: 0, color: '#475569' }}>📝 მიმდინარე ჩეკი</h3>
+                <h3 style={{ marginTop: 0, color: '#475569' }}>{t('sales.currentReceiptTitle')}</h3>
                 {/* 🧺 "კალათის გასუფთავება" წითელი ღილაკი (Roadmap ეტაპი 5) — ჩანს
                     მხოლოდ თუ კალათა ცარიელი არ არის. can_clear_cart === false-ის
                     შემთხვევაში ღილაკი მაინც აქტიურია (void-ღილაკის ანალოგიით) —
@@ -1109,23 +1113,23 @@ export default function Sales() {
                     onClick={handleClearCartClick}
                     className={`${styles.btn} ${styles.btnDanger}`}
                     style={{ fontSize: '13px', padding: '6px 12px', whiteSpace: 'normal', textAlign: 'center' }}
-                    title={!canClearCart ? 'საჭიროა მენეჯერის ავტორიზაცია' : undefined}
+                    title={!canClearCart ? t('common.managerAuthRequired') : undefined}
                   >
-                    🧹 კალათის გასუფთავება{!canClearCart ? ' (მენეჯერის PIN)' : ''}
+                    {t('sales.clearCart')}{!canClearCart ? t('sales.managerPinSuffix') : ''}
                   </button>
                 )}
               </div>
-              {cart.length === 0 ? <p style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>კალათა ცარიელია</p> : (
+              {cart.length === 0 ? <p style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>{t('sales.emptyCart')}</p> : (
                 <>
                   <div className={styles.cartTableWrapper}>
                     <table className={styles.cartTable}>
-                      <thead><tr><th>დასახელება</th><th>ფასი</th><th>რაოდ.</th><th>ჯამი</th><th></th></tr></thead>
+                      <thead><tr><th>{t('sales.tableName')}</th><th>{t('sales.tablePrice')}</th><th>{t('sales.tableQty')}</th><th>{t('sales.tableTotal')}</th><th></th></tr></thead>
                       <tbody>
                         {cart.map(item => (
-                          <tr key={item.productId}><td>{item.name}</td><td className={styles.nowrapCell}>{item.price} ₾</td><td className={styles.nowrapCell}>{item.quantity} ც.</td><td className={styles.nowrapCell} style={{ fontWeight: 'bold' }}>{(item.price * item.quantity).toFixed(2)} ₾</td>
+                          <tr key={item.productId}><td>{item.name}</td><td className={styles.nowrapCell}>{item.price} ₾</td><td className={styles.nowrapCell}>{item.quantity} {t('sales.unitPcs')}</td><td className={styles.nowrapCell} style={{ fontWeight: 'bold' }}>{(item.price * item.quantity).toFixed(2)} ₾</td>
                             {/* 🧺 ცალკეული პროდუქტის წაშლა (Roadmap ეტაპი 5) — can_clear_cart-ის
                                 მიხედვით პირდაპირ ან მენეჯერის PIN-ის მეშვეობით (handleRemoveItemClick). */}
-                            <td><button onClick={() => handleRemoveItemClick(item.productId, item.name)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }} title={!canClearCart ? 'საჭიროა მენეჯერის ავტორიზაცია' : undefined}>❌</button></td>
+                            <td><button onClick={() => handleRemoveItemClick(item.productId, item.name)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }} title={!canClearCart ? t('common.managerAuthRequired') : undefined}>❌</button></td>
                           </tr>
                         ))}
                       </tbody>
@@ -1139,22 +1143,22 @@ export default function Sales() {
                       ველი საერთოდ არ ჩნდება. */}
                   <div style={{ display: 'flex', gap: '10px', margin: '15px 0 5px 0', alignItems: 'flex-end', flexWrap: 'wrap' }}>
                     <div className={styles.formGroup} style={{ flex: 1, minWidth: '160px', marginBottom: 0 }}>
-                      <label>🏷️ ფასდაკლება</label>
+                      <label>{t('sales.discountLabel')}</label>
                       <select
                         value={discountType}
                         onChange={e => handleDiscountTypeChange(e.target.value as DiscountType)}
                         className={styles.inputField}
-                        title={!canUseDiscountEffective ? 'საჭიროა მენეჯერის ავტორიზაცია' : undefined}
+                        title={!canUseDiscountEffective ? t('common.managerAuthRequired') : undefined}
                         style={!canUseDiscountEffective ? { opacity: 0.85 } : undefined}
                       >
-                        <option value="none">არ არის</option>
-                        <option value="percent">პროცენტული %</option>
-                        <option value="fixed">ფიქსირებული ₾</option>
+                        <option value="none">{t('sales.discountNone')}</option>
+                        <option value="percent">{t('sales.discountPercent')}</option>
+                        <option value="fixed">{t('sales.discountFixed')}</option>
                       </select>
                     </div>
                     {canUseDiscountEffective && discountType !== 'none' && (
                       <div className={styles.formGroup} style={{ flex: 1, minWidth: '140px', marginBottom: 0 }}>
-                        <label>{discountType === 'percent' ? 'ოდენობა (%)' : 'ოდენობა (₾)'}</label>
+                        <label>{discountType === 'percent' ? t('sales.discountAmountPercent') : t('sales.discountAmountFixed')}</label>
                         <input
                           type="number"
                           min="0"
@@ -1170,12 +1174,12 @@ export default function Sales() {
                   </div>
                   {!canUseDiscountEffective && (
                     <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0 0 10px 0' }}>
-                      🔒 ფასდაკლების გამოყენების უფლება არ გაქვთ — ტიპის არჩევისას მოგეთხოვებათ მენეჯერის PIN-ავტორიზაცია.
+                      {t('sales.discountLockedNote')}
                     </p>
                   )}
                   {managerOverrideActive && (
                     <p style={{ color: '#166534', fontSize: '12px', margin: '0 0 10px 0', fontWeight: 'bold' }}>
-                      🔓 მენეჯერის ავტორიზაციით ფასდაკლება დაშვებულია ამ ჩეკზე.
+                      {t('sales.discountOverrideNote')}
                     </p>
                   )}
 
@@ -1183,17 +1187,17 @@ export default function Sales() {
                     {discountAmount > 0 && (
                       <>
                         <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', fontSize: '14px' }}>
-                          <span>ჯამი ფასდაკლებამდე:</span>
+                          <span>{t('sales.subtotalBeforeDiscount')}</span>
                           <span>{cartSubtotal.toFixed(2)} ₾</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', color: '#b45309', fontSize: '14px' }}>
-                          <span>ფასდაკლება{discountType === 'percent' ? ` (${parsedDiscountValue}%)` : ''}:</span>
+                          <span>{t('sales.discountRow', { percent: discountType === 'percent' ? ` (${parsedDiscountValue}%)` : '' })}</span>
                           <span>-{discountAmount.toFixed(2)} ₾</span>
                         </div>
                       </>
                     )}
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span className={styles.totalLabel}>სულ გადასახდელი:</span>
+                      <span className={styles.totalLabel}>{t('sales.totalDue')}</span>
                       <span className={styles.totalValue}>{cartTotal.toFixed(2)} ₾</span>
                     </div>
                   </div>
@@ -1205,14 +1209,14 @@ export default function Sales() {
                       გადახდილ თანხასაც (იხ. sales.ts-ის FIX-ის კომენტარი). */}
                   <div style={{ margin: '15px 0 5px 0' }}>
                     <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600, color: '#475569' }}>
-                      💰 გადახდის მეთოდი
+                      {t('sales.paymentMethodLabel')}
                     </label>
-                    <div role="radiogroup" aria-label="გადახდის მეთოდი" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <div role="radiogroup" aria-label={t('sales.paymentMethodLabel')} style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                       {(
                         [
-                          { value: 'cash', label: '💵 ნაღდი' },
-                          { value: 'card', label: '💳 ბარათი' },
-                          { value: 'split', label: '🔀 შერეული' },
+                          { value: 'cash', label: t('sales.paymentBadge.cash') },
+                          { value: 'card', label: t('sales.paymentBadge.card') },
+                          { value: 'split', label: t('sales.paymentBadge.split') },
                         ] as const
                       ).map(({ value, label }) => (
                         <button
@@ -1247,7 +1251,7 @@ export default function Sales() {
 
                   {paymentMethod === 'cash' && (
                     <div className={styles.formGroup} style={{ marginTop: '10px' }}>
-                      <label>მიღებული ნაღდი ფული (₾) — არასავალდებულო</label>
+                      <label>{t('sales.cashReceivedLabel')}</label>
                       <input
                         type="number"
                         min="0"
@@ -1259,7 +1263,7 @@ export default function Sales() {
                       />
                       {parsedCashReceived > 0 && (
                         <p style={{ margin: '6px 0 0 0', fontSize: '13px', color: '#166534', fontWeight: 'bold' }}>
-                          ხურდა: {changeDueNow.toFixed(2)} ₾
+                          {t('sales.changeDue', { amount: changeDueNow.toFixed(2) })}
                         </p>
                       )}
                     </div>
@@ -1267,7 +1271,7 @@ export default function Sales() {
 
                   {paymentMethod === 'card' && (
                     <p style={{ margin: '10px 0 0 0', fontSize: '13px', color: '#64748b' }}>
-                      მთლიანი თანხა {cartTotal.toFixed(2)} ₾ ჩამოიჭრება ბარათიდან.
+                      {t('sales.cardFullAmountNote', { amount: cartTotal.toFixed(2) })}
                     </p>
                   )}
 
@@ -1280,7 +1284,7 @@ export default function Sales() {
                           დროს არ გამოიყენება. */}
                       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                         <div className={styles.formGroup} style={{ flex: 1, minWidth: '140px' }}>
-                          <label>ნაღდი ნაწილი (₾)</label>
+                          <label>{t('sales.splitCashLabel')}</label>
                           <input
                             type="number"
                             min="0"
@@ -1291,7 +1295,7 @@ export default function Sales() {
                           />
                         </div>
                         <div className={styles.formGroup} style={{ flex: 1, minWidth: '140px' }}>
-                          <label>ბარათის ნაწილი (₾)</label>
+                          <label>{t('sales.splitCardLabel')}</label>
                           <input
                             type="number"
                             min="0"
@@ -1311,16 +1315,16 @@ export default function Sales() {
                         }}
                       >
                         {!splitBothFilled
-                          ? 'შეავსე ორივე ველი'
+                          ? t('sales.splitFillBoth')
                           : paymentMethodValid
-                          ? '✓ ჯამი ემთხვევა ჩეკის თანხას'
+                          ? t('sales.splitMatches')
                           : parsedSplitCash <= 0 || parsedSplitCard <= 0
                           // ⚠️ FIX: sub-cent შეყვანა (მაგ. "0.001") ცენტებამდე მრგვალდება
                           // 0.00-მდე — splitDiff ამ დროს 0-ს გვიჩვენებს, მაგრამ ეს არ
                           // ნიშნავს ვალიდურ split-ს (ერთი მხარე ფაქტობრივად ცარიელია),
                           // ამიტომ სხვა, ცხადი შეტყობინება სჭირდება "✓"-ის ნაცვლად.
-                          ? 'ორივე ნაწილი დადებითი უნდა იყოს (0.01 ₾-ზე მეტი)'
-                          : `სხვაობა: ${splitDiff > 0 ? '+' : ''}${splitDiff.toFixed(2)} ₾`}
+                          ? t('sales.splitBothPositive')
+                          : t('sales.splitDifference', { sign: splitDiff > 0 ? '+' : '', amount: splitDiff.toFixed(2) })}
                       </p>
                     </div>
                   )}
@@ -1330,9 +1334,9 @@ export default function Sales() {
                     disabled={!paymentMethodValid}
                     className={`${styles.btn} ${styles.btnSuccess}`}
                     style={{ width: '100%', padding: '14px', fontSize: '16px', marginTop: '10px', opacity: paymentMethodValid ? 1 : 0.6, whiteSpace: 'normal' }}
-                    title={!paymentMethodValid ? 'შერეული გადახდის ორივე ნაწილი დადებითი უნდა იყოს და ჯამში ჩეკის თანხას უნდა ემთხვეოდეს' : undefined}
+                    title={!paymentMethodValid ? t('sales.checkoutTooltip') : undefined}
                   >
-                    გაყიდვის დასრულება (ჩეკის ბეჭდვა)
+                    {t('sales.checkoutButton')}
                   </button>
                 </>
               )}
@@ -1347,51 +1351,51 @@ export default function Sales() {
           <div className={styles.modalBody}>
             {!zReport ? (
               <>
-                <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><LockIcon size={18} /> ცვლის დახურვა და ინკასაცია</h3>
-                <p>შეიყვანეთ სალაროში არსებული ფაქტობრივი ნაღდი ფული.</p>
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><LockIcon size={18} /> {t('sales.closeShiftModalTitle')}</h3>
+                <p>{t('sales.closeShiftModalDesc')}</p>
                 <form onSubmit={handleCloseShift}>
-                  <div className={styles.formGroup}><label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><CashIcon size={14} /> ფაქტობრივი ნაღდი ფული (₾)</label>
+                  <div className={styles.formGroup}><label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><CashIcon size={14} /> {t('sales.actualCashLabel')}</label>
                     <input type="number" min="0" step="0.01" value={endAmountActual} onChange={e => setEndAmountActual(e.target.value)} className={styles.inputField} />
                   </div>
                   <div style={{ display: 'flex', gap: '10px', marginTop: '20px', flexWrap: 'wrap' }}>
-                    <button type="button" onClick={() => setShowCloseModal(false)} disabled={closingShift} className={`${styles.btn} ${styles.btnSecondary}`} style={{ flex: 1, minWidth: '120px' }}>გაუქმება</button>
+                    <button type="button" onClick={() => setShowCloseModal(false)} disabled={closingShift} className={`${styles.btn} ${styles.btnSecondary}`} style={{ flex: 1, minWidth: '120px' }}>{t('common.cancel')}</button>
                     <button
                       type="submit"
                       disabled={closingShift || endAmountActual.trim() === '' || !Number.isFinite(parseFloat(endAmountActual)) || parseFloat(endAmountActual) < 0}
                       className={`${styles.btn} ${styles.btnDanger}`}
                       style={{ flex: 1, minWidth: '120px' }}
                     >
-                      {closingShift ? '⏳ მოწმდება...' : 'დახურვა'}
+                      {closingShift ? `⏳ ${t('common.verifying')}` : t('sales.closeShiftButton')}
                     </button>
                   </div>
                 </form>
               </>
             ) : (
               <div style={{ textAlign: 'center' }}>
-                <h3 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#10b981', margin: 0 }}><DashboardIcon size={18} /> ცვლა დაიხურა (Z-Report)</h3>
+                <h3 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#10b981', margin: 0 }}><DashboardIcon size={18} /> {t('sales.zReportTitle')}</h3>
                 <div style={{ background: 'rgba(255, 255, 255, 0.06)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '18px', borderRadius: '12px', margin: '20px 0', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {/* 🩹 FIX (10.09.2026) — hardcoded ღია ფონი (#f8fafc) ჩანაცვლდა
                       frosted-glass (ბუნდოვანი, ნახევრად გამჭვირვალე) დიზაინით,
                       Tables.tsx-ის HoReCa close-shift მოდალის იდენტური სტილით —
                       თემისგან დამოუკიდებელი, მუქ ფონზე ორიენტირებული ვიზუალი. */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '14px' }}><span style={{ color: 'var(--color-text-secondary)' }}>საწყისი:</span> <strong style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{Number(zReport.start ?? 0).toFixed(2)} ₾</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '14px' }}><span style={{ color: 'var(--color-text-secondary)' }}>{t('sales.zStart')}</span> <strong style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{Number(zReport.start ?? 0).toFixed(2)} ₾</strong></div>
                   {/* 🖨 Roadmap ეტაპი 7 — "გაყიდული ჩეკების რაოდენობა", ადრე მოდალშიც კი არ ჩანდა */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '14px' }}><span style={{ color: 'var(--color-text-secondary)' }}>გაყიდული ჩეკები:</span> <strong style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{zReport.receiptCount ?? 0}</strong></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '14px' }}><span style={{ color: 'var(--color-text-secondary)' }}>მოსალოდნელი:</span> <strong style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{Number(zReport.expected ?? 0).toFixed(2)} ₾</strong></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '14px' }}><span style={{ color: 'var(--color-text-secondary)' }}>ფაქტობრივი:</span> <strong style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{Number(zReport.actual ?? 0).toFixed(2)} ₾</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '14px' }}><span style={{ color: 'var(--color-text-secondary)' }}>{t('sales.zReceiptCount')}</span> <strong style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{zReport.receiptCount ?? 0}</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '14px' }}><span style={{ color: 'var(--color-text-secondary)' }}>{t('sales.zExpected')}</span> <strong style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{Number(zReport.expected ?? 0).toFixed(2)} ₾</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '14px' }}><span style={{ color: 'var(--color-text-secondary)' }}>{t('sales.zActual')}</span> <strong style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{Number(zReport.actual ?? 0).toFixed(2)} ₾</strong></div>
                   {/* 🩹 FIX (06.09.2026) — HoReCa STEP 4: ჯამური tip ცვლაზე,
                       reconciliation/payroll-ისთვის. 0-ზე არ ჩანს (Retail
                       POS checkout-ს tip საერთოდ არ აქვს). */}
                   {Number(zReport.tipTotal ?? 0) > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '14px' }}><span style={{ color: 'var(--color-text-secondary)' }}>ჯამური tip:</span> <strong style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{Number(zReport.tipTotal ?? 0).toFixed(2)} ₾</strong></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '14px' }}><span style={{ color: 'var(--color-text-secondary)' }}>{t('sales.zTipTotal')}</span> <strong style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{Number(zReport.tipTotal ?? 0).toFixed(2)} ₾</strong></div>
                   )}
                   <hr style={{ border: 'none', borderTop: '1px solid rgba(255, 255, 255, 0.1)', margin: '2px 0' }} />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '14px' }}><span style={{ color: 'var(--color-text-secondary)' }}>სხვაობა:</span> <strong style={{ fontWeight: 600, color: (zReport.difference ?? 0) < 0 ? '#ef4444' : '#10b981' }}>{Number(zReport.difference ?? 0).toFixed(2)} ₾</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '14px' }}><span style={{ color: 'var(--color-text-secondary)' }}>{t('sales.zDifference')}</span> <strong style={{ fontWeight: 600, color: (zReport.difference ?? 0) < 0 ? '#ef4444' : '#10b981' }}>{Number(zReport.difference ?? 0).toFixed(2)} ₾</strong></div>
                 </div>
                 {/* 🖨 Z-Report ბეჭდვის ღილაკი (Roadmap ეტაპი 7) — ზუსტად ის ციფრები
                     იბეჭდება, რაც ზემოთ მოდალშია ნაჩვენები (PrintableZReport). */}
-                <button onClick={() => triggerPrint('zreport')} className={`${styles.btn} ${styles.btnSecondary}`} style={{ width: '100%', marginBottom: '10px' }}>🖨 Z-რეპორტის ბეჭდვა</button>
-                <button onClick={() => { localStorage.removeItem('token'); window.location.reload(); }} className={`${styles.btn} ${styles.btnPrimary}`} style={{ width: '100%' }}>დასრულება და გასვლა</button>
+                <button onClick={() => triggerPrint('zreport')} className={`${styles.btn} ${styles.btnSecondary}`} style={{ width: '100%', marginBottom: '10px' }}>{t('sales.printZReport')}</button>
+                <button onClick={() => { localStorage.removeItem('token'); window.location.reload(); }} className={`${styles.btn} ${styles.btnPrimary}`} style={{ width: '100%' }}>{t('sales.finishAndLogout')}</button>
               </div>
             )}
           </div>
@@ -1408,19 +1412,19 @@ export default function Sales() {
       {showPinModal && (
         <div className={styles.modalOverlay} style={{ zIndex: 10050 }}>
           <div className={styles.modalBody}>
-            <h3>🔑 საჭიროა მენეჯერის ავტორიზაცია</h3>
+            <h3>{t('sales.managerPinModalTitle')}</h3>
             <p style={{ color: '#64748b', fontSize: '14px', marginTop: 0 }}>
               {pinAction === 'void-receipt'
-                ? 'ჩეკის გასაუქმებლად მენეჯერმა უნდა შეიყვანოს თავისი 4-ციფრიანი PIN-კოდი.'
+                ? t('sales.pinReasonVoid')
                 : pinAction === 'clear-cart'
-                ? 'კალათის გასასუფთავებლად მენეჯერმა უნდა შეიყვანოს თავისი 4-ციფრიანი PIN-კოდი.'
+                ? t('sales.pinReasonClearCart')
                 : pinAction === 'remove-item'
-                ? 'პროდუქტის კალათიდან წასაშლელად მენეჯერმა უნდა შეიყვანოს თავისი 4-ციფრიანი PIN-კოდი.'
-                : 'ფასდაკლების გამოსაყენებლად მენეჯერმა უნდა შეიყვანოს თავისი 4-ციფრიანი PIN-კოდი.'}
+                ? t('sales.pinReasonRemoveItem')
+                : t('sales.pinReasonDiscount')}
             </p>
             <form onSubmit={handleVerifyManagerPin}>
               <div className={styles.formGroup}>
-                <label>PIN-კოდი</label>
+                <label>{t('sales.pinCodeLabel')}</label>
                 <input
                   type="password"
                   inputMode="numeric"
@@ -1438,7 +1442,7 @@ export default function Sales() {
               )}
               <div style={{ display: 'flex', gap: '10px', marginTop: '10px', flexWrap: 'wrap' }}>
                 <button type="button" onClick={closePinModal} className={`${styles.btn} ${styles.btnSecondary}`} style={{ flex: 1, minWidth: '120px' }}>
-                  გაუქმება
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
@@ -1446,7 +1450,7 @@ export default function Sales() {
                   className={`${styles.btn} ${styles.btnPrimary}`}
                   style={{ flex: 1, minWidth: '120px', opacity: pinLoading || pinValue.length !== 4 ? 0.6 : 1 }}
                 >
-                  {pinLoading ? 'მოწმდება...' : 'დადასტურება'}
+                  {pinLoading ? t('common.verifying') : t('common.confirm')}
                 </button>
               </div>
             </form>
@@ -1459,40 +1463,40 @@ export default function Sales() {
         <div className={styles.modalOverlay}>
           <div className={`${styles.modalBody} ${styles.historyModalBody}`}>
             <div className={styles.historyHeader}>
-              <h3>📜 მიმდინარე ცვლის ჩეკები</h3>
+              <h3>{t('sales.historyModalTitle')}</h3>
               <button
                 onClick={() => { setShowHistoryModal(false); setExpandedReceiptId(null); }}
                 className={styles.historyCloseBtn}
-                aria-label="დახურვა"
+                aria-label={t('common.close')}
               >×</button>
             </div>
             <p style={{ color: '#94a3b8', fontSize: '13px', marginTop: '-8px', marginBottom: '15px' }}>
-              ცვლა #{activeShift?.id} | გახსნილია: {activeShift?.opened_at}
+              {t('sales.shiftMeta', { id: activeShift?.id, time: activeShift?.opened_at })}
             </p>
 
             <div className={styles.historySummaryBar}>
-              <span>ჩეკები: <strong>{historySummary.totalReceipts}</strong></span>
-              <span>ჯამური თანხა: <strong>{Number(historySummary.totalSum).toFixed(2)} ₾</strong></span>
+              <span>{t('sales.historyReceiptsLabel')} <strong>{historySummary.totalReceipts}</strong></span>
+              <span>{t('sales.historyTotalLabel')} <strong>{Number(historySummary.totalSum).toFixed(2)} ₾</strong></span>
             </div>
 
             <div className={styles.historyList}>
               {historyLoading ? (
-                <p style={{ textAlign: 'center', color: '#94a3b8', padding: '20px' }}>იტვირთება...</p>
+                <p style={{ textAlign: 'center', color: '#94a3b8', padding: '20px' }}>{t('nav.loading')}</p>
               ) : historyReceipts.length === 0 ? (
-                <p style={{ textAlign: 'center', color: '#94a3b8', padding: '20px' }}>ჩეკები ვერ მოიძებნა</p>
+                <p style={{ textAlign: 'center', color: '#94a3b8', padding: '20px' }}>{t('sales.historyNotFound')}</p>
               ) : (
                 paginatedReceipts.map(receipt => (
                   <div key={receipt.id} className={styles.receiptCard}>
                     <button className={styles.receiptHeader} onClick={() => toggleReceipt(receipt.id)}>
                       <div>
-                        <strong>ჩეკი #{receipt.id}</strong>
+                        <strong>{t('sales.receiptNumber', { id: receipt.id })}</strong>
                         <small>{receipt.created_at}</small>
                       </div>
                       <div className={styles.receiptHeaderRight}>
                         {/* 🧾 Roadmap ეტაპი 4 — გაუქმებული ჩეკის ბეიჯი, ჩანს კოლაფსშიც, გაშლის გარეშეც */}
                         {receipt.is_voided && (
                           <span style={{ background: '#fee2e2', color: '#991b1b', padding: '2px 8px', borderRadius: '50px', fontSize: '12px', fontWeight: 'bold' }}>
-                            🚫 გაუქმებული
+                            {t('sales.voided')}
                           </span>
                         )}
                         {receipt.discount_type && receipt.discount_value ? (
@@ -1517,7 +1521,7 @@ export default function Sales() {
                     {expandedReceiptId === receipt.id && (
                       <>
                         <table className={styles.receiptItemsTable}>
-                          <thead><tr><th>დასახელება</th><th>ფასი</th><th>რაოდ.</th><th>ჯამი</th></tr></thead>
+                          <thead><tr><th>{t('sales.tableName')}</th><th>{t('sales.tablePrice')}</th><th>{t('sales.tableQty')}</th><th>{t('sales.tableTotal')}</th></tr></thead>
                           <tbody>
                             {receipt.items.map((item, idx) => (
                               <tr key={idx}>
@@ -1531,16 +1535,16 @@ export default function Sales() {
                         </table>
                         {receipt.discount_type && receipt.discount_value ? (
                           <div style={{ fontSize: '13px', color: '#b45309', fontWeight: 'bold', padding: '8px 4px 0 4px' }}>
-                            🏷 ფასდაკლება: {receipt.discount_type === 'percent' ? `${receipt.discount_value}%` : `${Number(receipt.discount_value).toFixed(2)} ₾`}
+                            {t('sales.discountLine', { value: receipt.discount_type === 'percent' ? `${receipt.discount_value}%` : `${Number(receipt.discount_value).toFixed(2)} ₾` })}
                             {' '}({Number(receipt.subtotal_amount ?? 0).toFixed(2)} ₾ → {Number(receipt.total_amount).toFixed(2)} ₾)
                           </div>
                         ) : null}
                         {/* 💰 Roadmap ეტაპი 8 — SPLIT ჩეკის ცალ-ცალკე ნაღდი/ბარათის ჩაშლა */}
                         {receipt.payment_method === 'split' && receipt.splits && (
                           <div style={{ fontSize: '13px', color: '#6d28d9', fontWeight: 'bold', padding: '8px 4px 0 4px', display: 'flex', gap: '16px' }}>
-                            <span>🔀 შერეული:</span>
-                            <span>💵 ნაღდი — {receipt.splits.cash.toFixed(2)} ₾</span>
-                            <span>💳 ბარათი — {receipt.splits.card.toFixed(2)} ₾</span>
+                            <span>{t('sales.splitBreakdownLabel')}</span>
+                            <span>{t('sales.splitCashLine', { amount: receipt.splits.cash.toFixed(2) })}</span>
+                            <span>{t('sales.splitCardLine', { amount: receipt.splits.card.toFixed(2) })}</span>
                           </div>
                         )}
 
@@ -1553,9 +1557,9 @@ export default function Sales() {
                             onClick={() => handleVoidReceiptClick(receipt.id)}
                             className={`${styles.btn} ${styles.btnDanger}`}
                             style={{ width: '100%', marginTop: '10px', fontSize: '13px' }}
-                            title={!canVoidReceipt ? 'საჭიროა მენეჯერის ავტორიზაცია' : undefined}
+                            title={!canVoidReceipt ? t('common.managerAuthRequired') : undefined}
                           >
-                            🚫 ჩეკის გაუქმება{!canVoidReceipt ? ' (მენეჯერის PIN)' : ''}
+                            {t('sales.voidReceipt')}{!canVoidReceipt ? t('sales.managerPinSuffix') : ''}
                           </button>
                         )}
                       </>
@@ -1572,13 +1576,13 @@ export default function Sales() {
                   onClick={() => { setHistoryPage(p => Math.max(1, p - 1)); setExpandedReceiptId(null); }}
                   disabled={historyPage === 1}
                   className={styles.pageBtn}
-                >‹ წინა</button>
-                <span className={styles.pageInfo}>გვერდი {historyPage} / {totalHistoryPages}</span>
+                >{t('sales.prevPage')}</button>
+                <span className={styles.pageInfo}>{t('sales.pageInfo', { page: historyPage, total: totalHistoryPages })}</span>
                 <button
                   onClick={() => { setHistoryPage(p => Math.min(totalHistoryPages, p + 1)); setExpandedReceiptId(null); }}
                   disabled={historyPage === totalHistoryPages}
                   className={styles.pageBtn}
-                >შემდეგი ›</button>
+                >{t('sales.nextPage')}</button>
               </div>
             )}
           </div>
@@ -1592,17 +1596,16 @@ export default function Sales() {
       {voidConfirm.show && (
         <div className={styles.modalOverlay} style={{ zIndex: 10050 }}>
           <div className={styles.modalBody}>
-            <h3>🚫 ჩეკის გაუქმება</h3>
+            <h3>{t('sales.voidConfirmTitle')}</h3>
             <p style={{ margin: '0 0 24px 0', color: '#1e293b', fontSize: '15px', lineHeight: 1.5 }}>
-              ნამდვილად გსურთ ჩეკი #{voidConfirm.paymentId}-ის გაუქმება? პროდუქტების მარაგი
-              ავტომატურად დაბრუნდება, მოქმედება კი ვერ გაუქმდება.
+              {t('sales.voidConfirmBody', { id: voidConfirm.paymentId })}
             </p>
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               <button type="button" onClick={closeVoidConfirm} className={`${styles.btn} ${styles.btnSecondary}`} style={{ flex: 1, minWidth: '120px' }}>
-                გაუქმება
+                {t('common.cancel')}
               </button>
               <button type="button" onClick={confirmVoidReceipt} className={`${styles.btn} ${styles.btnDanger}`} style={{ flex: 1, minWidth: '120px' }}>
-                დიახ, გავაუქმო
+                {t('sales.confirmVoid')}
               </button>
             </div>
           </div>
