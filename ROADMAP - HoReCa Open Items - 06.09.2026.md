@@ -1,6 +1,6 @@
 # HoReCa მოდულის ღია საკითხები — Roadmap
 
-**სტატუსი:** 🟡 ღია — 3/8 პუნქტი დასრულებულია (#1, Waiter Access Scope, 10.09.2026; #2, Item Void Authorization, 10.09.2026; #4, KDS Realtime, 09.09.2026).
+**სტატუსი:** 🟡 ღია — 5/8 პუნქტი დასრულებულია (#1, Waiter Access Scope, 10.09.2026; #2, Item Void Authorization, 10.09.2026; #4, KDS Realtime, 09.09.2026; #5, Register Re-pair, 10.09.2026; #6, CRLF Housekeeping, 10.09.2026). #3 ნაწილობრივ (setting-infrastructure), #8 დაბალი პრიორიტეტით დოკუმენტირებული.
 **თარიღი:** 06.09.2026
 **წყარო:** `ROADMAP - HoReCa Module - 03.09.2026.md`-ის STEP 1-4 (ყველა
 production-ზეა, დასრულებული) — ამ ძირითადი roadmap-ის "ღია საკითხები"
@@ -253,11 +253,22 @@ line-ending-ია სხვადასხვა.
 manual გამორთვლა/გამორიცხვა — იხ. `backend/src/routes/auth.ts`-ის
 STEP 4-ის WAITER-commit-ის მაგალითი, 06.09.2026).
 
-**Fix:** `core.autocrlf`/`.gitattributes`-ის კონფიგურაცია (მაგ.
-`* text=auto eol=lf`), შემდეგ ერთჯერადი normalize-commit ყველა
-დაზარალებულ ფაილზე.
+**აღმოჩენა (10.09.2026):** დამატებითი შემოწმებით (`git show
+HEAD:<file>` vs working tree, `cat -A`) გაირკვა, რომ commit-ებში
+(HEAD) ეს ~25 ფაილი უკვე LF-ითაა შენახული — CRLF მხოლოდ ლოკალურ
+checkout-ში იყო (Windows-ზე editor/git-ის line-ending კონვერტაციის
+შედეგი, `.gitattributes`-ის არარსებობის გამო git ამას "ცვლილებად"
+თვლიდა). ანუ repo თავად სუფთა იყო, `git status`-ის "ჭუჭყიანობა"
+მხოლოდ ლოკალურ-checkout-vs-repo შედარების ხარვეზი იყო.
 
-**სტატუსი:** 🔴 არ დაწყებულა.
+**Fix (10.09.2026, დასრულებულია):** repo root-ში დაემატა
+`.gitattributes` (`* text=auto eol=lf` + ცნობილი ბინარული ტიპების
+ცხადი გამორიცხვა) — ამის შემდეგ Git ავტომატურად სწორად ადარებს
+CRLF-checkout-ს LF-repo-ს (ნორმალიზებულად), და `git status`
+დაუყოვნებლივ დასუფთავდა ყველა ამ ~25 ფაილზე, ცალკე
+normalize-commit-ის საჭიროების გარეშე. სამომავლოდაც არ დაბრუნდება.
+
+**სტატუსი:** 🟢 დასრულებულია.
 
 ---
 

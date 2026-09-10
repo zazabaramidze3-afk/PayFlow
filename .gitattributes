@@ -1,0 +1,22 @@
+# ==========================================
+# Roadmap "HoReCa Open Items - 06.09.2026.md", #6 — CRLF/LF housekeeping.
+# ==========================================
+# ყველა ტექსტური ფაილი Git-ის საცავში (blob-ებში) ერთგვაროვნად LF-ით
+# ინახება, მიუხედავად იმისა, Windows-ზეა თუ Linux/Mac-ზე checkout-ი
+# (Git ავტომატურად, გამჭვირვალედ გარდაქმნის ლოკალურ checkout-ზე,
+# შენი `core.autocrlf`-ის მიხედვით — ეს კონტენტს არ ცვლის).
+* text=auto eol=lf
+
+# ცნობილი ბინარული ტიპები — `text=auto` თავადაც სწორად აღმოაჩენს
+# ბინარულს, მაგრამ ეს ცხადად გამორიცხავს ნებისმიერ line-ending
+# გარდაქმნას მათზე, დამატებითი უსაფრთხოებისთვის.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pdf binary
