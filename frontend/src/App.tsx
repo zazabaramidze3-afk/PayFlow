@@ -33,6 +33,7 @@ import {
   SlidersIcon,
   LayersIcon,
   UsersIcon,
+  SettingsIcon,
 } from './components/Icons';
 
 // ==========================================================
@@ -83,6 +84,11 @@ const Modifiers = lazy(() => import('./pages/Modifiers'));
 // (ნედლეულის) მართვის პანელი. Modifiers-ის იგივე admin/manager-ონლი
 // lazy/businessType-გეითინგის პატერნით.
 const Ingredients = lazy(() => import('./pages/Ingredients'));
+// ⚙️ Settings გვერდი (Roadmap "HoReCa Open Items - 06.09.2026.md", #3 —
+// tip_distribution_mode "setting-infrastructure" ეტაპი). Modifiers/
+// Ingredients-ის იგივე admin/manager-ონლი, lazy/businessType-გეითინგის
+// პატერნით (HoReCa-ონლი, ვინაიდან tip-ები Retail-ს არ ეხება).
+const Settings = lazy(() => import('./pages/Settings'));
 
 // =======================================================
 // 🛡️ AXIOS INTERCEPTOR — ავტომატური ტოკენის მიბმა
@@ -464,6 +470,16 @@ function App() {
                 <LayersIcon size={16} /> ინგრედიენტები
               </li>
             )}
+            {/* ⚙️ Settings (Roadmap #3) — Modifiers/Ingredients-ის იგივე
+                ხილვადობა (HoReCa + admin/manager-ონლი). */}
+            {businessType === 'horeca' && isAdminOrManager && (
+              <li
+                onClick={() => navigateTo('settings')}
+                className={`${styles.navItem} ${currentPage === 'settings' ? styles.active : ''}`}
+              >
+                <SettingsIcon size={16} /> პარამეტრები
+              </li>
+            )}
             {isAdminOrManager && (
               <li
                 onClick={() => navigateTo('users_control')}
@@ -529,6 +545,7 @@ function App() {
           {currentPage === 'ingredients' && businessType === 'horeca' && isAdminOrManager && (
             <Ingredients />
           )}
+          {currentPage === 'settings' && businessType === 'horeca' && isAdminOrManager && <Settings />}
           {currentPage === 'users_control' && isAdminOrManager && <UsersManagement currentUserRole={userRole} businessType={businessType} />}
         </Suspense>
       </div>

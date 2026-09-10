@@ -15,7 +15,10 @@ import jwt from 'jsonwebtoken';
 import { db } from '../index';
 import { withOrgContext } from '../db';
 import { authenticateToken, CustomRequest } from './auth';
-import { BusinessType } from '../types';
+import { requireAnyRole } from '../middleware/requireRole';
+import { BusinessType, TipDistributionMode } from '../types';
+
+const VALID_TIP_DISTRIBUTION_MODES: readonly TipDistributionMode[] = ['individual', 'pooled'];
 import {
   getRegistrationRateLimitKey,
   checkRegistrationRateLimit,
@@ -256,22 +259,78 @@ router.get('/organizations/me', authenticateToken, async (req: CustomRequest, re
   }
 
   try {
-    const businessType = await withOrgContext(organizationId, async (client) => {
-      const result = await client.query<{ business_type: BusinessType }>(
-        'SELECT business_type FROM organizations WHERE id = $1',
+    // 💰 #3 (Tips-ის განაწილება, migration 026) — tip_distribution_mode-იც
+    // იგივე ერთ query-ში მოდის, ცალკე round-trip არ სჭირდება.
+    const orgRow = await withOrgContext(organizationId, async (client) => {
+      const result = await client.query<{ business_type: BusinessType; tip_distribution_mode: TipDistributionMode }>(
+        'SELECT business_type, tip_distribution_mode FROM organizations WHERE id = $1',
         [organizationId]
       );
-      return result.rows[0]?.business_type ?? null;
+      return result.rows[0] ?? null;
     });
 
-    if (!businessType) {
+    if (!orgRow) {
       return res.status(404).json({ error: 'ორგანიზაცია ვერ მოიძებნა' });
     }
 
-    res.json({ businessType });
+    res.json({ businessType: orgRow.business_type, tipDistributionMode: orgRow.tip_distribution_mode });
   } catch (err: unknown) {
     res.status(500).json({ error: getErrorMessage(err) });
   }
 });
+
+// ==========================================
+// 💰 PATCH /organizations/me — ორგანიზაციის საკუთარი, ბიზნეს-დონის
+// setting-ების რედაქტირება (Roadmap "HoReCa Open Items - 06.09.2026.md",
+// #3, "setting-infrastructure" ეტაპი)
+// ==========================================
+// ეს არ არის Superadmin-ის `platform-admin/organizations/:id/*`-ის
+// ანალოგი — ის platform-operator-ონლია, cross-tenant, სულ სხვა auth-ით
+// (`platform_admins`, `type: 'platform-admin-auth'`). ეს endpoint
+// საწინააღმდეგოა: ორგანიზაციის **საკუთარი** admin/manager-ი (ჩვეულებრივი
+// `authenticateToken`) ცვლის **მხოლოდ საკუთარ** org-ს — `req.user.
+// organizationId`-დან, არასდროს request-ის param-იდან (იგივე IDOR-დაცვის
+// pattern, რაც `products.ts`-ის PUT-ს აქვს).
+//
+// ჯერჯერობით მხოლოდ `tip_distribution_mode` — ერთი, ცხადად ვალიდირებული
+// ველი (არა generic "ნებისმიერი ველის განახლება"), Superadmin-routes-ის
+// (`status`/`trial`) იგივე, purpose-built სტილით.
+router.patch(
+  '/organizations/me',
+  authenticateToken,
+  requireAnyRole('admin', 'manager'),
+  async (req: CustomRequest, res: Response) => {
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+      return res.status(401).json({ error: 'ავტორიზაცია აუცილებელია' });
+    }
+
+    const { tipDistributionMode } = req.body as { tipDistributionMode?: unknown };
+
+    if (typeof tipDistributionMode !== 'string' || !VALID_TIP_DISTRIBUTION_MODES.includes(tipDistributionMode as TipDistributionMode)) {
+      return res.status(400).json({
+        error: `tipDistributionMode უნდა იყოს ერთ-ერთი: ${VALID_TIP_DISTRIBUTION_MODES.join(', ')}`,
+      });
+    }
+
+    try {
+      const updated = await withOrgContext(organizationId, async (client) => {
+        const result = await client.query<{ tip_distribution_mode: TipDistributionMode }>(
+          `UPDATE organizations SET tip_distribution_mode = $1 WHERE id = $2 RETURNING tip_distribution_mode`,
+          [tipDistributionMode, organizationId]
+        );
+        return result.rows[0] ?? null;
+      });
+
+      if (!updated) {
+        return res.status(404).json({ error: 'ორგანიზაცია ვერ მოიძებნა' });
+      }
+
+      res.json({ success: true, tipDistributionMode: updated.tip_distribution_mode });
+    } catch (err: unknown) {
+      res.status(500).json({ error: getErrorMessage(err) });
+    }
+  }
+);
 
 export default router;

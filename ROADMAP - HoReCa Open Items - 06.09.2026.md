@@ -1,6 +1,6 @@
 # HoReCa მოდულის ღია საკითხები — Roadmap
 
-**სტატუსი:** 🟡 ღია — 3/7 პუნქტი დასრულებულია (#1, Waiter Access Scope, 10.09.2026; #2, Item Void Authorization, 10.09.2026; #4, KDS Realtime, 09.09.2026).
+**სტატუსი:** 🟡 ღია — 3/8 პუნქტი დასრულებულია (#1, Waiter Access Scope, 10.09.2026; #2, Item Void Authorization, 10.09.2026; #4, KDS Realtime, 09.09.2026).
 **თარიღი:** 06.09.2026
 **წყარო:** `ROADMAP - HoReCa Module - 03.09.2026.md`-ის STEP 1-4 (ყველა
 production-ზეა, დასრულებული) — ამ ძირითადი roadmap-ის "ღია საკითხები"
@@ -116,12 +116,48 @@ Admin/manager როლს (`canManage`) PIN არ სჭირდება —
   emxარს, თუმცა ცალკეულ waiter-ებზე გადანაწილების UI/ლოგიკა არ
   არსებობს).
 
-**რჩევა გადასაწყვეტად:** ბევრ restaurant-ში კულტურულადაა
-განსაზღვრული (Georgian/European "individual service tip" vs
-US-style "pooled/tip-out"). worth ჰკითხოთ რესტორნის მენეჯმენტს
-პირდაპირ.
+**გადაწყვეტილება (10.09.2026): არც ერთი ვარიანტი გლობალურად —
+ორგანიზაცია-დონის setting (`organizations.tip_distribution_mode`).**
 
-**სტატუსი:** 🔴 გადაწყვეტილება არ არის მიღებული.
+**დასაბუთება:** Multi-tenant SaaS-ში ერთი, hardcoded გადაწყვეტილება
+ვერ მოერგება ყველა რესტორნის ბიზნეს-მოდელს/კულტურას
+(Georgian/European "individual service tip" vs US-style
+"pooled/tip-out") — ზუსტად იგივე პრინციპია, რაც `business_type`-ს
+აქვს (migration 019). ამიტომ თითოეულ org-ს თავისი მოდელის არჩევის
+საშუალება ეძლევა, პლატფორმის დონეზე არცერთი მხარე არ არის
+დაწესებული.
+
+**იმპლემენტაცია (10.09.2026) — მხოლოდ "setting-infrastructure"
+ეტაპი:**
+- Migration `026_add_tip_distribution_mode.sql` —
+  `organizations.tip_distribution_mode` (`individual`|`pooled`,
+  DEFAULT `'individual'` — production-ის ამჟამინდელ ქცევასთან
+  ნულოვანი გავლენით).
+- Backend (`backend/src/routes/organizations.ts`) — `GET
+  /organizations/me` ახლა აბრუნებს `tipDistributionMode`-საც;
+  ახალი `PATCH /organizations/me` (admin/manager-ონლი,
+  `requireAnyRole`, IDOR-დაცული `req.user.organizationId`-დან)
+  ინახავს არჩევანს.
+- Frontend — ახალი "⚙️ პარამეტრები" გვერდი
+  (`frontend/src/pages/Settings.tsx`), admin/manager + HoReCa-ონლი
+  ხილვადობით (Modifiers/Ingredients-ის იგივე გეითინგი App.tsx-ში) —
+  "ინდივიდუალური"/"საერთო (Pooled)" toggle, `GET`/`PATCH
+  /organizations/me`-ზე.
+- ორივე მხარეს TypeScript compile სუფთაა (`tsc --noEmit`);
+  დატესტილია ლოკალურად — admin/manager save+DB-persist, cashier/
+  waiter/retail-cashier-ით nav item დამალულია.
+
+**⚠️ სქოუფის გარეთ (მომავალი ეტაპი):** ფაქტობრივი "pooled"
+გადანაწილების ალგორითმი (shift-close-ზე ჯამური tip-ის დაყოფა
+აქტიურ ვეითერებზე — საათების პროპორციულად თუ თანაბრად) ჯერ არ
+არის იმპლემენტირებული. Checkout-ის (`sales.ts`) ლოგიკა უცვლელი
+რჩება — მთელი tip კვლავ იმ waiter-ს/მოლარეს ეკუთვნის, ვინც
+checkout გაატარა, org-ის არჩეული მოდელის მიუხედავად. `pooled`-ის
+არჩევა ამ ეტაპზე მხოლოდ პარამეტრს ინახავს, რეალურ გადანაწილებაზე
+ჯერ გავლენას არ ახდენს.
+
+**სტატუსი:** 🟡 ნაწილობრივ დასრულებულია — setting-infrastructure
+მზადაა, pooled-ალგორითმი მომავალი ეტაპისთვისაა დაგეგმილი.
 
 ---
 
@@ -253,6 +289,45 @@ cashier-ისთვის და (ბ) tip-ატრიბუცია/checkout
 
 **სტატუსი:** 🔴 გადაწყვეტილება არ არის მიღებული — არც hardware-მოდელია
 დაზუსტებული, არც კოდის ცვლილება დაწყებულა.
+
+---
+
+## 8. [ახალი, 10.09.2026] Self-registration abuse დაცვა (rate-limit vs captcha)
+
+**აღმოჩენილია:** Cowork session, 10.09.2026 — production superadmin
+პანელზე (`/admin`) შემჩნეული უცნობი, თვით-დარეგისტრირებული ორგანიზაცია
+("IMStore", `alexduke@rover.info`) გამოიწვია საკითხის გადამოწმება: რამდენად
+დაცულია `POST /organizations/register` (საჯარო, ავტორიზაციის გარეშე
+endpoint — ნებისმიერს შეუძლია ინტერნეტიდან მიმართვა) მასობრივი/ავტომატური
+(bot) რეგისტრაციისგან.
+
+**ამჟამინდელი მდგომარეობა (გადამოწმებულია):**
+- **Rate-limiting: არსებობს.** `backend/src/middleware/registrationRateLimit.ts`
+  — ერთი IP-დან მაქსიმუმ 5 მცდელობა 1 საათში (in-memory `Map`, ითვლის
+  ყველა მცდელობას, არა მხოლოდ წარუმატებელს).
+  ⚠️ **ცნობილი შეზღუდვა:** in-memory Map — single backend-instance-ს
+  ვარაუდობს; თუ Render რამდენიმე instance-ზე გადავა (horizontal scaling),
+  counter აღარ იქნება გაზიარებული და ეფექტური ლიმიტი რეალურად გაიზრდება
+  (instance-თა რაოდენობის მიხედვით).
+- **Captcha: არ არსებობს.** კოდში დადასტურებულია (`recaptcha`/`hcaptcha`/
+  `turnstile` — არცერთი მოძებნილი).
+
+**რატომ არ არის ეს ამჟამად საგანგებო:** ერთი, უსარგებლო ("IMStore", 0
+users, 0 ჩეკი) trial-რეგისტრაცია rate-limit-საც კი ვერ გაავარჯიშებდა —
+ეს ჩვეულებრივი, ერთჯერადი დათვალიერების ნიშანია, არა mass-abuse-ის.
+
+**გადასაწყვეტი კითხვა:** ღირს თუ არა Captcha-ს (მაგ. Cloudflare Turnstile
+— უფასო, დამატებითი UX-ხახუნი მინიმალური) დამატება `Register.tsx`-ზე,
+თუ საკმარისია ამჟამინდელი 5/საათი IP-based rate-limit?
+
+**რჩევა გადასაწყვეტად:** Captcha-ს დამატება არ არის სასწრაფო — ღირს
+მხოლოდ მაშინ, თუ რეალურად შეიმჩნევა scripted/mass-registration-ის
+ნიშნები (ბევრი ორგანიზაცია ერთდროულად/მოკლე დროში, უსარგებლო
+სახელებით). მანამდე საკმარისია მონიტორინგი (superadmin `/admin`
+პანელის პერიოდული გადახედვა).
+
+**სტატუსი:** 🟡 დაბალი პრიორიტეტი — მოქმედი დაცვა (rate-limit) არსებობს,
+დამატებითი ზომა (captcha) საჭიროებისამებრ, არა დაუყოვნებლივ.
 
 ---
 

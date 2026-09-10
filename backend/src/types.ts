@@ -73,6 +73,15 @@ export type OrganizationStatus = 'trial' | 'active' | 'suspended' | 'cancelled';
 // middleware ბექენდზეც ამავე ველზეა აგებული).
 export type BusinessType = 'retail' | 'horeca';
 
+// 💰 ROADMAP "HoReCa Open Items - 06.09.2026.md", #3 (Tips-ის განაწილება,
+// migration 026) — per-organization setting, არა პლატფორმის დონეზე
+// hardcoded გადაწყვეტილება (business_type-ის იგივე pattern). 'individual'
+// (default) ამჟამინდელ production-ქცევას ემთხვევა — checkout-ის
+// waiter_id-ს ერგება მთელი tip. 'pooled' ჯერჯერობით მხოლოდ ინახება/
+// იკითხება — რეალური distribution-ალგორითმი ცალკე, მომავალი ეტაპის
+// ამოცანაა.
+export type TipDistributionMode = 'individual' | 'pooled';
+
 export interface Organization {
   id: string;
   name: string;
@@ -87,6 +96,8 @@ export interface Organization {
   created_at: string;
   // 🍽️ HoReCa Module STEP 1 (migration 019) — NOT NULL, DEFAULT 'retail'.
   business_type: BusinessType;
+  // 💰 #3, migration 026 — NOT NULL, DEFAULT 'individual'.
+  tip_distribution_mode: TipDistributionMode;
 }
 
 // PIN-ის ვერიფიკაციისთვის საკმარისი მინიმალური ველების ქვესიმრავლე —
