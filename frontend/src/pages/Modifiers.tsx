@@ -20,16 +20,18 @@ import styles from './Modifiers.module.scss';
 import ConfirmModal from '../components/ConfirmModal';
 import { ModifierGroupWithOptions, ModifierOption, ModifierSelectionType } from '../lib/horecaTypes';
 import { EditIcon, TrashIcon, CheckIcon, XIcon } from '../components/Icons';
+import { useTranslation } from 'react-i18next';
 
 type ToastType = 'success' | 'error' | 'info';
 interface ToastItem { id: number; message: string; type: ToastType; }
 
-const SELECTION_LABEL: Record<ModifierSelectionType, string> = {
-  single: 'ერთი არჩევანი',
-  multiple: 'რამდენიმე არჩევანი',
+const SELECTION_LABEL_KEYS: Record<ModifierSelectionType, string> = {
+  single: 'modifiers.selectionType.single',
+  multiple: 'modifiers.selectionType.multiple',
 };
 
 export default function Modifiers() {
+  const { t } = useTranslation();
   const [groups, setGroups] = useState<ModifierGroupWithOptions[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -70,7 +72,7 @@ export default function Modifiers() {
       const response = await axios.get<ModifierGroupWithOptions[]>('/api/modifiers/groups');
       setGroups(response.data);
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || 'ჯგუფების ჩატვირთვა ვერ მოხერხდა', 'error');
+      showToast(getErrorMessage(error) || t('modifiers.toasts.loadGroupsFailed'), 'error');
     } finally {
       setLoading(false);
     }
@@ -107,7 +109,7 @@ export default function Modifiers() {
   const handleGroupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!groupName.trim()) {
-      showToast('ჯგუფის სახელი სავალდებულოა', 'error');
+      showToast(t('modifiers.toasts.groupNameRequired'), 'error');
       return;
     }
 
@@ -121,15 +123,15 @@ export default function Modifiers() {
     try {
       if (editingGroup) {
         await axios.put(`/api/modifiers/groups/${editingGroup.id}`, payload);
-        showToast('ჯგუფი განახლდა', 'success');
+        showToast(t('modifiers.toasts.groupUpdated'), 'success');
       } else {
         await axios.post('/api/modifiers/groups', payload);
-        showToast('ჯგუფი დაემატა', 'success');
+        showToast(t('modifiers.toasts.groupAdded'), 'success');
       }
       closeGroupModal();
       fetchGroups();
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || 'შენახვა ვერ მოხერხდა', 'error');
+      showToast(getErrorMessage(error) || t('modifiers.toasts.saveFailed'), 'error');
     } finally {
       setGroupSaving(false);
     }
@@ -145,17 +147,17 @@ export default function Modifiers() {
   const performDeleteGroup = async (group: ModifierGroupWithOptions) => {
     try {
       await axios.delete(`/api/modifiers/groups/${group.id}`);
-      showToast('ჯგუფი წაიშალა', 'success');
+      showToast(t('modifiers.toasts.groupDeleted'), 'success');
       fetchGroups();
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || 'წაშლა ვერ მოხერხდა', 'error');
+      showToast(getErrorMessage(error) || t('modifiers.toasts.deleteFailed'), 'error');
     }
   };
 
   const handleDeleteGroup = (group: ModifierGroupWithOptions) => {
     setConfirmModal({
-      title: '🗑️ ჯგუფის წაშლა',
-      message: `წავშალოთ ჯგუფი "${group.name}"? (თუ უკვე გამოყენებულია არსებულ შეკვეთაში, წაშლა შეუძლებელი იქნება)`,
+      title: t('modifiers.confirmModal.deleteGroupTitle'),
+      message: t('modifiers.confirmModal.deleteGroupMessage', { name: group.name }),
       onConfirm: () => {
         closeConfirmModal();
         void performDeleteGroup(group);
@@ -182,7 +184,7 @@ export default function Modifiers() {
   const handleAddOptionSubmit = async (e: React.FormEvent, groupId: string) => {
     e.preventDefault();
     if (!optionName.trim()) {
-      showToast('ოფციის სახელი სავალდებულოა', 'error');
+      showToast(t('modifiers.toasts.optionNameRequired'), 'error');
       return;
     }
     // 🩹 FIX (05.09.2026, production QA-ზე აღმოჩენილი) — price_delta
@@ -190,7 +192,7 @@ export default function Modifiers() {
     // მენიუს ფასს მხოლოდ ზრდის ან უცვლელად ტოვებს, არასდროს ამცირებს.
     const parsedPriceDelta = optionPriceDelta.trim() === '' ? 0 : Number(optionPriceDelta);
     if (!Number.isFinite(parsedPriceDelta) || parsedPriceDelta < 0) {
-      showToast('ფასის ცვლილება არ შეიძლება იყოს უარყოფითი', 'error');
+      showToast(t('modifiers.toasts.priceDeltaNegative'), 'error');
       return;
     }
 
@@ -200,11 +202,11 @@ export default function Modifiers() {
         name: optionName.trim(),
         priceDelta: parsedPriceDelta,
       });
-      showToast('ოფცია დაემატა', 'success');
+      showToast(t('modifiers.toasts.optionAdded'), 'success');
       closeAddOption();
       fetchGroups();
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || 'დამატება ვერ მოხერხდა', 'error');
+      showToast(getErrorMessage(error) || t('modifiers.toasts.addFailed'), 'error');
     } finally {
       setOptionSaving(false);
     }
@@ -227,13 +229,13 @@ export default function Modifiers() {
     e.preventDefault();
     if (!editingOption) return;
     if (!editOptionName.trim()) {
-      showToast('ოფციის სახელი სავალდებულოა', 'error');
+      showToast(t('modifiers.toasts.optionNameRequired'), 'error');
       return;
     }
     // 🩹 FIX (05.09.2026) — POST-ის იგივე არაუარყოფითობის წესი (ზემოთ).
     const parsedEditPriceDelta = editOptionPriceDelta.trim() === '' ? 0 : Number(editOptionPriceDelta);
     if (!Number.isFinite(parsedEditPriceDelta) || parsedEditPriceDelta < 0) {
-      showToast('ფასის ცვლილება არ შეიძლება იყოს უარყოფითი', 'error');
+      showToast(t('modifiers.toasts.priceDeltaNegative'), 'error');
       return;
     }
 
@@ -243,11 +245,11 @@ export default function Modifiers() {
         name: editOptionName.trim(),
         priceDelta: parsedEditPriceDelta,
       });
-      showToast('ოფცია განახლდა', 'success');
+      showToast(t('modifiers.toasts.optionUpdated'), 'success');
       cancelEditOption();
       fetchGroups();
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || 'განახლება ვერ მოხერხდა', 'error');
+      showToast(getErrorMessage(error) || t('modifiers.toasts.updateFailed'), 'error');
     } finally {
       setOptionSaving(false);
     }
@@ -256,17 +258,17 @@ export default function Modifiers() {
   const performDeleteOption = async (option: ModifierOption) => {
     try {
       await axios.delete(`/api/modifiers/options/${option.id}`);
-      showToast('ოფცია წაიშალა', 'success');
+      showToast(t('modifiers.toasts.optionDeleted'), 'success');
       fetchGroups();
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || 'წაშლა ვერ მოხერხდა', 'error');
+      showToast(getErrorMessage(error) || t('modifiers.toasts.deleteFailed'), 'error');
     }
   };
 
   const handleDeleteOption = (option: ModifierOption) => {
     setConfirmModal({
-      title: '🗑️ ოფციის წაშლა',
-      message: `წავშალოთ ოფცია "${option.name}"?`,
+      title: t('modifiers.confirmModal.deleteOptionTitle'),
+      message: t('modifiers.confirmModal.deleteOptionMessage', { name: option.name }),
       onConfirm: () => {
         closeConfirmModal();
         void performDeleteOption(option);
@@ -278,19 +280,17 @@ export default function Modifiers() {
     <div className={styles.container}>
       <div className={styles.topPanel}>
         <div>
-          <h2>🧩 მოდიფაიერები</h2>
-          <small>ჯგუფები (მაგ. "მოხარშვის ხარისხი", "დანამატები") + ოფციები — მიბმა კონკრეტულ პროდუქტზე ხდება Products გვერდზე, რედაქტირებისას</small>
+          <h2>{t('modifiers.pageTitle')}</h2>
+          <small>{t('modifiers.pageSubtitle')}</small>
         </div>
-        <button onClick={openCreateGroupModal} className={`${styles.btn} ${styles.btnPrimary}`}>
-          ➕ ახალი ჯგუფი
-        </button>
+        <button onClick={openCreateGroupModal} className={`${styles.btn} ${styles.btnPrimary}`}>{t('modifiers.addGroupBtn')}</button>
       </div>
 
       {loading ? (
-        <div className={styles.emptyState}>იტვირთება...</div>
+        <div className={styles.emptyState}>{t('nav.loading')}</div>
       ) : groups.length === 0 ? (
         <div className={styles.emptyState}>
-          მოდიფაიერების ჯგუფები ჯერ არ არის დამატებული. დააჭირეთ "➕ ახალი ჯგუფი"-ს ზემოთ.
+          {t('modifiers.noGroupsEmptyState')}
         </div>
       ) : (
         <div className={styles.groupList}>
@@ -300,18 +300,18 @@ export default function Modifiers() {
                 <div className={styles.groupTitleRow}>
                   <span className={styles.groupName}>{group.name}</span>
                   <span className={group.selection_type === 'single' ? styles.badgeSingle : styles.badgeMultiple}>
-                    {SELECTION_LABEL[group.selection_type]}
+                    {t(SELECTION_LABEL_KEYS[group.selection_type])}
                   </span>
-                  {group.is_required && <span className={styles.badgeRequired}>სავალდებულო</span>}
+                  {group.is_required && <span className={styles.badgeRequired}>{t('products.modifierPanel.requiredTag')}</span>}
                 </div>
                 <div className={styles.groupActions}>
-                  <button className={styles.iconBtn} onClick={() => openEditGroupModal(group)} aria-label="რედაქტირება"><EditIcon /></button>
-                  <button className={styles.iconBtn} onClick={() => handleDeleteGroup(group)} aria-label="წაშლა"><TrashIcon /></button>
+                  <button className={styles.iconBtn} onClick={() => openEditGroupModal(group)} aria-label={t('common.edit')}><EditIcon /></button>
+                  <button className={styles.iconBtn} onClick={() => handleDeleteGroup(group)} aria-label={t('common.delete')}><TrashIcon /></button>
                 </div>
               </div>
 
               {group.options.length === 0 ? (
-                <p className={styles.noOptions}>ოფციები ჯერ არ არის დამატებული.</p>
+                <p className={styles.noOptions}>{t('modifiers.noOptionsYet')}</p>
               ) : (
                 <div className={styles.optionsList}>
                   {group.options.map(option =>
@@ -336,8 +336,8 @@ export default function Modifiers() {
                           placeholder="0.00"
                         />
                         <div className={styles.optionActions}>
-                          <button type="submit" disabled={optionSaving} className={styles.iconBtn} aria-label="შენახვა"><CheckIcon /></button>
-                          <button type="button" onClick={cancelEditOption} className={styles.iconBtn} aria-label="გაუქმება"><XIcon /></button>
+                          <button type="submit" disabled={optionSaving} className={styles.iconBtn} aria-label={t('tables.save')}><CheckIcon /></button>
+                          <button type="button" onClick={cancelEditOption} className={styles.iconBtn} aria-label={t('common.cancel')}><XIcon /></button>
                         </div>
                       </form>
                     ) : (
@@ -347,8 +347,8 @@ export default function Modifiers() {
                           {option.price_delta > 0 ? `+${option.price_delta.toFixed(2)} ₾` : option.price_delta < 0 ? `${option.price_delta.toFixed(2)} ₾` : '0.00 ₾'}
                         </span>
                         <div className={styles.optionActions}>
-                          <button className={styles.iconBtn} onClick={() => startEditOption(option)} aria-label="რედაქტირება"><EditIcon /></button>
-                          <button className={styles.iconBtn} onClick={() => handleDeleteOption(option)} aria-label="წაშლა"><TrashIcon /></button>
+                          <button className={styles.iconBtn} onClick={() => startEditOption(option)} aria-label={t('common.edit')}><EditIcon /></button>
+                          <button className={styles.iconBtn} onClick={() => handleDeleteOption(option)} aria-label={t('common.delete')}><TrashIcon /></button>
                         </div>
                       </div>
                     )
@@ -364,7 +364,7 @@ export default function Modifiers() {
                     onChange={e => setOptionName(e.target.value)}
                     className={styles.inputField}
                     style={{ flex: 2 }}
-                    placeholder="ოფციის დასახელება"
+                    placeholder={t('modifiers.optionNamePlaceholder')}
                     autoFocus
                     required
                   />
@@ -376,17 +376,15 @@ export default function Modifiers() {
                     onChange={e => { const v = Number(e.target.value); if (v >= 0 || e.target.value === '') setOptionPriceDelta(e.target.value); }}
                     className={styles.inputField}
                     style={{ flex: 1 }}
-                    placeholder="ფასის ცვლილება (₾)"
+                    placeholder={t('modifiers.priceDeltaPlaceholder')}
                   />
                   <div className={styles.optionActions}>
-                    <button type="submit" disabled={optionSaving} className={styles.iconBtn} aria-label="დამატება"><CheckIcon /></button>
-                    <button type="button" onClick={closeAddOption} className={styles.iconBtn} aria-label="გაუქმება"><XIcon /></button>
+                    <button type="submit" disabled={optionSaving} className={styles.iconBtn} aria-label={t('modifiers.addOptionAria')}><CheckIcon /></button>
+                    <button type="button" onClick={closeAddOption} className={styles.iconBtn} aria-label={t('common.cancel')}><XIcon /></button>
                   </div>
                 </form>
               ) : (
-                <button onClick={() => openAddOption(group.id)} className={styles.addOptionBtn}>
-                  ➕ ოფციის დამატება
-                </button>
+                <button onClick={() => openAddOption(group.id)} className={styles.addOptionBtn}>{t('modifiers.addOptionBtn')}</button>
               )}
             </div>
           ))}
@@ -396,29 +394,29 @@ export default function Modifiers() {
       {showGroupModal && (
         <div className={styles.modalOverlay}>
           <div className={styles.modalBody}>
-            <h3>{editingGroup ? '✏️ ჯგუფის რედაქტირება' : '➕ ახალი ჯგუფი'}</h3>
+            <h3>{editingGroup ? t('modifiers.editGroupTitle') : t('modifiers.addGroupBtn')}</h3>
             <form onSubmit={handleGroupSubmit}>
               <div className={styles.formGroup}>
-                <label>სახელი</label>
+                <label>{t('modifiers.nameLabel')}</label>
                 <input
                   type="text"
                   value={groupName}
                   onChange={e => setGroupName(e.target.value)}
                   className={styles.inputField}
-                  placeholder="მოხარშვის ხარისხი / დანამატები..."
+                  placeholder={t('modifiers.groupNamePlaceholder')}
                   autoFocus
                   required
                 />
               </div>
               <div className={styles.formGroup}>
-                <label>არჩევანის ტიპი</label>
+                <label>{t('modifiers.selectionTypeLabel')}</label>
                 <select
                   value={groupSelectionType}
                   onChange={e => setGroupSelectionType(e.target.value as ModifierSelectionType)}
                   className={styles.inputField}
                 >
-                  <option value="single">ერთი არჩევანი (მაგ. medium/well done)</option>
-                  <option value="multiple">რამდენიმე არჩევანი (მაგ. + ყველი, + ბეკონი)</option>
+                  <option value="single">{t('modifiers.selectionType.singleWithExample')}</option>
+                  <option value="multiple">{t('modifiers.selectionType.multipleWithExample')}</option>
                 </select>
               </div>
               <label className={styles.checkboxRow}>
@@ -427,14 +425,12 @@ export default function Modifiers() {
                   checked={groupIsRequired}
                   onChange={e => setGroupIsRequired(e.target.checked)}
                 />
-                სავალდებულოა (item-ის დამატებამდე უნდა აირჩეს)
+                {t('modifiers.requiredCheckboxLabel')}
               </label>
               <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
-                <button type="button" onClick={closeGroupModal} className={`${styles.btn} ${styles.btnSecondary}`} style={{ flex: 1 }}>
-                  გაუქმება
-                </button>
+                <button type="button" onClick={closeGroupModal} className={`${styles.btn} ${styles.btnSecondary}`} style={{ flex: 1 }}>{t('common.cancel')}</button>
                 <button type="submit" disabled={groupSaving} className={`${styles.btn} ${styles.btnPrimary}`} style={{ flex: 1 }}>
-                  {groupSaving ? 'ინახება...' : 'შენახვა'}
+                  {groupSaving ? t('products.savingEllipsis') : t('tables.save')}
                 </button>
               </div>
             </form>

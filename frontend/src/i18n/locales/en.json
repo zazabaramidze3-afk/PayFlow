@@ -666,5 +666,49 @@
       "excelExportFailed": "Excel export failed!",
       "pdfExportFailed": "PDF export failed!"
     }
+  },
+  "modifiers": {
+    "pageTitle": "🧩 Modifiers",
+    "pageSubtitle": "Groups (e.g. \"Doneness Level\", \"Add-ons\") + options — attaching to a specific product happens on the Products page, while editing",
+    "addGroupBtn": "➕ New Group",
+    "noGroupsEmptyState": "No modifier groups added yet. Click \"➕ New Group\" above.",
+    "noOptionsYet": "No options added yet.",
+    "addOptionBtn": "➕ Add Option",
+    "addOptionAria": "Add",
+    "optionNamePlaceholder": "Option name",
+    "priceDeltaPlaceholder": "Price change (₾)",
+    "editGroupTitle": "✏️ Edit Group",
+    "nameLabel": "Name",
+    "groupNamePlaceholder": "Doneness Level / Add-ons...",
+    "selectionTypeLabel": "Selection Type",
+    "selectionType": {
+      "single": "Single Choice",
+      "multiple": "Multiple Choice",
+      "singleWithExample": "Single choice (e.g. medium/well done)",
+      "multipleWithExample": "Multiple choice (e.g. + cheese, + bacon)"
+    },
+    "requiredCheckboxLabel": "Required (must be selected before adding the item)",
+    "confirmModal": {
+      "deleteGroupTitle": "🗑️ Delete Group",
+      "deleteGroupMessage": "Delete group \"{{name}}\"? (If it is already used in an existing order, deletion will not be possible)",
+      "deleteOptionTitle": "🗑️ Delete Option",
+      "deleteOptionMessage": "Delete option \"{{name}}\"?"
+    },
+    "toasts": {
+      "loadGroupsFailed": "Failed to load groups",
+      "groupNameRequired": "Group name is required",
+      "groupUpdated": "Group updated",
+      "groupAdded": "Group added",
+      "saveFailed": "Failed to save",
+      "groupDeleted": "Group deleted",
+      "deleteFailed": "Failed to delete",
+      "optionNameRequired": "Option name is required",
+      "priceDeltaNegative": "Price change cannot be negative",
+      "optionAdded": "Option added",
+      "addFailed": "Failed to add",
+      "optionUpdated": "Option updated",
+      "updateFailed": "Failed to update",
+      "optionDeleted": "Option deleted"
+    }
   }
 }

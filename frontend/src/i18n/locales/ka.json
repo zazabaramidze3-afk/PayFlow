@@ -666,5 +666,49 @@
       "excelExportFailed": "Excel ექსპორტი ჩავარდა!",
       "pdfExportFailed": "PDF ექსპორტი ჩავარდა!"
     }
+  },
+  "modifiers": {
+    "pageTitle": "🧩 მოდიფაიერები",
+    "pageSubtitle": "ჯგუფები (მაგ. \"მოხარშვის ხარისხი\", \"დანამატები\") + ოფციები — მიბმა კონკრეტულ პროდუქტზე ხდება Products გვერდზე, რედაქტირებისას",
+    "addGroupBtn": "➕ ახალი ჯგუფი",
+    "noGroupsEmptyState": "მოდიფაიერების ჯგუფები ჯერ არ არის დამატებული. დააჭირეთ \"➕ ახალი ჯგუფი\"-ს ზემოთ.",
+    "noOptionsYet": "ოფციები ჯერ არ არის დამატებული.",
+    "addOptionBtn": "➕ ოფციის დამატება",
+    "addOptionAria": "დამატება",
+    "optionNamePlaceholder": "ოფციის დასახელება",
+    "priceDeltaPlaceholder": "ფასის ცვლილება (₾)",
+    "editGroupTitle": "✏️ ჯგუფის რედაქტირება",
+    "nameLabel": "სახელი",
+    "groupNamePlaceholder": "მოხარშვის ხარისხი / დანამატები...",
+    "selectionTypeLabel": "არჩევანის ტიპი",
+    "selectionType": {
+      "single": "ერთი არჩევანი",
+      "multiple": "რამდენიმე არჩევანი",
+      "singleWithExample": "ერთი არჩევანი (მაგ. medium/well done)",
+      "multipleWithExample": "რამდენიმე არჩევანი (მაგ. + ყველი, + ბეკონი)"
+    },
+    "requiredCheckboxLabel": "სავალდებულოა (item-ის დამატებამდე უნდა აირჩეს)",
+    "confirmModal": {
+      "deleteGroupTitle": "🗑️ ჯგუფის წაშლა",
+      "deleteGroupMessage": "წავშალოთ ჯგუფი \"{{name}}\"? (თუ უკვე გამოყენებულია არსებულ შეკვეთაში, წაშლა შეუძლებელი იქნება)",
+      "deleteOptionTitle": "🗑️ ოფციის წაშლა",
+      "deleteOptionMessage": "წავშალოთ ოფცია \"{{name}}\"?"
+    },
+    "toasts": {
+      "loadGroupsFailed": "ჯგუფების ჩატვირთვა ვერ მოხერხდა",
+      "groupNameRequired": "ჯგუფის სახელი სავალდებულოა",
+      "groupUpdated": "ჯგუფი განახლდა",
+      "groupAdded": "ჯგუფი დაემატა",
+      "saveFailed": "შენახვა ვერ მოხერხდა",
+      "groupDeleted": "ჯგუფი წაიშალა",
+      "deleteFailed": "წაშლა ვერ მოხერხდა",
+      "optionNameRequired": "ოფციის სახელი სავალდებულოა",
+      "priceDeltaNegative": "ფასის ცვლილება არ შეიძლება იყოს უარყოფითი",
+      "optionAdded": "ოფცია დაემატა",
+      "addFailed": "დამატება ვერ მოხერხდა",
+      "optionUpdated": "ოფცია განახლდა",
+      "updateFailed": "განახლება ვერ მოხერხდა",
+      "optionDeleted": "ოფცია წაიშალა"
+    }
   }
 }
