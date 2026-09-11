@@ -1,6 +1,6 @@
 # Multi-Language (i18n) — Roadmap
 
-**სტატუსი:** 🟡 მიმდინარე — ინფრასტრუქტურა + 5 გვერდი დასრულებულია (Sales.tsx, Tables.tsx, OrderScreen.tsx, UsersManagement.tsx, Dashboard.tsx + ExecutiveDashboard.tsx), დარჩენილია 6 გვერდი + backend error-message-ების ფენა.
+**სტატუსი:** 🟡 მიმდინარე — ინფრასტრუქტურა + 6 გვერდი დასრულებულია (Sales.tsx, Tables.tsx, OrderScreen.tsx, UsersManagement.tsx, Dashboard.tsx + ExecutiveDashboard.tsx, Products.tsx), დარჩენილია 5 გვერდი + backend error-message-ების ფენა.
 **თარიღი:** 11.09.2026 (განახლდა)
 **წყარო:** react-i18next-ზე გადასვლის ეტაპობრივი (page-by-page) rollout, დაწყებული Cowork session-ში.
 
@@ -68,18 +68,27 @@
 - თარიღების ლოკალზე-დამოკიდებული ფორმატირება (`toLocaleDateString('ka-GE', ...)`) განზრახ დარჩა უცვლელი — ეს ფორმატირების ლოგიკაა და არა UI ტექსტი.
 - ტესტირებულია მომხმარებლის მიერ ორივე ენაზე, ორივე თემაზე — სამივე ტაბი Dashboard.tsx-ზე, Analytics ტაბის ყველა ბარათი/გრაფიკი.
 
+### 7. Products.tsx (პროდუქტების მართვა)
+**Commit:** `0e1a383` — `feat(i18n): translate Products.tsx (product management page)`
+
+- სრულად გადათარგმნილია: header (სათაური, ნიმუშის ჩამოტვირთვა, Import/Excel/PDF ღილაკები, "მხოლოდ ამოწურვადი" ტოგლი), კრიტიკული მარაგის warning banner, დამატება/რედაქტირების ფორმა (KDS station select-ის ჩათვლით), 🧩 მიბმული მოდიფაიერების პანელი, 🍲 რეცეპტის (BOM) პანელი, პროდუქტების ცხრილი, შტრიხკოდის სკანერის მოდალი (restock + ახალი პროდუქტის რეგისტრაცია), confirm-modal, Excel Import-ის შედეგის მოდალი, 24 toast შეტყობინება.
+- ამ გვერდსაც ცალკე child/modal კომპონენტები არ აქვს (მხოლოდ `Icons.tsx` — UsersManagement.tsx-ის იგივე შემთხვევა) — ყველა მოდალი ინლაინაა ფაილშივე.
+- ახალი `products.*` namespace, მაქსიმალურად გამოყენებულია `nav.loading`/`common.close`/`common.cancel`/`dashboard.unitPcs` ზუსტი დამთხვევებისთვის.
+- ახალი გაზიარებული key-ები `common.edit`/`common.delete` — დაემატა Edit/Delete row-action-ებისთვის, სპეციალურად შემდეგი გვერდებისთვის განკუთვნილი (Modifiers.tsx/Ingredients.tsx/Register.tsx-საც სავარაუდოდ ექნება იგივე აქციები).
+- Warning banner-ში `<strong>`-ბოლდინგი (რიცხვის გარშემო) განზრახ მოშორდა — იგივე "sentence-style ტექსტს `<Trans>`-ის გარეშე არ აქვს ინლაინ bold" გადაწყვეტილება, რაც UsersManagement.tsx-ის audit-log-ში.
+- ტესტირებულია მომხმარებლის მიერ ორივე ენაზე, ორივე თემაზე.
+
 ---
 
 ## ⏳ დარჩენილი გვერდები (თარგმანი ჯერ არ დაწყებულა)
 
 გვერდები დალაგებულია `frontend/src/pages/`-ში ჯერ კიდევ დარჩენილი ქართული ტექსტის მოცულობის მიხედვით (მიახლოებითი, მოიცავს კომენტარებსაც — რეალური scope დაზუსტდება თითოეულის თარგმნის დაწყებისას):
 
-1. **Products.tsx** — პროდუქტების მართვის გვერდი.
-2. **Modifiers.tsx** — მოდიფაიერების მართვა (HoReCa).
-3. **KitchenDisplay.tsx (KDS)** — სამზარეულოს ეკრანი (`common.kitchenStatus.*` უკვე მზადაა გამოსაყენებლად).
-4. **Ingredients.tsx** — ინგრედიენტების მართვა.
-5. **Register.tsx** — სალარო/register-ის გვერდი.
-6. **Settings.tsx** — პარამეტრების გვერდი.
+1. **Modifiers.tsx** — მოდიფაიერების მართვა (HoReCa).
+2. **KitchenDisplay.tsx (KDS)** — სამზარეულოს ეკრანი (`common.kitchenStatus.*` უკვე მზადაა გამოსაყენებლად).
+3. **Ingredients.tsx** — ინგრედიენტების მართვა.
+4. **Register.tsx** — სალარო/register-ის გვერდი.
+5. **Settings.tsx** — პარამეტრების გვერდი.
 
 **შენიშვნა:** ეს სია მოიცავს მხოლოდ `frontend/src/pages/`-ს. დამატებით საჭირო იქნება გაზიარებული კომპონენტების (`frontend/src/components/`) გადამოწმებაც თითოეული გვერდის თარგმნისას — ისე, როგორც `ConfirmModal.tsx` მოგვეყარა Tables.tsx-ის დროს, `SplitBillModal.tsx` — OrderScreen.tsx-ის დროს, და `PrintableZReport.tsx`/`ExecutiveDashboard.tsx` — Dashboard.tsx-ის დროს.
 
