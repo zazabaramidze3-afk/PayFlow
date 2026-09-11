@@ -1,6 +1,6 @@
 # Multi-Language (i18n) — Roadmap
 
-**სტატუსი:** 🟡 მიმდინარე — ინფრასტრუქტურა + 6 გვერდი დასრულებულია (Sales.tsx, Tables.tsx, OrderScreen.tsx, UsersManagement.tsx, Dashboard.tsx + ExecutiveDashboard.tsx, Products.tsx), დარჩენილია 5 გვერდი + backend error-message-ების ფენა.
+**სტატუსი:** 🟡 მიმდინარე — ინფრასტრუქტურა + 7 გვერდი დასრულებულია (Sales.tsx, Tables.tsx, OrderScreen.tsx, UsersManagement.tsx, Dashboard.tsx + ExecutiveDashboard.tsx, Products.tsx, Modifiers.tsx), დარჩენილია 4 გვერდი + backend error-message-ების ფენა.
 **თარიღი:** 11.09.2026 (განახლდა)
 **წყარო:** react-i18next-ზე გადასვლის ეტაპობრივი (page-by-page) rollout, დაწყებული Cowork session-ში.
 
@@ -78,17 +78,26 @@
 - Warning banner-ში `<strong>`-ბოლდინგი (რიცხვის გარშემო) განზრახ მოშორდა — იგივე "sentence-style ტექსტს `<Trans>`-ის გარეშე არ აქვს ინლაინ bold" გადაწყვეტილება, რაც UsersManagement.tsx-ის audit-log-ში.
 - ტესტირებულია მომხმარებლის მიერ ორივე ენაზე, ორივე თემაზე.
 
+### 8. Modifiers.tsx (მოდიფაიერების მართვა — HoReCa)
+**Commit:** `TBD` — `feat(i18n): translate Modifiers.tsx (groups, options, confirm modals)`
+
+- სრულად გადათარგმნილია: header + subtitle, ჯგუფების სია (empty state, badge-ები, action ღილაკები), ინლაინ ოფციების სია (empty state, ინლაინ რედაქტირება/დამატების ფორმები), ჯგუფის create/edit მოდალი (name, selection-type select, required checkbox), ორივე წაშლის confirm-modal (ჯგუფი/ოფცია, `{{name}}` ინტერპოლაციით), 14 toast შეტყობინება.
+- `SELECTION_LABEL` module-level constant გადავიდა `SELECTION_LABEL_KEYS`-ზე (key-path-ები, `t()`-ით რეზოლვდება render-ზე) — იგივე პატერნი, რაც UsersManagement.tsx-ის `PERMISSION_LABEL_KEYS`.
+- ახალი `modifiers.*` namespace (34 key), მაქსიმალურად გამოყენებულია არსებული key-ები ზუსტი დამთხვევებისთვის: `common.edit`/`common.delete`/`common.cancel`, `products.modifierPanel.requiredTag`, `tables.save`, `products.savingEllipsis`, `nav.loading`.
+- `ConfirmModal.tsx` (გაზიარებული child კომპონენტი) გადამოწმდა — უკვე სრულად ნათარგმნი იყო (Tables.tsx-ის სესიიდან), დამატებითი ცვლილება არ დასჭირდა.
+- ამ გვერდსაც ცალკე child/modal კომპონენტები არ აქვს `ConfirmModal.tsx`-ის გარდა (მხოლოდ `Icons.tsx` დამატებით imported) — ყველა სხვა მოდალი/ფორმა ინლაინაა ფაილშივე.
+- ტესტირებულია მომხმარებლის მიერ (English/dark) — ჯგუფების სია, ბეჯები, "New Group" მოდალი, ფორმის ველები.
+
 ---
 
 ## ⏳ დარჩენილი გვერდები (თარგმანი ჯერ არ დაწყებულა)
 
 გვერდები დალაგებულია `frontend/src/pages/`-ში ჯერ კიდევ დარჩენილი ქართული ტექსტის მოცულობის მიხედვით (მიახლოებითი, მოიცავს კომენტარებსაც — რეალური scope დაზუსტდება თითოეულის თარგმნის დაწყებისას):
 
-1. **Modifiers.tsx** — მოდიფაიერების მართვა (HoReCa).
-2. **KitchenDisplay.tsx (KDS)** — სამზარეულოს ეკრანი (`common.kitchenStatus.*` უკვე მზადაა გამოსაყენებლად).
-3. **Ingredients.tsx** — ინგრედიენტების მართვა.
-4. **Register.tsx** — სალარო/register-ის გვერდი.
-5. **Settings.tsx** — პარამეტრების გვერდი.
+1. **KitchenDisplay.tsx (KDS)** — სამზარეულოს ეკრანი (`common.kitchenStatus.*` უკვე მზადაა გამოსაყენებლად).
+2. **Ingredients.tsx** — ინგრედიენტების მართვა.
+3. **Register.tsx** — სალარო/register-ის გვერდი.
+4. **Settings.tsx** — პარამეტრების გვერდი.
 
 **შენიშვნა:** ეს სია მოიცავს მხოლოდ `frontend/src/pages/`-ს. დამატებით საჭირო იქნება გაზიარებული კომპონენტების (`frontend/src/components/`) გადამოწმებაც თითოეული გვერდის თარგმნისას — ისე, როგორც `ConfirmModal.tsx` მოგვეყარა Tables.tsx-ის დროს, `SplitBillModal.tsx` — OrderScreen.tsx-ის დროს, და `PrintableZReport.tsx`/`ExecutiveDashboard.tsx` — Dashboard.tsx-ის დროს.
 
