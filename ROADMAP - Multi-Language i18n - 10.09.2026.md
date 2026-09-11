@@ -1,6 +1,6 @@
 # Multi-Language (i18n) — Roadmap
 
-**სტატუსი:** 🟡 მიმდინარე — ინფრასტრუქტურა + 4 გვერდი დასრულებულია (Sales.tsx, Tables.tsx, OrderScreen.tsx, UsersManagement.tsx), დარჩენილია 7 გვერდი + backend error-message-ების ფენა.
+**სტატუსი:** 🟡 მიმდინარე — ინფრასტრუქტურა + 5 გვერდი დასრულებულია (Sales.tsx, Tables.tsx, OrderScreen.tsx, UsersManagement.tsx, Dashboard.tsx + ExecutiveDashboard.tsx), დარჩენილია 6 გვერდი + backend error-message-ების ფენა.
 **თარიღი:** 11.09.2026 (განახლდა)
 **წყარო:** react-i18next-ზე გადასვლის ეტაპობრივი (page-by-page) rollout, დაწყებული Cowork session-ში.
 
@@ -57,22 +57,31 @@
 
 **⚠️ ცალკე აღმოჩენილი (i18n scope-ის გარეთ):** UsersManagement.tsx-ის შესწავლისას აღმოჩნდა, რომ "დაბლოკვის" toggle წერს `'და ბ ლო კ ი ლი '` (spaces-ით), მაგრამ `backend/src/routes/auth.ts`-ის login-blocking შემოწმება (107, 316 ხაზები) მხოლოდ `'inactive'`/`'დაბლოკილი'`-ს (spaces-ის გარეშე) ადარებს — ანუ UI-დან დაბლოკვა რეალურად ვერ უშლის ხელს login-ს. Security-related ბაგია, ცალკე გადასაწყვეტია.
 
+### 6. Dashboard.tsx (გაყიდვების მართვის პანელი) + ExecutiveDashboard.tsx (Analytics ტაბი) + PrintableZReport.tsx
+**Commit:** `67f65aa` — `feat(i18n): translate Dashboard, ExecutiveDashboard and PrintableZReport`
+
+- **Dashboard.tsx** — სრულად გადათარგმნილია: header, 3 ტაბის ღილაკი (Analytics/Sales History/Cashier Shifts), revenue card, ყველა ფილტრი (მოლარე/პროდუქტი/თარიღი/გადახდა/სტატუსი/ფასდაკლება/გვერდის ზომა), Excel/PDF export, გაყიდვების ცხრილის headers + ცარიელი მდგომარეობა, item-დეტალების ხაზები (split-bill-ის "გაზიარებული დეტალები" შენიშვნის ჩათვლით), ფასდაკლების დეტალის ხაზი, split-breakdown, პაგინაცია, ცვლების ცხრილის headers, სტატუსის ბეიჯი, "შესწორებული" ბეიჯი + tooltip, "ხელახლა დაბეჭდვა" ღილაკი.
+- **ExecutiveDashboard.tsx** (Dashboard-ის "Analytics" ტაბში ჩართული, ცალკე ფაილი) — ტესტირებისას აღმოჩნდა, რომ ვიზუალურად ამ გვერდის ნაწილია, ამიტომ roadmap-ის ცალკე item-ის მაგივრად ერთად ითარგმნა: loading/error states, 4+3+2 სტატისტიკის ბარათი (დღევანდელი/გადახდის მეთოდით/გაუქმებული), Stock Deficit და Z-Report Amendment შეტყობინებების პანელები, სამივე გრაფიკის სათაური/empty-state/Tooltip/Legend ლეიბლები (Recharts-ის `formatter` callback-ებში `t()` პირდაპირ გამოიყენება, hook-ის closure-იდან).
+- **PrintableZReport.tsx** (child კომპონენტი — Dashboard-ის Z-Report reprint ფუნქციისთვის) — ცალკე ბეჭდვადი შაბლონია (ეკრანზე დამალული, მხოლოდ `window.print()`-ზე ჩნდება); სრულად ითარგმნა (subtitle, header-info ხაზები, receipt-row label-ები, ხელმოწერის ხაზი).
+- ახალი `dashboard.*` namespace (Dashboard.tsx + `dashboard.zReportPrint.*` PrintableZReport-ისთვის) და `dashboard.analytics.*` sub-namespace (ExecutiveDashboard.tsx). მაქსიმალურად გამოყენებულია არსებული `sales.*` key-ები ზუსტი დამთხვევებისთვის (`paymentBadge.*`, `voided`, `splitBreakdownLabel/splitCashLine/splitCardLine`, `prevPage/pageInfo/nextPage`); ახალი გაზიარებული key: `common.unknown`.
+- **paymentMethodBadge** (Dashboard.tsx-ის module-level ფუნქცია) გადავიდა `i18n.t()` singleton-ზე — იგივე პატერნი, რაც Sales.tsx-ში.
+- თარიღების ლოკალზე-დამოკიდებული ფორმატირება (`toLocaleDateString('ka-GE', ...)`) განზრახ დარჩა უცვლელი — ეს ფორმატირების ლოგიკაა და არა UI ტექსტი.
+- ტესტირებულია მომხმარებლის მიერ ორივე ენაზე, ორივე თემაზე — სამივე ტაბი Dashboard.tsx-ზე, Analytics ტაბის ყველა ბარათი/გრაფიკი.
+
 ---
 
 ## ⏳ დარჩენილი გვერდები (თარგმანი ჯერ არ დაწყებულა)
 
 გვერდები დალაგებულია `frontend/src/pages/`-ში ჯერ კიდევ დარჩენილი ქართული ტექსტის მოცულობის მიხედვით (მიახლოებითი, მოიცავს კომენტარებსაც — რეალური scope დაზუსტდება თითოეულის თარგმნის დაწყებისას):
 
-1. **Dashboard.tsx** — მთავარი დეშბორდი (სტატისტიკა/რეპორტები).
-2. **Products.tsx** — პროდუქტების მართვის გვერდი.
-3. **ExecutiveDashboard.tsx** — executive/owner დეშბორდი.
-4. **Modifiers.tsx** — მოდიფაიერების მართვა (HoReCa).
-5. **KitchenDisplay.tsx (KDS)** — სამზარეულოს ეკრანი (`common.kitchenStatus.*` უკვე მზადაა გამოსაყენებლად).
-6. **Ingredients.tsx** — ინგრედიენტების მართვა.
-7. **Register.tsx** — სალარო/register-ის გვერდი.
-8. **Settings.tsx** — პარამეტრების გვერდი.
+1. **Products.tsx** — პროდუქტების მართვის გვერდი.
+2. **Modifiers.tsx** — მოდიფაიერების მართვა (HoReCa).
+3. **KitchenDisplay.tsx (KDS)** — სამზარეულოს ეკრანი (`common.kitchenStatus.*` უკვე მზადაა გამოსაყენებლად).
+4. **Ingredients.tsx** — ინგრედიენტების მართვა.
+5. **Register.tsx** — სალარო/register-ის გვერდი.
+6. **Settings.tsx** — პარამეტრების გვერდი.
 
-**შენიშვნა:** ეს სია მოიცავს მხოლოდ `frontend/src/pages/`-ს. დამატებით საჭირო იქნება გაზიარებული კომპონენტების (`frontend/src/components/`) გადამოწმებაც თითოეული გვერდის თარგმნისას — ისე, როგორც `ConfirmModal.tsx` მოგვეყარა Tables.tsx-ის დროს და `SplitBillModal.tsx` — OrderScreen.tsx-ის დროს.
+**შენიშვნა:** ეს სია მოიცავს მხოლოდ `frontend/src/pages/`-ს. დამატებით საჭირო იქნება გაზიარებული კომპონენტების (`frontend/src/components/`) გადამოწმებაც თითოეული გვერდის თარგმნისას — ისე, როგორც `ConfirmModal.tsx` მოგვეყარა Tables.tsx-ის დროს, `SplitBillModal.tsx` — OrderScreen.tsx-ის დროს, და `PrintableZReport.tsx`/`ExecutiveDashboard.tsx` — Dashboard.tsx-ის დროს.
 
 ## ⏳ ცალკე ფენა (out of scope ჯერჯერობით)
 
@@ -85,8 +94,8 @@
 ## პროცესი / კონვენციები (გასაგრძელებლად)
 
 - **ერთი გვერდი ერთ ჯერზე** — თარგმანი → ლოკალური ტესტი (ორივე ენა + ორივე თემა) → commit მხოლოდ მომხმარებლის დადასტურებით → push ყოველთვის მომხმარებელი.
-- **Key namespace** გვერდის სახელის მიხედვით (`sales.*`, `tables.*`, `orderScreen.*` და ა.შ.), საერთო key-ები (`common.*`, `nav.*`) — გამეორებადი ტექსტისთვის (ღილაკები, სტატუსები), key-ების დუბლირების ნაცვლად. თუ გვერდის ლოგიკა კოდის კომენტარებში მონიშნულია როგორც სხვა გვერდის "იდენტური" (მაგ. OrderScreen.tsx ↔ Sales.tsx), ეს ძლიერი სიგნალია — key-ების reuse იქ მაქსიმალურადაა გასაკეთებელი.
+- **Key namespace** გვერდის სახელის მიხედვით (`sales.*`, `tables.*`, `orderScreen.*`, `dashboard.*` და ა.შ.), საერთო key-ები (`common.*`, `nav.*`) — გამეორებადი ტექსტისთვის (ღილაკები, სტატუსები), key-ების დუბლირების ნაცვლად. თუ გვერდის ლოგიკა კოდის კომენტარებში მონიშნულია როგორც სხვა გვერდის "იდენტური" (მაგ. OrderScreen.tsx ↔ Sales.tsx), ეს ძლიერი სიგნალია — key-ების reuse იქ მაქსიმალურადაა გასაკეთებელი.
 - **Module-level ფუნქციები/constant-ები** (კომპონენტის გარეთ, `useTranslation()` hook-ის გარეშე) იყენებენ `i18n.t()` singleton-ს (`import i18n from '../i18n'`), არა hook-ს.
 - **Variable-shadowing შემოწმება სავალდებულოა** ყოველი გვერდის შემდეგ — `grep` `t =>`/`(t,`/`(t)` პატერნებზე, რომ `.map(t => ...)`-ისნაირმა callback-ებმა არ დაფაროს `useTranslation()`-ის `t`.
 - **ვერიფიკაცია გვერდის დასრულებისას:** (1) დარჩენილი ქართული ტექსტის სკანი (კომენტარების გამოკლებით), (2) `tsc --noEmit` სუფთა უნდა იყოს, (3) გამოყენებული ყველა `t('...')` key არსებობს ორივე `ka.json`/`en.json`-ში.
-- **გვერდთან დაკავშირებული modal/child კომპონენტები არ უნდა გამორჩეს** — გვერდის თარგმნის დროს გადასამოწმებელია ყველა მისგან გახსნილი მოდალიც (`../components/`-ში), რადგან ისინი ცალკე ფაილებია და pattern-scan-ში (Georgian text scan) არ ხვდება, თუ მხოლოდ მთავარი გვერდის ფაილს ვამოწმებთ.
+- **გვერდთან დაკავშირებული modal/child კომპონენტები არ უნდა გამორჩეს** — გვერდის თარგმნის დროს გადასამოწმებელია ყველა მისგან გახსნილი მოდალიც/ჩართული კომპონენტიც (`../components/`-ში ან იმავე `../pages/`-ში, `Dashboard.tsx`↔`ExecutiveDashboard.tsx`-ის მსგავსად), რადგან ისინი ცალკე ფაილებია და pattern-scan-ში (Georgian text scan) არ ხვდება, თუ მხოლოდ მთავარი გვერდის ფაილს ვამოწმებთ.
