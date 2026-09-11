@@ -18,6 +18,11 @@ import en from './locales/en.json';
 
 export type SupportedLanguage = 'ka' | 'en';
 
+// 🌍 LanguageSwitcher-ის dropdown-ი (11.09.2026) ამ მასივიდან აგენერირებს
+// ვარიანტების სიას — ახალი ენის დამატებისას (მომავალში) მხოლოდ აქ და
+// `resources`-ში დამატება საკმარისია, dropdown ავტომატურად აღიქვამს.
+export const SUPPORTED_LANGUAGES: SupportedLanguage[] = ['ka', 'en'];
+
 const STORAGE_KEY = 'payflow_language';
 
 function readInitialLanguage(): SupportedLanguage {

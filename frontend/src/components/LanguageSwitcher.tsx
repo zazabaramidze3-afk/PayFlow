@@ -10,8 +10,16 @@ import { GlobeIcon } from './Icons';
 // pill (რომელიც sidebar/mobile-topbar-ში ცუდად ეტეოდა) შეიცვალა ერთი
 // წრიული ღილაკით — მინიმალისტური globe SVG (Icons.tsx) + მიმდინარე
 // ენის მოკლე კოდი პატარა ტექსტად გვერდით. დაჭერაზე ენა უბრალოდ
-// გადაერთვება მეორეზე (ka<->en) — ორზე მეტი ენის დამატებისას
-// (მომავალში) ეს toggle-ლოგიკა dropdown/cycle-ზე გადასაკეთებელი იქნება.
+// გადაერთვება მეორეზე (ka<->en).
+//
+// UPDATE (11.09.2026, მომხმარებლის მოთხოვნით): dropdown-ვერსია
+// გამოცდილი იყო (sidebar-ზე ზემოთ, mobile-ზე გვერდულად გახსნის
+// placement-ებით), მაგრამ sidebar-ის "up" placement viewport-ის
+// თავზე იჭრებოდა/ილეწებოდა ვიწრო ეკრანებზე — მომხმარებელმა მარტივი
+// toggle-ის დაბრუნება ამჯობინა. Globe SVG-იც შეიცვალა უფრო
+// დეტალური, grid-ხაზებიანი ვერსიით (Icons.tsx), ღილაკის pill/border
+// ფონი მოხსნილია — "შიშველი" icon+კოდი, მომხმარებლის მოწოდებული
+// რეფერენსის მიხედვით.
 //
 // `onChange` optional prop: Login/Register-ზე (ავტორიზაციამდე) DB-კონტექსტი
 // არ არსებობს — მხოლოდ localStorage-ში ინახება. App.tsx-ის sidebar-ში კი
@@ -48,7 +56,7 @@ function LanguageSwitcher({ className, onChange }: LanguageSwitcherProps) {
       aria-label={t('language.label')}
       title={LANG_CODE[next]}
     >
-      <GlobeIcon size={15} />
+      <GlobeIcon size={16} />
       <span className={styles.langCode}>{LANG_CODE[current]}</span>
     </button>
   );

@@ -7,6 +7,10 @@
 // box-shadow-იანი highlight) შეიცვალა ერთი წრიულთან მიახლოებული
 // icon-ღილაკით — ThemeToggleSwitch-ის იგივე 24px სიმაღლით, რომ
 // sidebar/mobile-topbar-ში გვერდიგვერდ თანაბრად "ჯდებოდეს".
+//
+// UPDATE (11.09.2026, მომხმარებლის მოთხოვნით): border/pill-ფონი
+// მთლიანად მოხსნილია (dropdown-ექსპერიმენტის უკან დაბრუნებისას) —
+// "შიშველი" icon + კოდი, ფონის/საზღვრის გარეშე, hover-ზეც.
 // ==========================================
 
 .langSwitch {
@@ -14,17 +18,16 @@
   align-items: center;
   gap: 5px;
   height: 24px;
-  padding: 0 8px;
-  border-radius: v.$radius-pill;
+  padding: 0 4px;
+  border-radius: v.$radius-sm;
   background: transparent;
-  border: 1px solid v.$color-border;
+  border: none;
   color: v.$color-text-secondary;
   cursor: pointer;
   flex-shrink: 0;
   transition: v.$transition-fast;
 
   &:hover {
-    background: v.$color-bg-subtle;
     color: v.$color-text-primary;
   }
 

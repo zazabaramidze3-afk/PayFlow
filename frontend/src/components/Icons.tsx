@@ -161,15 +161,19 @@ export function SunIcon({ size = 16 }: IconProps) {
   );
 }
 
-// 🌍 LanguageSwitcher-ისთვის — მინიმალისტური globe აიკონი (ენის
-// გადამრთველის GE/EN pill-ის ჩანაცვლება, 10.09.2026 მომხმარებლის
-// მოთხოვნით).
+// 🌍 LanguageSwitcher-ისთვის — globe აიკონი (ენის გადამრთველის GE/EN
+// pill-ის ჩანაცვლება, 10.09.2026 მომხმარებლის მოთხოვნით).
+// UPDATE (11.09.2026, მომხმარებლის მოთხოვნით): უფრო დეტალური,
+// "grid"-ხაზებიანი ვერსია (2 განედის ხაზი + 2 მერიდიანის მრუდი) —
+// ერთი მარტივი lens-ფორმის მერიდიანის ნაცვლად.
 export function GlobeIcon({ size = 16 }: IconProps) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width={size} height={size} aria-hidden="true">
-      <circle cx="12" cy="12" r="10" />
-      <line x1="2" y1="12" x2="22" y2="12" />
-      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" width={size} height={size} aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3.6 9h16.8" />
+      <path d="M3.6 15h16.8" />
+      <path d="M11.5 3a17 17 0 0 0 0 18" />
+      <path d="M12.5 3a17 17 0 0 1 0 18" />
     </svg>
   );
 }
