@@ -1,6 +1,6 @@
 # Multi-Language (i18n) — Roadmap
 
-**სტატუსი:** 🟡 მიმდინარე — ინფრასტრუქტურა + 10 გვერდი დასრულებულია (Sales.tsx, Tables.tsx, OrderScreen.tsx, UsersManagement.tsx, Dashboard.tsx + ExecutiveDashboard.tsx, Products.tsx, Modifiers.tsx, KitchenDisplay.tsx, Ingredients.tsx, Register.tsx), დარჩენილია 1 გვერდი (Settings.tsx) + backend error-message-ების ფენა.
+**სტატუსი:** 🟢 გვერდების page-by-page rollout დასრულებულია — ინფრასტრუქტურა + 11 გვერდი დასრულებულია (Sales.tsx, Tables.tsx, OrderScreen.tsx, UsersManagement.tsx, Dashboard.tsx + ExecutiveDashboard.tsx, Products.tsx, Modifiers.tsx, KitchenDisplay.tsx, Ingredients.tsx, Register.tsx, Settings.tsx), დარჩენილი გვერდი აღარ არის. ცალკე ღიად რჩება მხოლოდ backend error-message-ების ფენა (იხ. ქვემოთ, "⏳ ცალკე ფენა").
 **თარიღი:** 11.09.2026 (განახლდა)
 **წყარო:** react-i18next-ზე გადასვლის ეტაპობრივი (page-by-page) rollout, დაწყებული Cowork session-ში.
 
@@ -114,13 +114,22 @@
 - **მნიშვნელოვანი დეტალი:** `login.passwordTooShort` (მინ. 4 სიმბოლო, password-reset-ისთვის) და Register.tsx-ის საკუთარი წესი (მინ. 8 სიმბოლო) განზრახ **არ** გაერთიანდა ერთ key-ში — სხვადასხვა ბიზნეს-წესია, საერთო key ბაგს გამოიწვევდა.
 - ტესტირებულია მომხმარებლის მიერ ორივე ენაზე, ორივე თემაზე — ორივე business-type არჩევანი (Retail/HoReCa hint-ების ჩათვლით).
 
+### 12. Settings.tsx (ორგანიზაციის პარამეტრების გვერდი)
+**Commit:** `ee652df` — `feat(i18n): translate Settings.tsx (organization settings page)`
+
+- სრულად გადათარგმნილია: header + subtitle, 💰 Tips Distribution ბარათი (hint + ორივე radio ოფცია სათაურით/აღწერით — Individual/Pooled), save ღილაკი, 3 toast შეტყობინება (load-failed, saved, save-failed).
+- ამ გვერდსაც ცალკე child/modal კომპონენტები არ აქვს (მხოლოდ `SettingsIcon` — `Icons.tsx`).
+- ახალი `settings.*` namespace (11 key, `tipsCard.*`/`toasts.*` nested-ის ჩათვლით). Cross-page reuse ზუსტი დამთხვევებისთვის: `modifiers.toasts.saveFailed`, `nav.loading`, `products.savingEllipsis`, `tables.save`.
+- ტესტირებულია მომხმარებლის მიერ ორივე ენაზე, ორივე თემაზე (light/dark) — Tip Distribution-ის ორივე ოფცია, save flow.
+- **ეს იყო roadmap-ის დარჩენილი-გვერდების სიის ბოლო item** — ამ commit-ით `frontend/src/pages/`-ის page-by-page i18n rollout დასრულებულია.
+
 ---
 
-## ⏳ დარჩენილი გვერდები (თარგმანი ჯერ არ დაწყებულა)
+## ✅ გვერდების rollout დასრულებულია
 
-1. **Settings.tsx** — პარამეტრების გვერდი.
+ყველა `frontend/src/pages/`-ში არსებული UI-გვერდი გადათარგმნილია (იხ. სექციები 1–12 ზემოთ). დარჩენილი გვერდები აღარ არის.
 
-**შენიშვნა:** ეს სია მოიცავს მხოლოდ `frontend/src/pages/`-ს. დამატებით საჭირო იქნება გაზიარებული კომპონენტების (`frontend/src/components/`) გადამოწმებაც თითოეული გვერდის თარგმნისას — ისე, როგორც `ConfirmModal.tsx` მოგვეყარა Tables.tsx-ის დროს, `SplitBillModal.tsx` — OrderScreen.tsx-ის დროს, და `PrintableZReport.tsx`/`ExecutiveDashboard.tsx` — Dashboard.tsx-ის დროს.
+**შენიშვნა:** გაზიარებული კომპონენტების (`frontend/src/components/`) გადამოწმება ხდებოდა თითოეული გვერდის თარგმნისას პარალელურად — `ConfirmModal.tsx` (Tables.tsx-ის დროს, მერე ხელახლა გადამოწმებული Modifiers.tsx/Ingredients.tsx-ზეც), `SplitBillModal.tsx` (OrderScreen.tsx-ის დროს), `PrintableZReport.tsx`/`ExecutiveDashboard.tsx` (Dashboard.tsx-ის დროს). თუ მომავალში ახალი გვერდი/კომპონენტი დაემატება პროექტს, იგივე პროცესი (თარგმანი → ლოკალური ტესტი → commit მხოლოდ დადასტურებით) გავრცელდება მასზეც.
 
 ## ⏳ ცალკე ფენა (out of scope ჯერჯერობით)
 
