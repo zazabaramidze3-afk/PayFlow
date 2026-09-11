@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import gsap from 'gsap';
 import styles from './Register.module.scss';
+import { useTranslation } from 'react-i18next';
 
 // 🏢 Multi-Tenant SaaS STEP 3 (Roadmap "23.08.2026") — კომპანიის
 // self-service რეგისტრაციის გვერდი. ბექენდის შესაბამისი endpoint-ია
@@ -45,6 +46,7 @@ const SLUG_REGEX = /^[a-z0-9]([a-z0-9-]{1,38}[a-z0-9])?$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Register({ onRegisterSuccess, onNavigateToLogin }: RegisterProps) {
+  const { t } = useTranslation();
   const [companyName, setCompanyName] = useState('');
   const [slug, setSlug] = useState('');
   // ✍️ თუ მომხმარებელმა slug ველი ხელით შეცვალა, აღარ გადავაწერთ
@@ -107,31 +109,31 @@ export default function Register({ onRegisterSuccess, onNavigateToLogin }: Regis
     const trimmedEmail = email.trim().toLowerCase();
 
     if (!trimmedCompanyName || !normalizedSlug || !trimmedAdminName || !trimmedEmail || !password || !confirmPassword) {
-      setError('გთხოვთ შეავსოთ ყველა ველი!');
+      setError(t('login.fillAllFields'));
       return;
     }
     if (trimmedCompanyName.length < 2) {
-      setError('კომპანიის სახელი ძალიან მოკლეა!');
+      setError(t('register.errors.companyNameTooShort'));
       return;
     }
     if (!SLUG_REGEX.test(normalizedSlug)) {
-      setError('subdomain არავალიდურია — მხოლოდ პატარა ლათინური ასოები, ციფრები და დეფისი (3-40 სიმბოლო)');
+      setError(t('register.errors.slugInvalid'));
       return;
     }
     if (trimmedAdminName.length < 2) {
-      setError('ადმინის სახელი ძალიან მოკლეა!');
+      setError(t('register.errors.adminNameTooShort'));
       return;
     }
     if (!EMAIL_REGEX.test(trimmedEmail)) {
-      setError('Email არავალიდურია!');
+      setError(t('register.errors.emailInvalid'));
       return;
     }
     if (password.length < 8) {
-      setError('პაროლი უნდა შედგებოდეს მინიმუმ 8 სიმბოლოსგან!');
+      setError(t('register.errors.passwordTooShort'));
       return;
     }
     if (password !== confirmPassword) {
-      setError('პაროლები არ ემთხვევა!');
+      setError(t('login.passwordMismatch'));
       return;
     }
 
@@ -148,7 +150,7 @@ export default function Register({ onRegisterSuccess, onNavigateToLogin }: Regis
       const { token, user } = response.data;
       onRegisterSuccess(token, user);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'რეგისტრაცია ჩავარდა — სცადეთ თავიდან');
+      setError(err.response?.data?.error || t('register.errors.registrationFailed'));
     } finally {
       setLoading(false);
     }
@@ -158,24 +160,24 @@ export default function Register({ onRegisterSuccess, onNavigateToLogin }: Regis
     <div className={styles.wrapper}>
       <div className={styles.card} ref={cardRef}>
         <h2 className={styles.title} data-gsap-field>PayFlow</h2>
-        <p className={styles.subtitle} data-gsap-field>ახალი კომპანიის რეგისტრაცია</p>
+        <p className={styles.subtitle} data-gsap-field>{t('register.subtitle')}</p>
 
         <form onSubmit={handleSubmit} className={styles.form}>
           <div className={styles.field} data-gsap-field>
-            <label className={styles.label}>კომპანიის სახელი</label>
+            <label className={styles.label}>{t('register.companyNameLabel')}</label>
             <input
               type="text"
               value={companyName}
               onChange={e => setCompanyName(e.target.value)}
-              placeholder="მაგ. შპს „მაღაზია+“"
+              placeholder={t('register.companyNamePlaceholder')}
               className={styles.input}
               autoFocus
             />
           </div>
 
           <div className={styles.field} data-gsap-field>
-            <label className={styles.label}>საქმიანობის ტიპი</label>
-            <div className={styles.segmentedGroup} role="radiogroup" aria-label="საქმიანობის ტიპი">
+            <label className={styles.label}>{t('register.businessTypeLabel')}</label>
+            <div className={styles.segmentedGroup} role="radiogroup" aria-label={t('register.businessTypeLabel')}>
               <button
                 type="button"
                 role="radio"
@@ -183,7 +185,7 @@ export default function Register({ onRegisterSuccess, onNavigateToLogin }: Regis
                 onClick={() => setBusinessType('retail')}
                 className={`${styles.segmentedBtn} ${businessType === 'retail' ? styles.segmentedBtnActive : ''}`}
               >
-                🏪 Retail (მარკეტი/საცალო)
+                {t('register.businessType.retail')}
               </button>
               <button
                 type="button"
@@ -192,18 +194,18 @@ export default function Register({ onRegisterSuccess, onNavigateToLogin }: Regis
                 onClick={() => setBusinessType('horeca')}
                 className={`${styles.segmentedBtn} ${businessType === 'horeca' ? styles.segmentedBtnActive : ''}`}
               >
-                🍽️ HoReCa (რესტორანი/კაფე/ბარი)
+                {t('register.businessType.horeca')}
               </button>
             </div>
             <p className={styles.hint}>
               {businessType === 'horeca'
-                ? 'მაგიდები, ღია შეკვეთები და სამზარეულოს routing ჩაირთვება.'
-                : 'შეგიძლიათ მოგვიანებით მიგვმართოთ HoReCa-ზე გადასართველად.'}
+                ? t('register.businessType.horecaHint')
+                : t('register.businessType.retailHint')}
             </p>
           </div>
 
           <div className={styles.field} data-gsap-field>
-            <label className={styles.label}>Subdomain (slug)</label>
+            <label className={styles.label}>{t('login.slugLabel')}</label>
             <input
               type="text"
               value={slug}
@@ -211,25 +213,25 @@ export default function Register({ onRegisterSuccess, onNavigateToLogin }: Regis
                 setSlugTouched(true);
                 setSlug(e.target.value);
               }}
-              placeholder="magaliti-magazia"
+              placeholder={t('login.slugPlaceholder')}
               className={styles.input}
             />
             {slug && <p className={styles.hint}>{slug}.payflow.app</p>}
           </div>
 
           <div className={styles.field} data-gsap-field>
-            <label className={styles.label}>ადმინის სახელი</label>
+            <label className={styles.label}>{t('register.adminNameLabel')}</label>
             <input
               type="text"
               value={adminName}
               onChange={e => setAdminName(e.target.value)}
-              placeholder="ეს იქნება თქვენი login მომხმარებელიც"
+              placeholder={t('register.adminNamePlaceholder')}
               className={styles.input}
             />
           </div>
 
           <div className={styles.field} data-gsap-field>
-            <label className={styles.label}>Email</label>
+            <label className={styles.label}>{t('register.emailLabel')}</label>
             <input
               type="email"
               value={email}
@@ -240,23 +242,23 @@ export default function Register({ onRegisterSuccess, onNavigateToLogin }: Regis
           </div>
 
           <div className={styles.field} data-gsap-field>
-            <label className={styles.label}>პაროლი</label>
+            <label className={styles.label}>{t('login.password')}</label>
             <input
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              placeholder="მინიმუმ 8 სიმბოლო"
+              placeholder={t('register.passwordPlaceholder')}
               className={styles.input}
             />
           </div>
 
           <div className={styles.field} data-gsap-field>
-            <label className={styles.label}>გაიმეორეთ პაროლი</label>
+            <label className={styles.label}>{t('register.confirmPasswordLabel')}</label>
             <input
               type="password"
               value={confirmPassword}
               onChange={e => setConfirmPassword(e.target.value)}
-              placeholder="დაადასტურეთ პაროლი"
+              placeholder={t('register.confirmPasswordPlaceholder')}
               className={styles.input}
             />
           </div>
@@ -264,7 +266,7 @@ export default function Register({ onRegisterSuccess, onNavigateToLogin }: Regis
           {error && <p className={styles.error}>⚠️ {error}</p>}
 
           <button type="submit" disabled={loading} className={styles.submitBtn} data-gsap-field>
-            {loading ? 'მიმდინარეობს...' : 'კომპანიის რეგისტრაცია'}
+            {loading ? t('login.loading') : t('register.submitBtn')}
           </button>
 
           <button
@@ -273,7 +275,7 @@ export default function Register({ onRegisterSuccess, onNavigateToLogin }: Regis
             className={styles.backLink}
             data-gsap-field
           >
-            ← უკვე გაქვთ ანგარიში? შესვლა
+            {t('register.backToLoginLink')}
           </button>
         </form>
       </div>

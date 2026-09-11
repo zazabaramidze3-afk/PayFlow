@@ -764,5 +764,33 @@
       "stockUpdated": "Stock updated",
       "stockUpdateFailed": "Failed to update stock"
     }
+  },
+  "register": {
+    "subtitle": "Register a new company",
+    "companyNameLabel": "Company name",
+    "companyNamePlaceholder": "e.g. Acme Market LLC",
+    "businessTypeLabel": "Business type",
+    "businessType": {
+      "retail": "🏪 Retail (store/market)",
+      "horeca": "🍽️ HoReCa (restaurant/cafe/bar)",
+      "horecaHint": "Tables, open orders, and kitchen routing will be enabled.",
+      "retailHint": "You can switch to HoReCa later by contacting us."
+    },
+    "adminNameLabel": "Admin name",
+    "adminNamePlaceholder": "This will also be your login username",
+    "emailLabel": "Email",
+    "passwordPlaceholder": "At least 8 characters",
+    "confirmPasswordLabel": "Confirm password",
+    "confirmPasswordPlaceholder": "Confirm your password",
+    "submitBtn": "Register company",
+    "backToLoginLink": "← Already have an account? Sign in",
+    "errors": {
+      "companyNameTooShort": "Company name is too short!",
+      "slugInvalid": "Invalid subdomain — only lowercase Latin letters, digits, and hyphens (3-40 characters)",
+      "adminNameTooShort": "Admin name is too short!",
+      "emailInvalid": "Invalid email!",
+      "passwordTooShort": "Password must be at least 8 characters!",
+      "registrationFailed": "Registration failed — please try again"
+    }
   }
 }

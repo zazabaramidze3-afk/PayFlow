@@ -764,5 +764,33 @@
       "stockUpdated": "მარაგი განახლდა",
       "stockUpdateFailed": "მარაგის განახლება ვერ მოხერხდა"
     }
+  },
+  "register": {
+    "subtitle": "ახალი კომპანიის რეგისტრაცია",
+    "companyNameLabel": "კომპანიის სახელი",
+    "companyNamePlaceholder": "მაგ. შპს „მაღაზია+“",
+    "businessTypeLabel": "საქმიანობის ტიპი",
+    "businessType": {
+      "retail": "🏪 Retail (მარკეტი/საცალო)",
+      "horeca": "🍽️ HoReCa (რესტორანი/კაფე/ბარი)",
+      "horecaHint": "მაგიდები, ღია შეკვეთები და სამზარეულოს routing ჩაირთვება.",
+      "retailHint": "შეგიძლიათ მოგვიანებით მიგვმართოთ HoReCa-ზე გადასართველად."
+    },
+    "adminNameLabel": "ადმინის სახელი",
+    "adminNamePlaceholder": "ეს იქნება თქვენი login მომხმარებელიც",
+    "emailLabel": "Email",
+    "passwordPlaceholder": "მინიმუმ 8 სიმბოლო",
+    "confirmPasswordLabel": "გაიმეორეთ პაროლი",
+    "confirmPasswordPlaceholder": "დაადასტურეთ პაროლი",
+    "submitBtn": "კომპანიის რეგისტრაცია",
+    "backToLoginLink": "← უკვე გაქვთ ანგარიში? შესვლა",
+    "errors": {
+      "companyNameTooShort": "კომპანიის სახელი ძალიან მოკლეა!",
+      "slugInvalid": "subdomain არავალიდურია — მხოლოდ პატარა ლათინური ასოები, ციფრები და დეფისი (3-40 სიმბოლო)",
+      "adminNameTooShort": "ადმინის სახელი ძალიან მოკლეა!",
+      "emailInvalid": "Email არავალიდურია!",
+      "passwordTooShort": "პაროლი უნდა შედგებოდეს მინიმუმ 8 სიმბოლოსგან!",
+      "registrationFailed": "რეგისტრაცია ჩავარდა — სცადეთ თავიდან"
+    }
   }
 }
