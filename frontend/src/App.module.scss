@@ -29,6 +29,36 @@
   justify-content: space-between;
   transition: v.$transition-base;
 
+  // 🧭 Desktop icon-only collapse (Windows Task Manager-ის ტიპის rail) —
+  // Mobile-ზე არ გამოიყენება (useSidebarCollapsed.ts მხოლოდ Desktop-ისთვისაა
+  // განკუთვნილი ქცევით, მობილურზე `.sidebarOpen` overlay-სლაიდი ცალკეა).
+  &.collapsed {
+    width: 72px;
+    padding-left: 12px;
+    padding-right: 12px;
+
+    .brandTitle,
+    .userMeta,
+    .brandControls,
+    .navLabel {
+      display: none;
+    }
+
+    .brand {
+      justify-content: center;
+    }
+
+    .navItem {
+      justify-content: center;
+      padding: 10px;
+    }
+
+    .logoutBtn {
+      padding-left: 0;
+      padding-right: 0;
+    }
+  }
+
   @include m.mobile {
     position: fixed;
     top: 0;
@@ -38,8 +68,55 @@
     transform: translateX(-100%);
     box-shadow: v.$shadow-lg;
 
+    // 📱 Mobile-ზე collapse-ს აზრი არ აქვს (sidebar სრულად დამალულია
+    // `.sidebarOpen`-მდე) — თუ user-მა desktop-ზე collapsed დატოვა და
+    // მერე მობილურიდან შევიდა, სრული (არა-icon-only) sidebar ჩანდეს.
+    width: 260px;
+    padding-left: 18px;
+    padding-right: 18px;
+
     &.sidebarOpen {
       transform: translateX(0);
+    }
+
+    // 🐛 FIX (11.09.2026, ლაივ-ტესტირებით აღმოჩენილი) — ზემოთა `width:
+    // 260px` მხოლოდ plain `.sidebar`-ზეა (1 კლასის specificity), მაგრამ
+    // ბაზისეული `&.collapsed { width: 72px }` (ფაილში ზემოთ) 2-კლასიანია
+    // — media query specificity-ს არ ამატებს, ამიტომ ეს უფრო სპეციფიური
+    // წესი მედია-query-ის შიგნითაც იმარჯვებდა plain `.sidebar`-ის width
+    // reset-ზე. შედეგად collapsed sidebar mobile-ზეც 72px განით
+    // რჩებოდა — `position: fixed` + `translateX(-100%)` მხოლოდ ამ 72px-ს
+    // მალავდა ეკრანს მიღმა, ხოლო ქვემოთა reset-ებით უკან დაბრუნებული
+    // სრული ტექსტი (brandTitle/userMeta/navLabel-ები) ამ ვიწრო ყუთს
+    // გადმოსცდებოდა (overflow: visible ნაგულისხმევია) და ისევ ჩანდა
+    // მთავარი კონტენტის თავზე. საჭირო იყო იგივე `.collapsed`
+    // specificity-ის (2 კლასი) მქონე width/padding override, აქვე,
+    // media query-ის შიგნით — რომ cascade-ის მიხედვით (თანაბარი
+    // specificity, უფრო გვიანი წესი) სწორად გადაეფაროს ბაზისეული 72px.
+    &.collapsed {
+      width: 260px;
+      padding-left: 18px;
+      padding-right: 18px;
+    }
+
+    &.collapsed .brandTitle,
+    &.collapsed .userMeta,
+    &.collapsed .brandControls,
+    &.collapsed .navLabel {
+      display: block;
+    }
+
+    &.collapsed .brandControls {
+      display: flex;
+    }
+
+    &.collapsed .brand {
+      justify-content: space-between;
+    }
+
+    &.collapsed .navItem {
+      justify-content: flex-start;
+      padding: 10px 14px;
     }
   }
 }
@@ -47,6 +124,40 @@
 .sidebarTop {
   display: flex;
   flex-direction: column;
+}
+
+.collapseToggleBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-bottom: 14px;
+  border-radius: v.$radius-sm;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  color: v.$color-text-secondary;
+  font-size: 16px;
+  transition: v.$transition-fast;
+
+  &:hover {
+    background: v.$color-bg-subtle;
+    color: v.$color-text-primary;
+  }
+
+  // 📱 Mobile-ზე sidebar-ის საკუთარი collapse toggle არ ჩანს —
+  // `.mobileTopbar`-ის ჰამბურგერი (სულ სხვა, overlay show/hide ქცევით)
+  // უკვე ამ როლს ასრულებს.
+  @include m.mobile {
+    display: none;
+  }
+}
+
+.brandControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .brand {

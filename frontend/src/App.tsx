@@ -19,6 +19,7 @@ import { Toaster } from 'react-hot-toast';
 // გაფართოებაზეც კი ეს ადგილი სწორი რჩება).
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { useTheme } from './hooks/useTheme';
+import { useSidebarCollapsed } from './hooks/useSidebarCollapsed';
 import ThemeToggleSwitch from './components/ThemeToggleSwitch';
 // 🌍 Multi-language support STEP 1 — `i18n` singleton-ს პირდაპირ ვიყენებთ
 // (არა useTranslation() hook-ს), რადგან App.tsx-ს ჯერ არაფერი აქვს
@@ -321,6 +322,10 @@ function App() {
   useNetworkStatus();
   useBackgroundSyncEngine();
   const { theme, toggleTheme } = useTheme();
+  // 🧭 Desktop Sidebar collapse (Windows Task Manager-ის ტიპის icon-only
+  // rail) — Mobile-ის `mobileNavOpen`-ისგან დამოუკიდებელი state, localStorage
+  // persistence-ით (`useSidebarCollapsed.ts`-ის header-კომენტარი).
+  const { collapsed, toggleCollapsed } = useSidebarCollapsed();
   const { t } = useTranslation();
 
   // ავტორიზაცია ბეკენდის SQL ბაზის მეშვეობით
@@ -451,14 +456,26 @@ function App() {
       )}
 
       {/* Sidebar მენიუ */}
-      <div className={`${styles.sidebar} ${mobileNavOpen ? styles.sidebarOpen : ''}`}>
+      <div className={`${styles.sidebar} ${mobileNavOpen ? styles.sidebarOpen : ''} ${collapsed ? styles.collapsed : ''}`}>
         <div className={styles.sidebarTop}>
+          {/* 🧭 Desktop-ონლი collapse toggle (Mobile-ზე `.mobileTopbar`-ის
+              ჰამბურგერს სულ სხვა ქცევა აქვს — სრული overlay show/hide) —
+              CSS-ით დამალულია მობილურზე (App.module.scss `.collapseToggleBtn`). */}
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            className={styles.collapseToggleBtn}
+            aria-label={t(collapsed ? 'nav.expandMenu' : 'nav.collapseMenu')}
+            title={t(collapsed ? 'nav.expandMenu' : 'nav.collapseMenu')}
+          >
+            ☰
+          </button>
           <div className={styles.brand}>
             <span className={styles.brandGroup}>
               <span className={styles.brandDot} />
               <span className={styles.brandTitle}>PayFlow</span>
             </span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className={styles.brandControls}>
               <LanguageSwitcher onChange={handleLanguageChange} />
               <ThemeToggleSwitch theme={theme} onToggle={toggleTheme} />
             </div>
@@ -472,14 +489,16 @@ function App() {
                 <li
                   onClick={() => navigateTo('dashboard')}
                   className={`${styles.navItem} ${currentPage === 'dashboard' ? styles.active : ''}`}
+                  title={t('nav.dashboard')}
                 >
-                  <DashboardIcon size={16} /> {t('nav.dashboard')}
+                  <DashboardIcon size={16} /> <span className={styles.navLabel}>{t('nav.dashboard')}</span>
                 </li>
                 <li
                   onClick={() => navigateTo('products')}
                   className={`${styles.navItem} ${currentPage === 'products' ? styles.active : ''}`}
+                  title={t('nav.products')}
                 >
-                  <PackageIcon size={16} /> {t('nav.products')}
+                  <PackageIcon size={16} /> <span className={styles.navLabel}>{t('nav.products')}</span>
                 </li>
               </>
             )}
@@ -487,8 +506,9 @@ function App() {
               <li
                 onClick={() => navigateTo('sales')}
                 className={`${styles.navItem} ${currentPage === 'sales' ? styles.active : ''}`}
+                title={t('nav.salesPos')}
               >
-                <ShoppingCartIcon size={16} /> {t('nav.salesPos')}
+                <ShoppingCartIcon size={16} /> <span className={styles.navLabel}>{t('nav.salesPos')}</span>
               </li>
             )}
             {/* 🍽️ HoReCa Module STEP 1 — ყველა როლისთვის, ვინც Sales-საც
@@ -499,8 +519,9 @@ function App() {
               <li
                 onClick={() => navigateTo('tables')}
                 className={`${styles.navItem} ${currentPage === 'tables' ? styles.active : ''}`}
+                title={t('nav.tables')}
               >
-                <GridIcon size={16} /> {t('nav.tables')}
+                <GridIcon size={16} /> <span className={styles.navLabel}>{t('nav.tables')}</span>
               </li>
             )}
             {/* 🍳 HoReCa Module STEP 2 — Tables-ის იგივე ხილვადობა
@@ -510,8 +531,9 @@ function App() {
               <li
                 onClick={() => navigateTo('kitchen')}
                 className={`${styles.navItem} ${currentPage === 'kitchen' ? styles.active : ''}`}
+                title={t('nav.kitchen')}
               >
-                <MonitorIcon size={16} /> {t('nav.kitchen')}
+                <MonitorIcon size={16} /> <span className={styles.navLabel}>{t('nav.kitchen')}</span>
               </li>
             )}
             {/* 🧩 HoReCa Module STEP 3.1 — მოდიფაიერების მართვა (ჯგუფები/
@@ -521,8 +543,9 @@ function App() {
               <li
                 onClick={() => navigateTo('modifiers')}
                 className={`${styles.navItem} ${currentPage === 'modifiers' ? styles.active : ''}`}
+                title={t('nav.modifiers')}
               >
-                <SlidersIcon size={16} /> {t('nav.modifiers')}
+                <SlidersIcon size={16} /> <span className={styles.navLabel}>{t('nav.modifiers')}</span>
               </li>
             )}
             {/* 🍲 HoReCa Module STEP 3.2 — ინგრედიენტების მართვა
@@ -533,8 +556,9 @@ function App() {
               <li
                 onClick={() => navigateTo('ingredients')}
                 className={`${styles.navItem} ${currentPage === 'ingredients' ? styles.active : ''}`}
+                title={t('nav.ingredients')}
               >
-                <LayersIcon size={16} /> {t('nav.ingredients')}
+                <LayersIcon size={16} /> <span className={styles.navLabel}>{t('nav.ingredients')}</span>
               </li>
             )}
             {/* ⚙️ Settings (Roadmap #3) — Modifiers/Ingredients-ის იგივე
@@ -543,23 +567,25 @@ function App() {
               <li
                 onClick={() => navigateTo('settings')}
                 className={`${styles.navItem} ${currentPage === 'settings' ? styles.active : ''}`}
+                title={t('nav.settings')}
               >
-                <SettingsIcon size={16} /> {t('nav.settings')}
+                <SettingsIcon size={16} /> <span className={styles.navLabel}>{t('nav.settings')}</span>
               </li>
             )}
             {isAdminOrManager && (
               <li
                 onClick={() => navigateTo('users_control')}
                 className={`${styles.navItem} ${styles.navDivider} ${styles.navAccent} ${currentPage === 'users_control' ? styles.active : ''}`}
+                title={t('nav.usersControl')}
               >
-                <UsersIcon size={16} /> {t('nav.usersControl')}
+                <UsersIcon size={16} /> <span className={styles.navLabel}>{t('nav.usersControl')}</span>
               </li>
             )}
           </ul>
         </div>
-        <button onClick={handleLogout} className={styles.logoutBtn}>
+        <button onClick={handleLogout} className={styles.logoutBtn} title={t('nav.logout')}>
           <LogoutIcon size={15} />
-          {t('nav.logout')}
+          <span className={styles.navLabel}>{t('nav.logout')}</span>
         </button>
       </div>
 

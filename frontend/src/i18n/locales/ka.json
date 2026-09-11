@@ -47,7 +47,9 @@
     "usersControl": "თანამშრომლები",
     "logout": "სისტემიდან გამოსვლა",
     "loading": "იტვირთება...",
-    "openMenu": "მენიუს გახსნა"
+    "openMenu": "მენიუს გახსნა",
+    "collapseMenu": "მენიუს ჩაკეცვა",
+    "expandMenu": "მენიუს გაშლა"
   },
   "common": {
     "cancel": "გაუქმება",

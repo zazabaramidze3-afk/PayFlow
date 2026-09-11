@@ -47,7 +47,9 @@
     "usersControl": "Users Control",
     "logout": "Log out",
     "loading": "Loading...",
-    "openMenu": "Open menu"
+    "openMenu": "Open menu",
+    "collapseMenu": "Collapse menu",
+    "expandMenu": "Expand menu"
   },
   "common": {
     "cancel": "Cancel",
