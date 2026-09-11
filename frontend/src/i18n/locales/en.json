@@ -309,5 +309,151 @@
         "splitFailed": "Failed to split the bill"
       }
     }
+  },
+  "usersManagement": {
+    "pageTitle": "👥 User Permission Control (PostgreSQL Database)",
+    "historyBtn": "🕘 History",
+    "pairRegisterBtn": "🖥️ Pair register",
+    "addUserBtn": "➕ New user",
+    "subtitleNote": "Changes are saved permanently on the server and aren't cleared with the cache.",
+    "noEntriesFound": "No entries found.",
+    "historyPanel": {
+      "title": "🕘 Permission change history",
+      "exportBtn": "⬇ Export logs (CSV)",
+      "exportTooltip": "Download logs as CSV",
+      "clearBtn": "🗑 Clear history",
+      "clearTooltip": "Permanently delete the entire history"
+    },
+    "columns": {
+      "username": "User",
+      "currentRole": "Current role",
+      "changePermissions": "Change role",
+      "viewHistory": "View history",
+      "discountAccess": "Discount access",
+      "voidReceipt": "Void receipt",
+      "clearCart": "Clear cart",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "roleOptions": {
+      "adminFull": "ADMIN (full access)",
+      "manager": "MANAGER",
+      "managerNamed": "MANAGER (manager)",
+      "cashier": "CASHIER",
+      "cashierNamed": "CASHIER (cashier)",
+      "waiterNamed": "WAITER (waiter)",
+      "adminNamed": "ADMIN (administrator)"
+    },
+    "statusTooltip": {
+      "active": "Active — click to block",
+      "blocked": "Blocked — click to activate",
+      "changeAria": "Change status"
+    },
+    "status": {
+      "activeLabel": "Active",
+      "blockedLabel": "Blocked"
+    },
+    "actionsTooltip": {
+      "changePassword": "Change password",
+      "setPin": "Set PIN code",
+      "changePin": "Change PIN code",
+      "deleteUser": "Delete user"
+    },
+    "forUserLabel": "For user:",
+    "createModal": {
+      "title": "➕ Register new user",
+      "usernameLabel": "Username",
+      "usernamePlaceholder": "e.g. nika_cashier",
+      "passwordLabel": "Initial password",
+      "roleLabel": "Role",
+      "submitButton": "Add"
+    },
+    "pairModal": {
+      "title": "🖥️ Pair register",
+      "subtitle": "Enter the 6-digit code shown on the cashier's screen for the new/unpaired register.",
+      "codeLabel": "Activation code",
+      "codePlaceholder": "e.g. 042817",
+      "registerLabel": "Register",
+      "createNewOption": "➕ Create new register",
+      "attachExistingOption": "Attach to existing register",
+      "noneExistYetSuffix": " (none exist yet)",
+      "newRegisterNameLabel": "New register name",
+      "newRegisterNamePlaceholder": "e.g. Register #2 / Express Counter",
+      "selectRegisterLabel": "Select register",
+      "selectPlaceholder": "— Select —",
+      "deactivatedSuffix": " (deactivated)",
+      "confirmingButton": "Confirming...",
+      "pairButton": "Pair",
+      "errors": {
+        "codeLength": "The code must be exactly 6 digits!",
+        "selectExisting": "Select an existing register!",
+        "enterNewName": "Enter a name for the new register!",
+        "pairFailed": "Pairing failed"
+      }
+    },
+    "passwordModal": {
+      "title": "🔑 Change password",
+      "newPasswordLabel": "New password"
+    },
+    "pinModal": {
+      "title": "🔑 Manager PIN code",
+      "newPinLabel": "New PIN code (4 digits)",
+      "errorLength": "The PIN must be exactly 4 digits!"
+    },
+    "confirmModal": {
+      "deleteUserMessage": "Are you sure you want to permanently delete the user [ {{username}} ]?",
+      "clearHistoryMessage": "Are you sure you want to permanently delete the entire audit history? This action cannot be undone.",
+      "exportRequiredWarning": "⚠ To continue, download the log archive (CSV) first — the button will be enabled after exporting.",
+      "confirmDeleteButton": "Yes, delete it"
+    },
+    "toggleState": {
+      "on": "Turned on",
+      "off": "Turned off"
+    },
+    "toasts": {
+      "loadUsersFailed": "Failed to load users",
+      "pairSuccess": "Register paired successfully!",
+      "createUserSuccess": "User added successfully!",
+      "createUserFailed": "Failed to add user",
+      "roleUpdated": "Permissions updated successfully!",
+      "saveFailed": "Failed to save to the database",
+      "statusChanged": "Status changed: {{status}}",
+      "statusChangeFailed": "Failed to change status",
+      "historyLoadFailed": "Failed to load history",
+      "exportSuccess": "Log archive downloaded successfully!",
+      "exportFailed": "Export failed",
+      "historyClearedDefault": "History cleared successfully!",
+      "historyClearFailed": "Failed to clear history",
+      "accessChangeFailed": "Failed to change access",
+      "historyAccessChanged": "History access: {{state}}",
+      "discountAccessChanged": "Discount access: {{state}}",
+      "voidAccessChanged": "Void receipt access: {{state}}",
+      "clearCartAccessChanged": "Clear cart access: {{state}}",
+      "passwordChangedDefault": "Password changed for [ {{username}} ]!",
+      "passwordChangeFailed": "Failed to change password",
+      "pinSetDefault": "PIN code set for [ {{username}} ]!",
+      "pinSaveFailed": "Failed to save PIN code",
+      "deleteUserDefault": "User [ {{username}} ] deleted!",
+      "deleteUserFailed": "Failed to delete"
+    },
+    "permissionLabels": {
+      "historyAccess": "History view access",
+      "discountAccess": "Discount access",
+      "voidAccess": "Void receipt access",
+      "clearCartAccess": "Clear cart access"
+    },
+    "auditLog": {
+      "unknownActor": "Unknown",
+      "changedPermission": "{{actor}} changed {{target}}'s {{permission}}:",
+      "managerPinOverride": "🔑 Manager (ID: {{actorId}}) approved a one-time discount permission at the register — cashier: {{target}}",
+      "managerPinOverrideUsed": "✅ Payment #{{paymentId}} was successfully processed with manager PIN (cashier: {{target}})",
+      "voidReceiptOverride": "🚫 Receipt #{{paymentId}} was voided with manager PIN (cashier: {{target}})",
+      "clearCartOverride": "🧺 Active cart was cleared with manager PIN (cashier: {{target}})",
+      "removeItemOverrideWithItem": "🧺 Product — {{item}} — was removed from the cart with manager PIN (cashier: {{target}})",
+      "removeItemOverride": "🧺 A product was removed from the cart with manager PIN (cashier: {{target}})",
+      "managerPinUpdate": "{{actor}} changed {{target}}'s manager PIN code",
+      "defaultAction": "{{actor}} changed {{target}}'s permission ({{action}}): {{value}}",
+      "unknownValue": "—"
+    }
   }
 }

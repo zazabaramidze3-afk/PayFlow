@@ -1,6 +1,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 import styles from './UsersManagement.module.scss';
 import { KeyIcon, TrashIcon, LockIcon, UnlockIcon, PinIcon } from '../components/Icons';
 
@@ -54,14 +56,15 @@ interface RegisterInfo {
   created_at: string;
 }
 
-// 🔐 ჩეკბოქს-toggle action-ების ქართული ლეიბლები — ცალკე ობიექტად, რომ ახალი
+// 🔐 ჩეკბოქს-toggle action-ების i18n key-ების რუკა — ცალკე ობიექტად, რომ ახალი
 // უფლების დამატებისას (Roadmap-ის შემდეგი ეტაპები) მხოლოდ აქ დაემატოს ერთი
-// ხაზი, ternary-ების გაბმის ნაცვლად.
-const PERMISSION_TOGGLE_LABELS: Record<string, string> = {
-  'history-access': 'ისტორიის ნახვის უფლება',
-  'discount-access': 'ფასდაკლების უფლება',
-  'void-access': 'ჩეკის გაუქმების უფლება',
-  'clear-cart-access': 'კალათის გასუფთავების უფლება',
+// ხაზი, ternary-ების გაბმის ნაცვლად. ტექსტი კი i18n.t()-ით გამოითვლება
+// გამოძახებისას (არა მოდულის ჩატვირთვისას), რომ ენის გადართვაზე რეაგირება იყოს.
+const PERMISSION_LABEL_KEYS: Record<string, string> = {
+  'history-access': 'usersManagement.permissionLabels.historyAccess',
+  'discount-access': 'usersManagement.permissionLabels.discountAccess',
+  'void-access': 'usersManagement.permissionLabels.voidAccess',
+  'clear-cart-access': 'usersManagement.permissionLabels.clearCartAccess',
 };
 
 // 📜 თითოეული აუდიტ-ლოგის action-ისთვის ცალკე ქართული ტექსტი/ფერი.
@@ -73,21 +76,22 @@ const PERMISSION_TOGGLE_LABELS: Record<string, string> = {
 // ტიპის დამატებისას აქ ცალკე "case" დაემატოს — არასდროს ჩავარდეს
 // დადუმებულად default-ში.
 function renderAuditLogLine(log: AuditLogEntry) {
-  const actorName = log.actor_name ?? 'უცნობი';
-  const targetName = log.target_name ?? 'უცნობი';
+  const actorName = log.actor_name ?? i18n.t('usersManagement.auditLog.unknownActor');
+  const targetName = log.target_name ?? i18n.t('usersManagement.auditLog.unknownActor');
 
   switch (log.action) {
     case 'history-access':
     case 'discount-access':
     case 'void-access':
     case 'clear-cart-access': {
-      const permissionLabel = PERMISSION_TOGGLE_LABELS[log.action] ?? log.action;
+      const permissionLabelKey = PERMISSION_LABEL_KEYS[log.action];
+      const permissionLabel = permissionLabelKey ? i18n.t(permissionLabelKey) : log.action;
       const turnedOn = log.new_value === 'true';
       return (
         <>
-          <strong>{actorName}</strong>-მა შეცვალა <strong>{targetName}</strong>-ის {permissionLabel}:{' '}
+          {i18n.t('usersManagement.auditLog.changedPermission', { actor: actorName, target: targetName, permission: permissionLabel })}{' '}
           <span className={turnedOn ? styles.turnedOn : styles.turnedOff}>
-            {turnedOn ? 'ჩართო' : 'გამორთო'}
+            {turnedOn ? i18n.t('usersManagement.toggleState.on') : i18n.t('usersManagement.toggleState.off')}
           </span>
         </>
       );
@@ -96,20 +100,14 @@ function renderAuditLogLine(log: AuditLogEntry) {
     // (POST /api/auth/verify-manager-pin წარმატება).
     case 'manager-pin-override':
       return (
-        <>
-          🔑 <strong>მენეჯერმა</strong> (ID: {log.actor_id ?? '—'}) დაადასტურა ფასდაკლების ერთჯერადი უფლება სალაროზე
-          {' '}— მოლარე: <strong>{targetName}</strong>
-        </>
+        <>{i18n.t('usersManagement.auditLog.managerPinOverride', { actorId: log.actor_id ?? '—', target: targetName })}</>
       );
     // 🔑 override token რეალურად გამოყენებული იყო checkout-ზე
     // (POST /api/payments-ის წარმატებული commit). new_value ფორმატია "payment:<id>".
     case 'manager-pin-override-used': {
       const paymentId = log.new_value?.startsWith('payment:') ? log.new_value.slice('payment:'.length) : (log.new_value ?? '—');
       return (
-        <>
-          ✅ მენეჯერის PIN-კოდით წარმატებით გატარდა გადახდა <strong>#{paymentId}</strong>
-          {' '}(მოლარე: <strong>{targetName}</strong>)
-        </>
+        <>{i18n.t('usersManagement.auditLog.managerPinOverrideUsed', { paymentId, target: targetName })}</>
       );
     }
     // 🚫 მენეჯერის PIN-ით რეალურად გაუქმდა უკვე გატარებული ჩეკი
@@ -118,20 +116,14 @@ function renderAuditLogLine(log: AuditLogEntry) {
     case 'void-receipt-override': {
       const paymentId = log.new_value?.startsWith('payment:') ? log.new_value.slice('payment:'.length) : (log.new_value ?? '—');
       return (
-        <>
-          🚫 მენეჯერის PIN-კოდით გაუქმდა ჩეკი <strong>#{paymentId}</strong>
-          {' '}(მოლარე: <strong>{targetName}</strong>)
-        </>
+        <>{i18n.t('usersManagement.auditLog.voidReceiptOverride', { paymentId, target: targetName })}</>
       );
     }
     // 🧺 მენეჯერის PIN-ით გასუფთავდა მთელი აქტიური კალათა POS ეკრანზე
     // (POST /api/cart/confirm-override, Roadmap ეტაპი 5).
     case 'clear-cart-override':
       return (
-        <>
-          🧺 მენეჯერის PIN-კოდით გასუფთავდა აქტიური კალათა
-          {' '}(მოლარე: <strong>{targetName}</strong>)
-        </>
+        <>{i18n.t('usersManagement.auditLog.clearCartOverride', { target: targetName })}</>
       );
     // 🧺 მენეჯერის PIN-ით წაიშალა კონკრეტული პროდუქტი კალათიდან
     // (POST /api/cart/confirm-override, Roadmap ეტაპი 5). new_value შეიცავს
@@ -139,23 +131,19 @@ function renderAuditLogLine(log: AuditLogEntry) {
     case 'remove-item-override':
       return (
         <>
-          🧺 მენეჯერის PIN-კოდით წაიშალა პროდუქტი
-          {log.new_value && log.new_value !== 'confirmed' ? <> — <strong>{log.new_value}</strong></> : null}
-          {' '}კალათიდან (მოლარე: <strong>{targetName}</strong>)
+          {log.new_value && log.new_value !== 'confirmed'
+            ? i18n.t('usersManagement.auditLog.removeItemOverrideWithItem', { item: log.new_value, target: targetName })
+            : i18n.t('usersManagement.auditLog.removeItemOverride', { target: targetName })}
         </>
       );
     // 🔑 ADMIN-მა დაუყენა/შეუცვალა მენეჯერს PIN (PUT /api/users/:id/pin).
     case 'manager-pin-update':
       return (
-        <>
-          <strong>{actorName}</strong>-მა შეცვალა <strong>{targetName}</strong>-ის მენეჯერის PIN-კოდი
-        </>
+        <>{i18n.t('usersManagement.auditLog.managerPinUpdate', { actor: actorName, target: targetName })}</>
       );
     default:
       return (
-        <>
-          <strong>{actorName}</strong>-მა შეცვალა <strong>{targetName}</strong>-ის უფლება ({log.action}): {log.new_value ?? '—'}
-        </>
+        <>{i18n.t('usersManagement.auditLog.defaultAction', { actor: actorName, target: targetName, action: log.action, value: log.new_value ?? i18n.t('usersManagement.auditLog.unknownValue') })}</>
       );
   }
 }
@@ -169,6 +157,7 @@ interface UsersManagementProps {
 }
 
 export default function UsersManagement({ currentUserRole, businessType }: UsersManagementProps) {
+  const { t } = useTranslation();
   const [users, setUsers] = useState<UserPermission[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newUsername, setNewUsername] = useState('');
@@ -245,7 +234,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
       setUsers(response.data);
     } catch (error) {
       console.error(error);
-      showToast('მომხმარებლების ჩატვირთვა ჩავარდა', 'error');
+      showToast(t('usersManagement.toasts.loadUsersFailed'), 'error');
     }
   };
 
@@ -277,15 +266,15 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
   const submitPairCode = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!/^\d{6}$/.test(pairCode)) {
-      setPairError('კოდი უნდა შედგებოდეს ზუსტად 6 ციფრისგან!');
+      setPairError(t('usersManagement.pairModal.errors.codeLength'));
       return;
     }
     if (pairTarget === 'existing' && !pairRegisterId) {
-      setPairError('აირჩიეთ არსებული სალარო!');
+      setPairError(t('usersManagement.pairModal.errors.selectExisting'));
       return;
     }
     if (pairTarget === 'new' && pairNewName.trim().length === 0) {
-      setPairError('შეიყვანეთ ახალი სალაროს სახელი!');
+      setPairError(t('usersManagement.pairModal.errors.enterNewName'));
       return;
     }
 
@@ -297,11 +286,11 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
         registerId: pairTarget === 'existing' ? pairRegisterId : undefined,
         newRegisterName: pairTarget === 'new' ? pairNewName.trim() : undefined,
       });
-      showToast('სალარო წარმატებით დაწყვილდა!', 'success');
+      showToast(t('usersManagement.toasts.pairSuccess'), 'success');
       closePairModal();
     } catch (error: unknown) {
       const serverMessage = axios.isAxiosError<{ error?: string }>(error) ? error.response?.data?.error : undefined;
-      setPairError(serverMessage || 'დაწყვილება ვერ მოხერხდა');
+      setPairError(serverMessage || t('usersManagement.pairModal.errors.pairFailed'));
     } finally {
       setPairLoading(false);
     }
@@ -310,7 +299,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword.trim().length < 4) {
-      showToast('პაროლი უნდა შედგებოდეს მინიმუმ 4 სიმბოლოსგან!', 'error');
+      showToast(t('login.passwordTooShort'), 'error');
       return;
     }
     try {
@@ -324,9 +313,9 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
       setNewRole('cashier');
       setIsModalOpen(false);
       loadUsers();
-      showToast('მომხმარებელი წარმატებით დაემატა!', 'success');
+      showToast(t('usersManagement.toasts.createUserSuccess'), 'success');
     } catch (error: any) {
-      showToast(error.response?.data?.error || 'მომხმარებლის დამატება ჩაიშალა', 'error');
+      showToast(error.response?.data?.error || t('usersManagement.toasts.createUserFailed'), 'error');
     }
   };
 
@@ -334,20 +323,24 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
     try {
       await axios.put(`/api/users/${id}`, { role: newRole, status: currentStatus });
       setUsers(users.map(user => user.id === id ? { ...user, role: newRole } : user));
-      showToast('უფლებები წარმატებით განახლდა!', 'success');
+      showToast(t('usersManagement.toasts.roleUpdated'), 'success');
     } catch (error) {
-      showToast('ბაზაში შენახვა ჩავარდა', 'error');
+      showToast(t('usersManagement.toasts.saveFailed'), 'error');
     }
   };
 
   const toggleStatus = async (user: UserPermission) => {
+    // ⚠️ nextStatus არის backend-ის data-value (Georgian-with-spaces literal),
+    // API-ს იგივე უცვლელი ფორმით ეგზავნება — ითარგმნება მხოლოდ ეკრანზე
+    // ნაჩვენები ლეიბლი (nextStatusLabel), თვითონ მონაცემი არასდროს.
     const nextStatus = user.status === 'ა ქ ტ ი უ რ ი ' ? 'და ბ ლო კ ი ლი ' : 'ა ქ ტ ი უ რ ი ';
+    const nextStatusLabel = nextStatus === 'ა ქ ტ ი უ რ ი ' ? t('usersManagement.status.activeLabel') : t('usersManagement.status.blockedLabel');
     try {
       await axios.put(`/api/users/${user.id}`, { role: user.role, status: nextStatus });
       setUsers(users.map(u => u.id === user.id ? { ...u, status: nextStatus } : u));
-      showToast(`სტატუსი შეიცვალა: ${nextStatus}`, 'success');
+      showToast(t('usersManagement.toasts.statusChanged', { status: nextStatusLabel }), 'success');
     } catch (error) {
-      showToast('სტატუსის შეცვლა ჩავარდა', 'error');
+      showToast(t('usersManagement.toasts.statusChangeFailed'), 'error');
     }
   };
 
@@ -358,7 +351,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
       setHistoryLogs(response.data);
     } catch (error) {
       console.error(error);
-      showToast('ისტორიის ჩატვირთვა ჩავარდა', 'error');
+      showToast(t('usersManagement.toasts.historyLoadFailed'), 'error');
     } finally {
       setHistoryLoading(false);
     }
@@ -389,10 +382,10 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
       window.URL.revokeObjectURL(url);
 
       setHasExportedHistory(true);
-      showToast('ლოგების არქივი წარმატებით გადმოიწერა!', 'success');
+      showToast(t('usersManagement.toasts.exportSuccess'), 'success');
     } catch (error) {
       console.error(error);
-      showToast('ექსპორტი ჩავარდა', 'error');
+      showToast(t('usersManagement.toasts.exportFailed'), 'error');
     }
   };
 
@@ -402,16 +395,16 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
     try {
       const response = await axios.delete('/api/audit-logs');
       setHistoryLogs([]);
-      showToast(response.data.message || 'ისტორია წარმატებით გასუფთავდა!', 'success');
+      showToast(response.data.message || t('usersManagement.toasts.historyClearedDefault'), 'success');
     } catch (error: any) {
-      showToast(error.response?.data?.error || 'ისტორიის გასუფთავება ჩავარდა', 'error');
+      showToast(error.response?.data?.error || t('usersManagement.toasts.historyClearFailed'), 'error');
     }
   };
 
   const handleClearHistory = () => {
     setConfirmModal({
       show: true,
-      message: 'დარწმუნებული ხართ, რომ გსურთ მთელი აუდიტის ისტორიის სამუდამოდ წაშლა? ეს მოქმედება შეუქცევადია.',
+      message: t('usersManagement.confirmModal.clearHistoryMessage'),
       onConfirm: performClearHistory,
       requireExportConfirmation: true,
     });
@@ -424,14 +417,14 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
         can_view_history: nextValue
       });
       setUsers(users.map(userItem => userItem.id === u.id ? { ...userItem, can_view_history: nextValue } : userItem));
-      showToast(`ისტორიის წვდომა: ${nextValue ? 'ჩაირთო' : 'გამოირთო'}`, 'success');
+      showToast(t('usersManagement.toasts.historyAccessChanged', { state: nextValue ? t('usersManagement.toggleState.on') : t('usersManagement.toggleState.off') }), 'success');
       // 🕘 თუ History პანელი ღიაა, სისტემაში ახლადჩაწერილი ლოგი მაშინვე უნდა
       // გამოჩნდეს — თორემ პანელი მხოლოდ გახსნისას იტვირთება ერთხელ და
       // ძველ, "გაყინულ" მდგომარეობას აჩვენებს.
       if (showHistory) loadAuditLogs();
     } catch (error) {
       console.error(error);
-      showToast('წვდომის შეცვლა ჩავარდა', 'error');
+      showToast(t('usersManagement.toasts.accessChangeFailed'), 'error');
     }
   };
 
@@ -442,11 +435,11 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
         can_use_discount: nextValue
       });
       setUsers(users.map(userItem => userItem.id === u.id ? { ...userItem, can_use_discount: nextValue } : userItem));
-      showToast(`ფასდაკლების უფლება: ${nextValue ? 'ჩაირთო' : 'გამოირთო'}`, 'success');
+      showToast(t('usersManagement.toasts.discountAccessChanged', { state: nextValue ? t('usersManagement.toggleState.on') : t('usersManagement.toggleState.off') }), 'success');
       if (showHistory) loadAuditLogs();
     } catch (error) {
       console.error(error);
-      showToast('წვდომის შეცვლა ჩავარდა', 'error');
+      showToast(t('usersManagement.toasts.accessChangeFailed'), 'error');
     }
   };
 
@@ -458,11 +451,11 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
         can_void_receipt: nextValue
       });
       setUsers(users.map(userItem => userItem.id === u.id ? { ...userItem, can_void_receipt: nextValue } : userItem));
-      showToast(`ჩეკის გაუქმების უფლება: ${nextValue ? 'ჩაირთო' : 'გამოირთო'}`, 'success');
+      showToast(t('usersManagement.toasts.voidAccessChanged', { state: nextValue ? t('usersManagement.toggleState.on') : t('usersManagement.toggleState.off') }), 'success');
       if (showHistory) loadAuditLogs();
     } catch (error) {
       console.error(error);
-      showToast('წვდომის შეცვლა ჩავარდა', 'error');
+      showToast(t('usersManagement.toasts.accessChangeFailed'), 'error');
     }
   };
 
@@ -474,11 +467,11 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
         can_clear_cart: nextValue
       });
       setUsers(users.map(userItem => userItem.id === u.id ? { ...userItem, can_clear_cart: nextValue } : userItem));
-      showToast(`კალათის გასუფთავების უფლება: ${nextValue ? 'ჩაირთო' : 'გამოირთო'}`, 'success');
+      showToast(t('usersManagement.toasts.clearCartAccessChanged', { state: nextValue ? t('usersManagement.toggleState.on') : t('usersManagement.toggleState.off') }), 'success');
       if (showHistory) loadAuditLogs();
     } catch (error) {
       console.error(error);
-      showToast('წვდომის შეცვლა ჩავარდა', 'error');
+      showToast(t('usersManagement.toasts.accessChangeFailed'), 'error');
     }
   };
 
@@ -490,15 +483,15 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
     const { userId, username, value } = passwordModal;
     if (!userId) return;
     if (value.trim().length < 4) {
-      showToast('პაროლი უნდა შედგებოდეს მინიმუმ 4 სიმბოლოსგან!', 'error');
+      showToast(t('login.passwordTooShort'), 'error');
       return;
     }
     try {
       const response = await axios.put(`/api/users/${userId}/password`, { newPassword: value });
-      showToast(response.data.message || `პაროლი შეიცვალა [ ${username} ]-სთვის!`, 'success');
+      showToast(response.data.message || t('usersManagement.toasts.passwordChangedDefault', { username }), 'success');
       setPasswordModal({ show: false, userId: null, username: '', value: '' });
     } catch (error: any) {
-      showToast(error.response?.data?.error || 'პაროლის შეცვლა ჩავარდა', 'error');
+      showToast(error.response?.data?.error || t('usersManagement.toasts.passwordChangeFailed'), 'error');
     }
   };
 
@@ -515,18 +508,18 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
     const { userId, username, value } = pinModal;
     if (!userId) return;
     if (!/^\d{4}$/.test(value)) {
-      setPinModal(prev => ({ ...prev, error: 'PIN-კოდი უნდა შედგებოდეს ზუსტად 4 ციფრისგან!' }));
+      setPinModal(prev => ({ ...prev, error: t('usersManagement.pinModal.errorLength') }));
       return;
     }
     try {
       const response = await axios.put(`/api/users/${userId}/pin`, { pin: value });
-      showToast(response.data.message || `PIN-კოდი დაყენდა [ ${username} ]-სთვის!`, 'success');
+      showToast(response.data.message || t('usersManagement.toasts.pinSetDefault', { username }), 'success');
       closePinModal();
       loadUsers(); // has_manager_pin ცხრილში განახლდეს (Set → Change ღილაკის ტექსტი)
     } catch (error: unknown) {
       // "any"-ის ნაცვლად axios.isAxiosError ტიპის დამცველი — Clean Architecture წესი.
       const serverMessage = axios.isAxiosError<{ error?: string }>(error) ? error.response?.data?.error : undefined;
-      setPinModal(prev => ({ ...prev, error: serverMessage || 'PIN-კოდის შენახვა ჩავარდა' }));
+      setPinModal(prev => ({ ...prev, error: serverMessage || t('usersManagement.toasts.pinSaveFailed') }));
     }
   };
 
@@ -534,16 +527,16 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
     try {
       const response = await axios.delete(`/api/users/${id}`);
       setUsers(users.filter(user => user.id !== id));
-      showToast(response.data.message || `მომხმარებელი [ ${username} ] წაიშალა!`, 'success');
+      showToast(response.data.message || t('usersManagement.toasts.deleteUserDefault', { username }), 'success');
     } catch (error: any) {
-      showToast(error.response?.data?.error || 'წაშლა ვერ მოხერხდა', 'error');
+      showToast(error.response?.data?.error || t('usersManagement.toasts.deleteUserFailed'), 'error');
     }
   };
 
   const handleDeleteUser = (id: string, username: string) => {
     setConfirmModal({
       show: true,
-      message: `დარწმუნებული ხართ, რომ გსურთ მომხმარებლის [ ${username} ] სამუდამოდ წაშლა?`,
+      message: t('usersManagement.confirmModal.deleteUserMessage', { username }),
       onConfirm: () => performDelete(id, username),
     });
   };
@@ -573,19 +566,19 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
 
       {/* ჰედერი და დამატების ახალი ღილაკი */}
       <div className={styles.header}>
-        <h2 className={styles.heading}>👥 მომხმარებლების უფლებების კონტროლი (PostgreSQL ბაზა)</h2>
+        <h2 className={styles.heading}>{t('usersManagement.pageTitle')}</h2>
         <div className={styles.headerActions}>
           <button onClick={toggleHistoryPanel} className={`${styles.historyBtn} ${showHistory ? styles.active : ''}`}>
-            🕘 History
+            {t('usersManagement.historyBtn')}
           </button>
           {/* 🖥️ Roadmap STEP 2.2 — ახალი/დაუწყვილებელი POS ტერმინალის
               6-ნიშნა კოდის დადასტურება (admin/manager, backend: POST
               /api/registers/pair). */}
           <button onClick={openPairModal} className={styles.historyBtn}>
-            🖥️ სალაროს დაწყვილება
+            {t('usersManagement.pairRegisterBtn')}
           </button>
           <button onClick={() => setIsModalOpen(true)} className={styles.addBtn}>
-            ➕ ახალი მომხმარებელი
+            {t('usersManagement.addUserBtn')}
           </button>
         </div>
       </div>
@@ -595,25 +588,25 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
       {showHistory && (
         <div className={styles.historyPanel}>
           <div className={styles.historyPanelHeader}>
-            <h3>🕘 უფლებების ცვლილებების ისტორია</h3>
+            <h3>{t('usersManagement.historyPanel.title')}</h3>
             {/* 📤 ექსპორტი + 🗑 წითელი გასუფთავების ღილაკი — მხოლოდ ADMIN-ს
                 უჩნდება (Roadmap ეტაპი 1.5.2). ექსპორტი განზრახ დგას წაშლის
                 გვერდით, რომ გასუფთავებამდე არქივის აღება ბუნებრივი ნაბიჯი იყოს. */}
             {currentUserRole === 'admin' && visibleHistoryLogs.length > 0 && (
               <div className={styles.historyPanelActions}>
-                <button onClick={handleExportLogs} className={styles.exportLogsBtn} title="ლოგების გადმოწერა CSV ფორმატში">
-                  ⬇ ლოგების ექსპორტი (CSV)
+                <button onClick={handleExportLogs} className={styles.exportLogsBtn} title={t('usersManagement.historyPanel.exportTooltip')}>
+                  {t('usersManagement.historyPanel.exportBtn')}
                 </button>
-                <button onClick={handleClearHistory} className={styles.clearHistoryBtn} title="მთელი ისტორიის სამუდამოდ წაშლა">
-                  🗑 ისტორიის გასუფთავება
+                <button onClick={handleClearHistory} className={styles.clearHistoryBtn} title={t('usersManagement.historyPanel.clearTooltip')}>
+                  {t('usersManagement.historyPanel.clearBtn')}
                 </button>
               </div>
             )}
           </div>
           {historyLoading ? (
-            <p className={styles.historyEmpty}>იტვირთება...</p>
+            <p className={styles.historyEmpty}>{t('nav.loading')}</p>
           ) : visibleHistoryLogs.length === 0 ? (
-            <p className={styles.historyEmpty}>ჩანაწერები არ მოიძებნა.</p>
+            <p className={styles.historyEmpty}>{t('usersManagement.noEntriesFound')}</p>
           ) : (
             // 📏 ფიქსირებული სიმაღლე + ვერტიკალური სქროლი — ბევრმა ლოგმა
             // ცხრილი დაბლა რომ არ ჩააჩოჩოს. ბოლო ლოგები ზემოთაა
@@ -630,7 +623,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
         </div>
       )}
       <p className={styles.subtitle}>
-        ცვლილებები ინახება მყარად სერვერზე და არ იშლება ქეშის გასუფთავებისას.
+        {t('usersManagement.subtitleNote')}
       </p>
 
       {/* 📱 მომხმარებლების card view — მხოლოდ ≤640px-ზე ჩანს (CSS: .userCardList
@@ -646,22 +639,22 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
             </div>
 
             <div className={styles.cardRow}>
-              <span className={styles.cardRowLabel}>უფლებების შეცვლა</span>
+              <span className={styles.cardRowLabel}>{t('usersManagement.columns.changePermissions')}</span>
               <select
                 value={user.role}
                 disabled={user.role === 'admin'}
                 onChange={(e) => handleRoleChange(user.id, user.status, e.target.value as any)}
                 className={styles.roleSelect}
               >
-                <option value="admin">ADMIN (სრული წვდომა)</option>
-                <option value="manager">MANAGER</option>
-                <option value="cashier">CASHIER</option>
-                {businessType === 'horeca' && <option value="waiter">WAITER (მიმტანი)</option>}
+                <option value="admin">{t('usersManagement.roleOptions.adminFull')}</option>
+                <option value="manager">{t('usersManagement.roleOptions.manager')}</option>
+                <option value="cashier">{t('usersManagement.roleOptions.cashier')}</option>
+                {businessType === 'horeca' && <option value="waiter">{t('usersManagement.roleOptions.waiterNamed')}</option>}
               </select>
             </div>
 
             <div className={styles.cardRow}>
-              <span className={styles.cardRowLabel}>ისტორიის ნახვა</span>
+              <span className={styles.cardRowLabel}>{t('usersManagement.columns.viewHistory')}</span>
               <input
                 type="checkbox"
                 checked={user.can_view_history}
@@ -672,7 +665,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
             </div>
 
             <div className={styles.cardRow}>
-              <span className={styles.cardRowLabel}>ფასდაკლების უფლება</span>
+              <span className={styles.cardRowLabel}>{t('usersManagement.columns.discountAccess')}</span>
               <input
                 type="checkbox"
                 checked={!!user.can_use_discount}
@@ -683,7 +676,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
             </div>
 
             <div className={styles.cardRow}>
-              <span className={styles.cardRowLabel}>ჩეკის გაუქმება</span>
+              <span className={styles.cardRowLabel}>{t('usersManagement.columns.voidReceipt')}</span>
               <input
                 type="checkbox"
                 checked={!!user.can_void_receipt}
@@ -694,7 +687,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
             </div>
 
             <div className={styles.cardRow}>
-              <span className={styles.cardRowLabel}>კალათის გასუფთავება</span>
+              <span className={styles.cardRowLabel}>{t('usersManagement.columns.clearCart')}</span>
               <input
                 type="checkbox"
                 checked={!!user.can_clear_cart}
@@ -705,28 +698,28 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
             </div>
 
             <div className={styles.cardRow}>
-              <span className={styles.cardRowLabel}>სტატუსი</span>
+              <span className={styles.cardRowLabel}>{t('usersManagement.columns.status')}</span>
               <button
                 disabled={user.role === 'admin'}
                 onClick={() => toggleStatus(user)}
                 className={`${styles.statusIconBtn} ${user.status === 'ა ქ ტ ი უ რ ი ' ? styles.statusActive : styles.statusBlocked}`}
-                title={user.status === 'ა ქ ტ ი უ რ ი ' ? 'აქტიურია — დააჭირეთ დასაბლოკად' : 'დაბლოკილია — დააჭირეთ გასააქტიურებლად'}
-                aria-label="სტატუსის შეცვლა"
+                title={user.status === 'ა ქ ტ ი უ რ ი ' ? t('usersManagement.statusTooltip.active') : t('usersManagement.statusTooltip.blocked')}
+                aria-label={t('usersManagement.statusTooltip.changeAria')}
               >
                 {user.status === 'ა ქ ტ ი უ რ ი ' ? <UnlockIcon size={15} /> : <LockIcon size={15} />}
               </button>
             </div>
 
             <div className={styles.cardActions}>
-              <button onClick={() => openPasswordModal(user.id, user.username)} className={styles.iconBtn} title="პაროლის შეცვლა" aria-label="პაროლის შეცვლა">
+              <button onClick={() => openPasswordModal(user.id, user.username)} className={styles.iconBtn} title={t('usersManagement.actionsTooltip.changePassword')} aria-label={t('usersManagement.actionsTooltip.changePassword')}>
                 <KeyIcon />
               </button>
               {user.role === 'manager' && (
                 <button
                   onClick={() => openPinModal(user.id, user.username)}
                   className={styles.iconBtn}
-                  title={user.has_manager_pin ? 'PIN-კოდის შეცვლა' : 'PIN-კოდის დაყენება'}
-                  aria-label={user.has_manager_pin ? 'PIN-კოდის შეცვლა' : 'PIN-კოდის დაყენება'}
+                  title={user.has_manager_pin ? t('usersManagement.actionsTooltip.changePin') : t('usersManagement.actionsTooltip.setPin')}
+                  aria-label={user.has_manager_pin ? t('usersManagement.actionsTooltip.changePin') : t('usersManagement.actionsTooltip.setPin')}
                 >
                   <PinIcon />
                 </button>
@@ -735,8 +728,8 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
                 disabled={user.role === 'admin'}
                 onClick={() => handleDeleteUser(user.id, user.username)}
                 className={styles.iconBtn}
-                title="მომხმარებლის წაშლა"
-                aria-label="მომხმარებლის წაშლა"
+                title={t('usersManagement.actionsTooltip.deleteUser')}
+                aria-label={t('usersManagement.actionsTooltip.deleteUser')}
               >
                 <TrashIcon />
               </button>
@@ -751,15 +744,15 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>მომხმარებელი</th>
-              <th>მიმდინარე როლი</th>
-              <th>უფლებების შეცვლა</th>
-              <th>ისტორიის ნახვა</th>
-              <th>ფასდაკლების უფლება</th>
-              <th>ჩეკის გაუქმება</th>
-              <th>კალათის გასუფთავება</th>
-              <th>სტატუსი</th>
-              <th style={{ textAlign: 'center' }}>მოქმედებები</th>
+              <th>{t('usersManagement.columns.username')}</th>
+              <th>{t('usersManagement.columns.currentRole')}</th>
+              <th>{t('usersManagement.columns.changePermissions')}</th>
+              <th>{t('usersManagement.columns.viewHistory')}</th>
+              <th>{t('usersManagement.columns.discountAccess')}</th>
+              <th>{t('usersManagement.columns.voidReceipt')}</th>
+              <th>{t('usersManagement.columns.clearCart')}</th>
+              <th>{t('usersManagement.columns.status')}</th>
+              <th style={{ textAlign: 'center' }}>{t('usersManagement.columns.actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -776,10 +769,10 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
                     onChange={(e) => handleRoleChange(user.id, user.status, e.target.value as any)}
                     className={styles.roleSelect}
                   >
-                    <option value="admin">ADMIN (სრული წვდომა)</option>
-                    <option value="manager">MANAGER</option>
-                    <option value="cashier">CASHIER</option>
-                    {businessType === 'horeca' && <option value="waiter">WAITER (მიმტანი)</option>}
+                    <option value="admin">{t('usersManagement.roleOptions.adminFull')}</option>
+                    <option value="manager">{t('usersManagement.roleOptions.manager')}</option>
+                    <option value="cashier">{t('usersManagement.roleOptions.cashier')}</option>
+                    {businessType === 'horeca' && <option value="waiter">{t('usersManagement.roleOptions.waiterNamed')}</option>}
                   </select>
                 </td>
 
@@ -832,15 +825,15 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
                     disabled={user.role === 'admin'}
                     onClick={() => toggleStatus(user)}
                     className={`${styles.statusIconBtn} ${user.status === 'ა ქ ტ ი უ რ ი ' ? styles.statusActive : styles.statusBlocked}`}
-                    title={user.status === 'ა ქ ტ ი უ რ ი ' ? 'აქტიურია — დააჭირეთ დასაბლოკად' : 'დაბლოკილია — დააჭირეთ გასააქტიურებლად'}
-                    aria-label="სტატუსის შეცვლა"
+                    title={user.status === 'ა ქ ტ ი უ რ ი ' ? t('usersManagement.statusTooltip.active') : t('usersManagement.statusTooltip.blocked')}
+                    aria-label={t('usersManagement.statusTooltip.changeAria')}
                   >
                     {user.status === 'ა ქ ტ ი უ რ ი ' ? <UnlockIcon size={15} /> : <LockIcon size={15} />}
                   </button>
                 </td>
                 <td>
                   <div className={styles.rowActions}>
-                    <button onClick={() => openPasswordModal(user.id, user.username)} className={styles.iconBtn} title="პაროლის შეცვლა" aria-label="პაროლის შეცვლა">
+                    <button onClick={() => openPasswordModal(user.id, user.username)} className={styles.iconBtn} title={t('usersManagement.actionsTooltip.changePassword')} aria-label={t('usersManagement.actionsTooltip.changePassword')}>
                       <KeyIcon />
                     </button>
                     {/* 🔑 Manager PIN Override (Roadmap ეტაპი 2) — მხოლოდ MANAGER როლისთვის ჩანს,
@@ -849,8 +842,8 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
                       <button
                         onClick={() => openPinModal(user.id, user.username)}
                         className={styles.iconBtn}
-                        title={user.has_manager_pin ? 'PIN-კოდის შეცვლა' : 'PIN-კოდის დაყენება'}
-                        aria-label={user.has_manager_pin ? 'PIN-კოდის შეცვლა' : 'PIN-კოდის დაყენება'}
+                        title={user.has_manager_pin ? t('usersManagement.actionsTooltip.changePin') : t('usersManagement.actionsTooltip.setPin')}
+                        aria-label={user.has_manager_pin ? t('usersManagement.actionsTooltip.changePin') : t('usersManagement.actionsTooltip.setPin')}
                       >
                         <PinIcon />
                       </button>
@@ -859,8 +852,8 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
                       disabled={user.role === 'admin'}
                       onClick={() => handleDeleteUser(user.id, user.username)}
                       className={styles.iconBtn}
-                      title="მომხმარებლის წაშლა"
-                      aria-label="მომხმარებლის წაშლა"
+                      title={t('usersManagement.actionsTooltip.deleteUser')}
+                      aria-label={t('usersManagement.actionsTooltip.deleteUser')}
                     >
                       <TrashIcon />
                     </button>
@@ -876,24 +869,24 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
       {isModalOpen && (
         <div className={styles.overlay}>
           <div className={styles.modal}>
-            <h3 className={styles.modalTitle}>➕ ახალი მომხმარებლის რეგისტრაცია</h3>
+            <h3 className={styles.modalTitle}>{t('usersManagement.createModal.title')}</h3>
             <form onSubmit={handleCreateUser}>
               <div className={styles.field}>
-                <label className={styles.label}>მომხმარებლის სახელი</label>
-                <input type="text" value={newUsername} onChange={e => setNewUsername(e.target.value)} placeholder="მაგ. nika_cashier" required className={styles.fullInput} />
+                <label className={styles.label}>{t('usersManagement.createModal.usernameLabel')}</label>
+                <input type="text" value={newUsername} onChange={e => setNewUsername(e.target.value)} placeholder={t('usersManagement.createModal.usernamePlaceholder')} required className={styles.fullInput} />
               </div>
               <div className={styles.field}>
-                <label className={styles.label}>საწყისი პაროლი</label>
-                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="მინიმუმ 4 სიმბოლო" required className={styles.fullInput} />
+                <label className={styles.label}>{t('usersManagement.createModal.passwordLabel')}</label>
+                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder={t('login.newPasswordPlaceholder')} required className={styles.fullInput} />
               </div>
               <div className={styles.field}>
-                <label className={styles.label}>როლი (Role)</label>
+                <label className={styles.label}>{t('usersManagement.createModal.roleLabel')}</label>
                 {/* 🔒 MANAGER-ს მხოლოდ CASHIER-ის დამატება შეუძლია (backend:
                     POST /api/users-ის იგივე შეზღუდვა, პრივილეგიის ესკალაციის
                     თავიდან ასაცილებლად) — dropdown-ი მხოლოდ ADMIN-ისთვის
                     ჩანს, MANAGER-ს როლი ფიქსირებული აქვს. */}
                 {currentUserRole === 'manager' && businessType !== 'horeca' ? (
-                  <input type="text" value="CASHIER (მოლარე)" disabled className={styles.fullInput} />
+                  <input type="text" value={t('usersManagement.roleOptions.cashierNamed')} disabled className={styles.fullInput} />
                 ) : currentUserRole === 'manager' ? (
                   // 🍽 HoReCa STEP 4 — manager-ს HoReCa org-ში CASHIER-ის გარდა
                   // WAITER-ის დამატებაც შეუძლია (ორივე staff-დონის როლია,
@@ -904,8 +897,8 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
                     onChange={e => setNewRole(e.target.value as 'cashier' | 'waiter')}
                     className={styles.fullInput}
                   >
-                    <option value="cashier">CASHIER (მოლარე)</option>
-                    <option value="waiter">WAITER (მიმტანი)</option>
+                    <option value="cashier">{t('usersManagement.roleOptions.cashierNamed')}</option>
+                    <option value="waiter">{t('usersManagement.roleOptions.waiterNamed')}</option>
                   </select>
                 ) : (
                   <select
@@ -913,16 +906,16 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
                     onChange={e => setNewRole(e.target.value as 'admin' | 'manager' | 'cashier' | 'waiter')}
                     className={styles.fullInput}
                   >
-                    <option value="cashier">CASHIER (მოლარე)</option>
-                    {businessType === 'horeca' && <option value="waiter">WAITER (მიმტანი)</option>}
-                    <option value="manager">MANAGER (მენეჯერი)</option>
-                    <option value="admin">ADMIN (ადმინისტრატორი)</option>
+                    <option value="cashier">{t('usersManagement.roleOptions.cashierNamed')}</option>
+                    {businessType === 'horeca' && <option value="waiter">{t('usersManagement.roleOptions.waiterNamed')}</option>}
+                    <option value="manager">{t('usersManagement.roleOptions.managerNamed')}</option>
+                    <option value="admin">{t('usersManagement.roleOptions.adminNamed')}</option>
                   </select>
                 )}
               </div>
               <div className={styles.modalActions}>
-                <button type="button" onClick={() => setIsModalOpen(false)} className={styles.cancelBtn}>გაუქმება</button>
-                <button type="submit" className={styles.saveBtnGreen}>დამატება</button>
+                <button type="button" onClick={() => setIsModalOpen(false)} className={styles.cancelBtn}>{t('common.cancel')}</button>
+                <button type="submit" className={styles.saveBtnGreen}>{t('usersManagement.createModal.submitButton')}</button>
               </div>
             </form>
           </div>
@@ -935,20 +928,20 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
       {isPairModalOpen && (
         <div className={styles.overlay}>
           <div className={styles.modal}>
-            <h3 className={styles.modalTitle}>🖥️ სალაროს დაწყვილება</h3>
+            <h3 className={styles.modalTitle}>{t('usersManagement.pairModal.title')}</h3>
             <p className={styles.modalSubtitle}>
-              შეიყვანეთ 6-ნიშნა კოდი, რომელიც მოლარეს ეკრანზე უჩანს ახალ/დაუწყვილებელ სალაროზე.
+              {t('usersManagement.pairModal.subtitle')}
             </p>
             <form onSubmit={submitPairCode}>
               <div className={styles.field}>
-                <label className={styles.label}>აქტივაციის კოდი</label>
+                <label className={styles.label}>{t('usersManagement.pairModal.codeLabel')}</label>
                 <input
                   type="text"
                   inputMode="numeric"
                   autoFocus
                   value={pairCode}
                   onChange={e => setPairCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="მაგ. 042817"
+                  placeholder={t('usersManagement.pairModal.codePlaceholder')}
                   maxLength={6}
                   required
                   className={styles.fullInput}
@@ -956,43 +949,43 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
               </div>
 
               <div className={styles.field}>
-                <label className={styles.label}>სალარო</label>
+                <label className={styles.label}>{t('usersManagement.pairModal.registerLabel')}</label>
                 <select
                   value={pairTarget}
                   onChange={e => setPairTarget(e.target.value as 'existing' | 'new')}
                   className={styles.fullInput}
                 >
-                  <option value="new">➕ ახალი სალაროს შექმნა</option>
+                  <option value="new">{t('usersManagement.pairModal.createNewOption')}</option>
                   <option value="existing" disabled={registersList.length === 0}>
-                    არსებულ სალაროზე მიბმა{registersList.length === 0 ? ' (ჯერ არცერთი არ არსებობს)' : ''}
+                    {t('usersManagement.pairModal.attachExistingOption')}{registersList.length === 0 ? t('usersManagement.pairModal.noneExistYetSuffix') : ''}
                   </option>
                 </select>
               </div>
 
               {pairTarget === 'new' ? (
                 <div className={styles.field}>
-                  <label className={styles.label}>ახალი სალაროს სახელი</label>
+                  <label className={styles.label}>{t('usersManagement.pairModal.newRegisterNameLabel')}</label>
                   <input
                     type="text"
                     value={pairNewName}
                     onChange={e => setPairNewName(e.target.value)}
-                    placeholder="მაგ. Register #2 / Express Counter"
+                    placeholder={t('usersManagement.pairModal.newRegisterNamePlaceholder')}
                     required
                     className={styles.fullInput}
                   />
                 </div>
               ) : (
                 <div className={styles.field}>
-                  <label className={styles.label}>აირჩიეთ სალარო</label>
+                  <label className={styles.label}>{t('usersManagement.pairModal.selectRegisterLabel')}</label>
                   <select
                     value={pairRegisterId}
                     onChange={e => setPairRegisterId(e.target.value)}
                     className={styles.fullInput}
                   >
-                    <option value="">— აირჩიეთ —</option>
+                    <option value="">{t('usersManagement.pairModal.selectPlaceholder')}</option>
                     {registersList.map(r => (
                       <option key={r.id} value={r.id} disabled={!r.is_active}>
-                        {r.name}{!r.is_active ? ' (დეაქტივირებული)' : ''}
+                        {r.name}{!r.is_active ? t('usersManagement.pairModal.deactivatedSuffix') : ''}
                       </option>
                     ))}
                   </select>
@@ -1002,9 +995,9 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
               {pairError && <p className={styles.errorText}>{pairError}</p>}
 
               <div className={styles.modalActions}>
-                <button type="button" onClick={closePairModal} className={styles.cancelBtn}>გაუქმება</button>
+                <button type="button" onClick={closePairModal} className={styles.cancelBtn}>{t('common.cancel')}</button>
                 <button type="submit" disabled={pairLoading || pairCode.length !== 6} className={styles.saveBtnGreen}>
-                  {pairLoading ? 'დადასტურება...' : 'დაწყვილება'}
+                  {pairLoading ? t('usersManagement.pairModal.confirmingButton') : t('usersManagement.pairModal.pairButton')}
                 </button>
               </div>
             </form>
@@ -1016,23 +1009,23 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
       {passwordModal.show && (
         <div className={styles.overlay}>
           <div className={styles.modal}>
-            <h3 className={styles.modalTitle}>🔑 პაროლის შეცვლა</h3>
-            <p className={styles.modalSubtitle}>მომხმარებლისთვის: <strong>{passwordModal.username}</strong></p>
+            <h3 className={styles.modalTitle}>{t('usersManagement.passwordModal.title')}</h3>
+            <p className={styles.modalSubtitle}>{t('usersManagement.forUserLabel')} <strong>{passwordModal.username}</strong></p>
             <div className={styles.field}>
-              <label className={styles.label}>ახალი პაროლი</label>
+              <label className={styles.label}>{t('usersManagement.passwordModal.newPasswordLabel')}</label>
               <input
                 type="password"
                 autoFocus
                 value={passwordModal.value}
                 onChange={e => setPasswordModal(prev => ({ ...prev, value: e.target.value }))}
                 onKeyDown={e => { if (e.key === 'Enter') submitPasswordChange(); }}
-                placeholder="მინიმუმ 4 სიმბოლო"
+                placeholder={t('login.newPasswordPlaceholder')}
                 className={styles.fullInput}
               />
             </div>
             <div className={styles.modalActions}>
-              <button type="button" onClick={() => setPasswordModal({ show: false, userId: null, username: '', value: '' })} className={styles.cancelBtn}>გაუქმება</button>
-              <button type="button" onClick={submitPasswordChange} className={styles.saveBtn}>შენახვა</button>
+              <button type="button" onClick={() => setPasswordModal({ show: false, userId: null, username: '', value: '' })} className={styles.cancelBtn}>{t('common.cancel')}</button>
+              <button type="button" onClick={submitPasswordChange} className={styles.saveBtn}>{t('tables.save')}</button>
             </div>
           </div>
         </div>
@@ -1042,10 +1035,10 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
       {pinModal.show && (
         <div className={styles.overlay}>
           <div className={styles.modal}>
-            <h3 className={styles.modalTitle}>🔑 მენეჯერის PIN-კოდი</h3>
-            <p className={styles.modalSubtitle}>მომხმარებლისთვის: <strong>{pinModal.username}</strong></p>
+            <h3 className={styles.modalTitle}>{t('usersManagement.pinModal.title')}</h3>
+            <p className={styles.modalSubtitle}>{t('usersManagement.forUserLabel')} <strong>{pinModal.username}</strong></p>
             <div className={styles.field} style={{ marginBottom: '10px' }}>
-              <label className={styles.label}>ახალი PIN-კოდი (4 ციფრი)</label>
+              <label className={styles.label}>{t('usersManagement.pinModal.newPinLabel')}</label>
               <input
                 type="password"
                 inputMode="numeric"
@@ -1062,8 +1055,8 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
               <p className={styles.errorText}>{pinModal.error}</p>
             )}
             <div className={styles.modalActions}>
-              <button type="button" onClick={closePinModal} className={styles.cancelBtn}>გაუქმება</button>
-              <button type="button" onClick={submitPinChange} disabled={pinModal.value.length !== 4} className={styles.saveBtnPurple}>შენახვა</button>
+              <button type="button" onClick={closePinModal} className={styles.cancelBtn}>{t('common.cancel')}</button>
+              <button type="button" onClick={submitPinChange} disabled={pinModal.value.length !== 4} className={styles.saveBtnPurple}>{t('tables.save')}</button>
             </div>
           </div>
         </div>
@@ -1081,12 +1074,12 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
                 ადმინი მინიმუმ ერთხელ არ დააჭერს ექსპორტს. */}
             {confirmModal.requireExportConfirmation && !hasExportedHistory && (
               <p className={styles.confirmWarning}>
-                ⚠ გასაგრძელებლად ჯერ გადმოწერეთ ლოგების არქივი (CSV) — ღილაკი გააქტიურდება ექსპორტის შემდეგ.
+                {t('usersManagement.confirmModal.exportRequiredWarning')}
               </p>
             )}
 
             <div className={styles.confirmActions}>
-              <button type="button" onClick={closeConfirmModal} className={styles.cancelBtn}>გაუქმება</button>
+              <button type="button" onClick={closeConfirmModal} className={styles.cancelBtn}>{t('common.cancel')}</button>
               <button
                 type="button"
                 disabled={confirmModal.requireExportConfirmation && !hasExportedHistory}
@@ -1094,7 +1087,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
                 className={styles.actionBtnDelete + ' ' + styles.actionBtn}
                 style={{ padding: '8px 20px', fontSize: '14px' }}
               >
-                დიახ, წაშალე
+                {t('usersManagement.confirmModal.confirmDeleteButton')}
               </button>
             </div>
           </div>

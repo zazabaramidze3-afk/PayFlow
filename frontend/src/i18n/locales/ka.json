@@ -309,5 +309,151 @@
         "splitFailed": "ჩეკის გაყოფა ვერ მოხერხდა"
       }
     }
+  },
+  "usersManagement": {
+    "pageTitle": "👥 მომხმარებლების უფლებების კონტროლი (PostgreSQL ბაზა)",
+    "historyBtn": "🕘 History",
+    "pairRegisterBtn": "🖥️ სალაროს დაწყვილება",
+    "addUserBtn": "➕ ახალი მომხმარებელი",
+    "subtitleNote": "ცვლილებები ინახება მყარად სერვერზე და არ იშლება ქეშის გასუფთავებისას.",
+    "noEntriesFound": "ჩანაწერები არ მოიძებნა.",
+    "historyPanel": {
+      "title": "🕘 უფლებების ცვლილებების ისტორია",
+      "exportBtn": "⬇ ლოგების ექსპორტი (CSV)",
+      "exportTooltip": "ლოგების გადმოწერა CSV ფორმატში",
+      "clearBtn": "🗑 ისტორიის გასუფთავება",
+      "clearTooltip": "მთელი ისტორიის სამუდამოდ წაშლა"
+    },
+    "columns": {
+      "username": "მომხმარებელი",
+      "currentRole": "მიმდინარე როლი",
+      "changePermissions": "უფლებების შეცვლა",
+      "viewHistory": "ისტორიის ნახვა",
+      "discountAccess": "ფასდაკლების უფლება",
+      "voidReceipt": "ჩეკის გაუქმება",
+      "clearCart": "კალათის გასუფთავება",
+      "status": "სტატუსი",
+      "actions": "მოქმედებები"
+    },
+    "roleOptions": {
+      "adminFull": "ADMIN (სრული წვდომა)",
+      "manager": "MANAGER",
+      "managerNamed": "MANAGER (მენეჯერი)",
+      "cashier": "CASHIER",
+      "cashierNamed": "CASHIER (მოლარე)",
+      "waiterNamed": "WAITER (მიმტანი)",
+      "adminNamed": "ADMIN (ადმინისტრატორი)"
+    },
+    "statusTooltip": {
+      "active": "აქტიურია — დააჭირეთ დასაბლოკად",
+      "blocked": "დაბლოკილია — დააჭირეთ გასააქტიურებლად",
+      "changeAria": "სტატუსის შეცვლა"
+    },
+    "status": {
+      "activeLabel": "აქტიური",
+      "blockedLabel": "დაბლოკილი"
+    },
+    "actionsTooltip": {
+      "changePassword": "პაროლის შეცვლა",
+      "setPin": "PIN-კოდის დაყენება",
+      "changePin": "PIN-კოდის შეცვლა",
+      "deleteUser": "მომხმარებლის წაშლა"
+    },
+    "forUserLabel": "მომხმარებლისთვის:",
+    "createModal": {
+      "title": "➕ ახალი მომხმარებლის რეგისტრაცია",
+      "usernameLabel": "მომხმარებლის სახელი",
+      "usernamePlaceholder": "მაგ. nika_cashier",
+      "passwordLabel": "საწყისი პაროლი",
+      "roleLabel": "როლი (Role)",
+      "submitButton": "დამატება"
+    },
+    "pairModal": {
+      "title": "🖥️ სალაროს დაწყვილება",
+      "subtitle": "შეიყვანეთ 6-ნიშნა კოდი, რომელიც მოლარეს ეკრანზე უჩანს ახალ/დაუწყვილებელ სალაროზე.",
+      "codeLabel": "აქტივაციის კოდი",
+      "codePlaceholder": "მაგ. 042817",
+      "registerLabel": "სალარო",
+      "createNewOption": "➕ ახალი სალაროს შექმნა",
+      "attachExistingOption": "არსებულ სალაროზე მიბმა",
+      "noneExistYetSuffix": " (ჯერ არცერთი არ არსებობს)",
+      "newRegisterNameLabel": "ახალი სალაროს სახელი",
+      "newRegisterNamePlaceholder": "მაგ. Register #2 / Express Counter",
+      "selectRegisterLabel": "აირჩიეთ სალარო",
+      "selectPlaceholder": "— აირჩიეთ —",
+      "deactivatedSuffix": " (დეაქტივირებული)",
+      "confirmingButton": "დადასტურება...",
+      "pairButton": "დაწყვილება",
+      "errors": {
+        "codeLength": "კოდი უნდა შედგებოდეს ზუსტად 6 ციფრისგან!",
+        "selectExisting": "აირჩიეთ არსებული სალარო!",
+        "enterNewName": "შეიყვანეთ ახალი სალაროს სახელი!",
+        "pairFailed": "დაწყვილება ვერ მოხერხდა"
+      }
+    },
+    "passwordModal": {
+      "title": "🔑 პაროლის შეცვლა",
+      "newPasswordLabel": "ახალი პაროლი"
+    },
+    "pinModal": {
+      "title": "🔑 მენეჯერის PIN-კოდი",
+      "newPinLabel": "ახალი PIN-კოდი (4 ციფრი)",
+      "errorLength": "PIN-კოდი უნდა შედგებოდეს ზუსტად 4 ციფრისგან!"
+    },
+    "confirmModal": {
+      "deleteUserMessage": "დარწმუნებული ხართ, რომ გსურთ მომხმარებლის [ {{username}} ] სამუდამოდ წაშლა?",
+      "clearHistoryMessage": "დარწმუნებული ხართ, რომ გსურთ მთელი აუდიტის ისტორიის სამუდამოდ წაშლა? ეს მოქმედება შეუქცევადია.",
+      "exportRequiredWarning": "⚠ გასაგრძელებლად ჯერ გადმოწერეთ ლოგების არქივი (CSV) — ღილაკი გააქტიურდება ექსპორტის შემდეგ.",
+      "confirmDeleteButton": "დიახ, წაშალე"
+    },
+    "toggleState": {
+      "on": "ჩაირთო",
+      "off": "გამოირთო"
+    },
+    "toasts": {
+      "loadUsersFailed": "მომხმარებლების ჩატვირთვა ჩავარდა",
+      "pairSuccess": "სალარო წარმატებით დაწყვილდა!",
+      "createUserSuccess": "მომხმარებელი წარმატებით დაემატა!",
+      "createUserFailed": "მომხმარებლის დამატება ჩაიშალა",
+      "roleUpdated": "უფლებები წარმატებით განახლდა!",
+      "saveFailed": "ბაზაში შენახვა ჩავარდა",
+      "statusChanged": "სტატუსი შეიცვალა: {{status}}",
+      "statusChangeFailed": "სტატუსის შეცვლა ჩავარდა",
+      "historyLoadFailed": "ისტორიის ჩატვირთვა ჩავარდა",
+      "exportSuccess": "ლოგების არქივი წარმატებით გადმოიწერა!",
+      "exportFailed": "ექსპორტი ჩავარდა",
+      "historyClearedDefault": "ისტორია წარმატებით გასუფთავდა!",
+      "historyClearFailed": "ისტორიის გასუფთავება ჩავარდა",
+      "accessChangeFailed": "წვდომის შეცვლა ჩავარდა",
+      "historyAccessChanged": "ისტორიის წვდომა: {{state}}",
+      "discountAccessChanged": "ფასდაკლების უფლება: {{state}}",
+      "voidAccessChanged": "ჩეკის გაუქმების უფლება: {{state}}",
+      "clearCartAccessChanged": "კალათის გასუფთავების უფლება: {{state}}",
+      "passwordChangedDefault": "პაროლი შეიცვალა [ {{username}} ]-სთვის!",
+      "passwordChangeFailed": "პაროლის შეცვლა ჩავარდა",
+      "pinSetDefault": "PIN-კოდი დაყენდა [ {{username}} ]-სთვის!",
+      "pinSaveFailed": "PIN-კოდის შენახვა ჩავარდა",
+      "deleteUserDefault": "მომხმარებელი [ {{username}} ] წაიშალა!",
+      "deleteUserFailed": "წაშლა ვერ მოხერხდა"
+    },
+    "permissionLabels": {
+      "historyAccess": "ისტორიის ნახვის უფლება",
+      "discountAccess": "ფასდაკლების უფლება",
+      "voidAccess": "ჩეკის გაუქმების უფლება",
+      "clearCartAccess": "კალათის გასუფთავების უფლება"
+    },
+    "auditLog": {
+      "unknownActor": "უცნობი",
+      "changedPermission": "{{actor}}-მა შეცვალა {{target}}-ის {{permission}}:",
+      "managerPinOverride": "🔑 მენეჯერმა (ID: {{actorId}}) დაადასტურა ფასდაკლების ერთჯერადი უფლება სალაროზე — მოლარე: {{target}}",
+      "managerPinOverrideUsed": "✅ მენეჯერის PIN-კოდით წარმატებით გატარდა გადახდა #{{paymentId}} (მოლარე: {{target}})",
+      "voidReceiptOverride": "🚫 მენეჯერის PIN-კოდით გაუქმდა ჩეკი #{{paymentId}} (მოლარე: {{target}})",
+      "clearCartOverride": "🧺 მენეჯერის PIN-კოდით გასუფთავდა აქტიური კალათა (მოლარე: {{target}})",
+      "removeItemOverrideWithItem": "🧺 მენეჯერის PIN-კოდით წაიშალა პროდუქტი — {{item}} კალათიდან (მოლარე: {{target}})",
+      "removeItemOverride": "🧺 მენეჯერის PIN-კოდით წაიშალა პროდუქტი კალათიდან (მოლარე: {{target}})",
+      "managerPinUpdate": "{{actor}}-მა შეცვალა {{target}}-ის მენეჯერის PIN-კოდი",
+      "defaultAction": "{{actor}}-მა შეცვალა {{target}}-ის უფლება ({{action}}): {{value}}",
+      "unknownValue": "—"
+    }
   }
 }
