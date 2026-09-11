@@ -1,6 +1,6 @@
 # Multi-Language (i18n) — Roadmap
 
-**სტატუსი:** 🟡 მიმდინარე — ინფრასტრუქტურა + 7 გვერდი დასრულებულია (Sales.tsx, Tables.tsx, OrderScreen.tsx, UsersManagement.tsx, Dashboard.tsx + ExecutiveDashboard.tsx, Products.tsx, Modifiers.tsx), დარჩენილია 4 გვერდი + backend error-message-ების ფენა.
+**სტატუსი:** 🟡 მიმდინარე — ინფრასტრუქტურა + 8 გვერდი დასრულებულია (Sales.tsx, Tables.tsx, OrderScreen.tsx, UsersManagement.tsx, Dashboard.tsx + ExecutiveDashboard.tsx, Products.tsx, Modifiers.tsx, KitchenDisplay.tsx), დარჩენილია 3 გვერდი + backend error-message-ების ფენა.
 **თარიღი:** 11.09.2026 (განახლდა)
 **წყარო:** react-i18next-ზე გადასვლის ეტაპობრივი (page-by-page) rollout, დაწყებული Cowork session-ში.
 
@@ -79,7 +79,7 @@
 - ტესტირებულია მომხმარებლის მიერ ორივე ენაზე, ორივე თემაზე.
 
 ### 8. Modifiers.tsx (მოდიფაიერების მართვა — HoReCa)
-**Commit:** `TBD` — `feat(i18n): translate Modifiers.tsx (groups, options, confirm modals)`
+**Commit:** `d85aea0` — `feat(i18n): translate Modifiers.tsx (groups, options, confirm modals)`
 
 - სრულად გადათარგმნილია: header + subtitle, ჯგუფების სია (empty state, badge-ები, action ღილაკები), ინლაინ ოფციების სია (empty state, ინლაინ რედაქტირება/დამატების ფორმები), ჯგუფის create/edit მოდალი (name, selection-type select, required checkbox), ორივე წაშლის confirm-modal (ჯგუფი/ოფცია, `{{name}}` ინტერპოლაციით), 14 toast შეტყობინება.
 - `SELECTION_LABEL` module-level constant გადავიდა `SELECTION_LABEL_KEYS`-ზე (key-path-ები, `t()`-ით რეზოლვდება render-ზე) — იგივე პატერნი, რაც UsersManagement.tsx-ის `PERMISSION_LABEL_KEYS`.
@@ -88,16 +88,24 @@
 - ამ გვერდსაც ცალკე child/modal კომპონენტები არ აქვს `ConfirmModal.tsx`-ის გარდა (მხოლოდ `Icons.tsx` დამატებით imported) — ყველა სხვა მოდალი/ფორმა ინლაინაა ფაილშივე.
 - ტესტირებულია მომხმარებლის მიერ (English/dark) — ჯგუფების სია, ბეჯები, "New Group" მოდალი, ფორმის ველები.
 
+### 9. KitchenDisplay.tsx (KDS — სამზარეულოს/ბარის ეკრანი)
+**Commit:** `1af4898` — `feat(i18n): translate KitchenDisplay.tsx (KDS screen)`
+
+- სრულად გადათარგმნილია: header + subtitle, station-ტაბები (🍳 სამზარეულო / 🍹 ბარი), loading/empty states, ტიკეტ-ბარათები (მაგიდის სახელი vs. Takeaway/ბარი ლეიბლი, ადგილის ნომერი, გასული დროის ბეჯი), advance-action ღილაკები (დაწყება/მზადაა/მიტანილია), 2 toast შეტყობინება.
+- ამ გვერდსაც ცალკე child/modal კომპონენტები არ აქვს (მხოლოდ `getSocket` — `lib/socket.ts`, არა UI კომპონენტი).
+- `STATION_TABS`/`NEXT_ACTION`/`STATUS_LABEL` module-level constant-ები გადავიდა key-path პატერნზე (იგივე `SELECTION_LABEL_KEYS`/`PERMISSION_LABEL_KEYS` მიდგომა).
+- ახალი `kitchenDisplay.*` namespace (14 key). გამოყენებულია არსებული გაზიარებული `common.kitchenStatus.*` (OrderScreen.tsx-ის სესიიდან) 5 სტატუსისთვის ზუსტი დამთხვევით (pending/preparing/ready/served/voided) — **გარდა** `sent`-ისა, რომელიც KDS-ზე "ახალი"-დ ჩანს (არა "გაგზავნილია", რასაც OrderScreen.tsx-ის ბეჯი წერს), ამიტომ ცალკე `kitchenDisplay.statusLabel.sent` key შეიქმნა ამ ერთი განსხვავებისთვის.
+- ტესტირებულია მომხმარებლის მიერ ორივე ენაზე, ორივე თემაზე — station-ტაბები, ტიკეტების ბარათები, advance-flow.
+
 ---
 
 ## ⏳ დარჩენილი გვერდები (თარგმანი ჯერ არ დაწყებულა)
 
 გვერდები დალაგებულია `frontend/src/pages/`-ში ჯერ კიდევ დარჩენილი ქართული ტექსტის მოცულობის მიხედვით (მიახლოებითი, მოიცავს კომენტარებსაც — რეალური scope დაზუსტდება თითოეულის თარგმნის დაწყებისას):
 
-1. **KitchenDisplay.tsx (KDS)** — სამზარეულოს ეკრანი (`common.kitchenStatus.*` უკვე მზადაა გამოსაყენებლად).
-2. **Ingredients.tsx** — ინგრედიენტების მართვა.
-3. **Register.tsx** — სალარო/register-ის გვერდი.
-4. **Settings.tsx** — პარამეტრების გვერდი.
+1. **Ingredients.tsx** — ინგრედიენტების მართვა.
+2. **Register.tsx** — სალარო/register-ის გვერდი.
+3. **Settings.tsx** — პარამეტრების გვერდი.
 
 **შენიშვნა:** ეს სია მოიცავს მხოლოდ `frontend/src/pages/`-ს. დამატებით საჭირო იქნება გაზიარებული კომპონენტების (`frontend/src/components/`) გადამოწმებაც თითოეული გვერდის თარგმნისას — ისე, როგორც `ConfirmModal.tsx` მოგვეყარა Tables.tsx-ის დროს, `SplitBillModal.tsx` — OrderScreen.tsx-ის დროს, და `PrintableZReport.tsx`/`ExecutiveDashboard.tsx` — Dashboard.tsx-ის დროს.
 
