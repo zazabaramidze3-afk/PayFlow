@@ -734,5 +734,35 @@
       "loadFailed": "Failed to load tickets",
       "updateStatusFailed": "Failed to update status"
     }
+  },
+  "ingredients": {
+    "pageTitle": "🍲 Ingredients",
+    "pageSubtitle": "Raw material stock (e.g. \"Meat\", \"Bread\") — attaching a recipe to a specific product happens on the Products page, while editing",
+    "addBtn": "➕ New Ingredient",
+    "editTitle": "✏️ Edit Ingredient",
+    "noIngredientsEmptyState": "No ingredients added yet. Click \"➕ New Ingredient\" above.",
+    "namePlaceholder": "Meat / Bread / Sauce...",
+    "unitLabel": "Unit",
+    "unitPlaceholder": "kg / L / pcs...",
+    "initialStockLabel": "Initial Stock",
+    "stockOutTag": "Out of stock",
+    "stockLowTag": "Running low",
+    "restockAria": "Restock",
+    "restockPlaceholder": "Quantity to add ({{unit}})",
+    "confirmModal": {
+      "deleteTitle": "🗑️ Delete Ingredient",
+      "deleteMessage": "Delete ingredient \"{{name}}\"? (If it is already used in a recipe, deletion will not be possible)"
+    },
+    "toasts": {
+      "loadFailed": "Failed to load ingredients",
+      "nameUnitRequired": "Name and unit are required",
+      "stockNegative": "Stock cannot be negative",
+      "updated": "Ingredient updated",
+      "added": "Ingredient added",
+      "deleted": "Ingredient deleted",
+      "qtyMustBePositive": "Quantity must be a positive number",
+      "stockUpdated": "Stock updated",
+      "stockUpdateFailed": "Failed to update stock"
+    }
   }
 }
