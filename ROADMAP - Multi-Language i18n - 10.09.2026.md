@@ -1,7 +1,7 @@
 # Multi-Language (i18n) — Roadmap
 
-**სტატუსი:** 🟡 მიმდინარე — ინფრასტრუქტურა + 3 გვერდი დასრულებულია (Sales.tsx, Tables.tsx, OrderScreen.tsx), დარჩენილია 5 გვერდი + backend error-message-ების ფენა.
-**თარიღი:** 10.09.2026 (განახლდა)
+**სტატუსი:** 🟡 მიმდინარე — ინფრასტრუქტურა + 4 გვერდი დასრულებულია (Sales.tsx, Tables.tsx, OrderScreen.tsx, UsersManagement.tsx), დარჩენილია 7 გვერდი + backend error-message-ების ფენა.
+**თარიღი:** 11.09.2026 (განახლდა)
 **წყარო:** react-i18next-ზე გადასვლის ეტაპობრივი (page-by-page) rollout, დაწყებული Cowork session-ში.
 
 **კონტექსტი:** აპლიკაციას ემატება მრავალენოვნება — ქართული (default) და ინგლისური. ენა ინახება მომხმარებლის მიხედვით ბაზაში (`users.language` სავარაუდოდ, `PATCH /me/language`-ით მუშავდება). თარგმანი მიმდინარეობს ეტაპობრივად, ერთი გვერდი/კომპონენტი ერთ ჯერზე: ვთარგმნით → ვატესტებთ ლოკალურად (`localhost:3000`) ორივე ენაზე და ორივე თემაზე (light/dark) → commit მხოლოდ მომხმარებლის პირდაპირი დადასტურების შემდეგ → push ყოველთვის მომხმარებელი აკეთებს თავად.
@@ -44,21 +44,33 @@
 - ახალი გაზიარებული key: `common.kitchenStatus.*` (pending/sent/preparing/ready/served/voided) — გამოსადეგი იქნება `KitchenDisplay.tsx`-ისთვისაც.
 - ტესტირებულია მომხმარებლის მიერ ორივე ენაზე, ორივე თემაზე — შეკვეთის სრული flow, PIN-modal, split checkout (თანაბრად + სტუმრების მიხედვით).
 
+### 5. UsersManagement.tsx (მომხმარებლების/უფლებების მართვა)
+**Commit:** `21c5441` — `feat(i18n): translate UsersManagement.tsx (user/permission management)`
+
+- სრულად გადათარგმნილია: header, მობილური card view + desktop ცხრილი (გაზიარებული key-ები ორივესთვის), როლის შეცვლის select, უფლებების toggle-ები (history/discount/void/clear-cart), სტატუსის toggle, action ღილაკები.
+- მოდალები: create-user, pair-register (+ errors), password-change, PIN-change, გაზიარებული confirm-modal (მომხმარებლის წაშლა / ისტორიის გასუფთავება).
+- Module-level `renderAuditLogLine` + `PERMISSION_TOGGLE_LABELS` გადავიდა `i18n.t()`-ზე; audit-log ხაზებში `<strong>`-ბოლდინგი განზრახ მოშორდა (plain interpolated წინადადებებით ჩანაცვლდა), რადგან `<Trans>` პროექტში არსად გამოიყენება.
+- **მნიშვნელოვანი დეტალი:** `UserPermission.status`-ის raw data value (`'ა ქ ტ ი უ რ ი '`/`'და ბ ლო კ ი ლი '`, backend contract, spaces-ით) **უცვლელად დარჩა** — ითარგმნა მხოლოდ ეკრანზე ნაჩვენები ლეიბლი/tooltip/toast, ცალკე mapping-ის საშუალებით.
+- ახალი `usersManagement.*` namespace (102 გამოყენებული key), მაქსიმალურად გამოყენებულია `login.*`/`nav.*`/`common.*`/`tables.*` ზუსტი დამთხვევებისთვის.
+- ამ გვერდს ცალკე child/modal კომპონენტები არ აქვს (მხოლოდ `Icons.tsx` არის imported) — SplitBillModal-ისნაირი "გამოტოვების" რისკი აქ არ არსებობდა.
+- ტესტირებულია მომხმარებლის მიერ ორივე ენაზე, ორივე თემაზე.
+
+**⚠️ ცალკე აღმოჩენილი (i18n scope-ის გარეთ):** UsersManagement.tsx-ის შესწავლისას აღმოჩნდა, რომ "დაბლოკვის" toggle წერს `'და ბ ლო კ ი ლი '` (spaces-ით), მაგრამ `backend/src/routes/auth.ts`-ის login-blocking შემოწმება (107, 316 ხაზები) მხოლოდ `'inactive'`/`'დაბლოკილი'`-ს (spaces-ის გარეშე) ადარებს — ანუ UI-დან დაბლოკვა რეალურად ვერ უშლის ხელს login-ს. Security-related ბაგია, ცალკე გადასაწყვეტია.
+
 ---
 
 ## ⏳ დარჩენილი გვერდები (თარგმანი ჯერ არ დაწყებულა)
 
 გვერდები დალაგებულია `frontend/src/pages/`-ში ჯერ კიდევ დარჩენილი ქართული ტექსტის მოცულობის მიხედვით (მიახლოებითი, მოიცავს კომენტარებსაც — რეალური scope დაზუსტდება თითოეულის თარგმნის დაწყებისას):
 
-1. **UsersManagement.tsx** — მომხმარებლების/როლების მართვის გვერდი (admin/manager). დიდი ფაილია.
-2. **Dashboard.tsx** — მთავარი დეშბორდი (სტატისტიკა/რეპორტები).
-3. **Products.tsx** — პროდუქტების მართვის გვერდი.
-4. **ExecutiveDashboard.tsx** — executive/owner დეშბორდი.
-5. **Modifiers.tsx** — მოდიფაიერების მართვა (HoReCa).
-6. **KitchenDisplay.tsx (KDS)** — სამზარეულოს ეკრანი (`common.kitchenStatus.*` უკვე მზადაა გამოსაყენებლად).
-7. **Ingredients.tsx** — ინგრედიენტების მართვა.
-8. **Register.tsx** — სალარო/register-ის გვერდი.
-9. **Settings.tsx** — პარამეტრების გვერდი.
+1. **Dashboard.tsx** — მთავარი დეშბორდი (სტატისტიკა/რეპორტები).
+2. **Products.tsx** — პროდუქტების მართვის გვერდი.
+3. **ExecutiveDashboard.tsx** — executive/owner დეშბორდი.
+4. **Modifiers.tsx** — მოდიფაიერების მართვა (HoReCa).
+5. **KitchenDisplay.tsx (KDS)** — სამზარეულოს ეკრანი (`common.kitchenStatus.*` უკვე მზადაა გამოსაყენებლად).
+6. **Ingredients.tsx** — ინგრედიენტების მართვა.
+7. **Register.tsx** — სალარო/register-ის გვერდი.
+8. **Settings.tsx** — პარამეტრების გვერდი.
 
 **შენიშვნა:** ეს სია მოიცავს მხოლოდ `frontend/src/pages/`-ს. დამატებით საჭირო იქნება გაზიარებული კომპონენტების (`frontend/src/components/`) გადამოწმებაც თითოეული გვერდის თარგმნისას — ისე, როგორც `ConfirmModal.tsx` მოგვეყარა Tables.tsx-ის დროს და `SplitBillModal.tsx` — OrderScreen.tsx-ის დროს.
 
