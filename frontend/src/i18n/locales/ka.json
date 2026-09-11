@@ -710,5 +710,29 @@
       "updateFailed": "განახლება ვერ მოხერხდა",
       "optionDeleted": "ოფცია წაიშალა"
     }
+  },
+  "kitchenDisplay": {
+    "pageTitle": "🍳 სამზარეულო/ბარის ეკრანი",
+    "pageSubtitle": "ავტომატურად განახლდება — ახალი ტიკეტები დამატებისთანავე ჩნდება",
+    "stationTabs": {
+      "kitchen": "🍳 სამზარეულო",
+      "bar": "🍹 ბარი"
+    },
+    "statusLabel": {
+      "sent": "ახალი"
+    },
+    "actions": {
+      "start": "🔥 დაწყება",
+      "markReady": "✅ მზადაა",
+      "markServed": "🍽️ მიტანილია"
+    },
+    "noActiveTickets": "ამ სადგურზე აქტიური ტიკეტები არ არის.",
+    "takeawayLabel": "🥡 Takeaway/ბარი",
+    "seatLabel": "💺 ადგილი {{seat}}",
+    "elapsedMinutes": "⏱ {{minutes}} წთ",
+    "toasts": {
+      "loadFailed": "ტიკეტების ჩატვირთვა ვერ მოხერხდა",
+      "updateStatusFailed": "სტატუსის განახლება ვერ მოხერხდა"
+    }
   }
 }

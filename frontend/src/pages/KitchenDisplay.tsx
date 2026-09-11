@@ -23,6 +23,7 @@ import { KitchenTicket, KitchenStatus, OrderStation } from '../lib/horecaTypes';
 // push-based განახლება 4-წამიანი polling-ის ნაცვლად (lib/socket.ts-ის
 // header-კომენტარი).
 import { getSocket } from '../lib/socket';
+import { useTranslation } from 'react-i18next';
 
 type ToastType = 'success' | 'error' | 'info';
 interface ToastItem { id: number; message: string; type: ToastType; }
@@ -36,27 +37,27 @@ type Station = NonNullable<OrderStation>;
 const POLL_INTERVAL_MS = 20000;
 
 const STATION_TABS: { value: Station; label: string }[] = [
-  { value: 'kitchen', label: '🍳 სამზარეულო' },
-  { value: 'bar', label: '🍹 ბარი' },
+  { value: 'kitchen', label: 'kitchenDisplay.stationTabs.kitchen' },
+  { value: 'bar', label: 'kitchenDisplay.stationTabs.bar' },
 ];
 
 // 🔀 ერთადერთი "შემდეგი ნაბიჯი" თითო სტატუსზე — backend/src/routes/
 // kitchen.ts-ის ALLOWED_TRANSITIONS-ის იგივე თანმიმდევრობის frontend
 // ანარეკლი (მხოლოდ ჩვენებისთვის; ვალიდაცია საბოლოოდ სერვერზეა).
 const NEXT_ACTION: Partial<Record<KitchenStatus, { next: KitchenStatus; label: string; className: string }>> = {
-  pending: { next: 'preparing', label: '🔥 დაწყება', className: 'actionStart' },
-  sent: { next: 'preparing', label: '🔥 დაწყება', className: 'actionStart' },
-  preparing: { next: 'ready', label: '✅ მზადაა', className: 'actionReady' },
-  ready: { next: 'served', label: '🍽️ მიტანილია', className: 'actionServed' },
+  pending: { next: 'preparing', label: 'kitchenDisplay.actions.start', className: 'actionStart' },
+  sent: { next: 'preparing', label: 'kitchenDisplay.actions.start', className: 'actionStart' },
+  preparing: { next: 'ready', label: 'kitchenDisplay.actions.markReady', className: 'actionReady' },
+  ready: { next: 'served', label: 'kitchenDisplay.actions.markServed', className: 'actionServed' },
 };
 
-const STATUS_LABEL: Record<KitchenStatus, string> = {
-  pending: 'მოლოდინში',
-  sent: 'ახალი',
-  preparing: 'მზადდება',
-  ready: 'მზადაა',
-  served: 'მიტანილია',
-  voided: 'გაუქმებული',
+const STATUS_LABEL_KEYS: Record<KitchenStatus, string> = {
+  pending: 'common.kitchenStatus.pending',
+  sent: 'kitchenDisplay.statusLabel.sent',
+  preparing: 'common.kitchenStatus.preparing',
+  ready: 'common.kitchenStatus.ready',
+  served: 'common.kitchenStatus.served',
+  voided: 'common.kitchenStatus.voided',
 };
 
 function elapsedMinutes(iso: string | null): number {
@@ -72,6 +73,7 @@ function elapsedClass(minutes: number): string {
 }
 
 export default function KitchenDisplay() {
+  const { t } = useTranslation();
   const [station, setStation] = useState<Station>('kitchen');
   const [tickets, setTickets] = useState<KitchenTicket[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -95,7 +97,7 @@ export default function KitchenDisplay() {
       setTickets(response.data);
     } catch (error: unknown) {
       const message = axios.isAxiosError<{ error?: string }>(error) ? error.response?.data?.error : undefined;
-      showToast(message || 'ტიკეტების ჩატვირთვა ვერ მოხერხდა', 'error');
+      showToast(message || t('kitchenDisplay.toasts.loadFailed'), 'error');
     } finally {
       setLoading(false);
     }
@@ -165,7 +167,7 @@ export default function KitchenDisplay() {
       }
     } catch (error: unknown) {
       const message = axios.isAxiosError<{ error?: string }>(error) ? error.response?.data?.error : undefined;
-      showToast(message || 'სტატუსის განახლება ვერ მოხერხდა', 'error');
+      showToast(message || t('kitchenDisplay.toasts.updateStatusFailed'), 'error');
     } finally {
       setUpdatingId(null);
     }
@@ -185,8 +187,8 @@ export default function KitchenDisplay() {
     <div className={styles.kdsContainer}>
       <div className={styles.topPanel}>
         <div>
-          <h2>🍳 სამზარეულო/ბარის ეკრანი</h2>
-          <small>ავტომატურად განახლდება — ახალი ტიკეტები დამატებისთანავე ჩნდება</small>
+          <h2>{t('kitchenDisplay.pageTitle')}</h2>
+          <small>{t('kitchenDisplay.pageSubtitle')}</small>
         </div>
         <div className={styles.stationTabs}>
           {STATION_TABS.map(tab => (
@@ -195,22 +197,22 @@ export default function KitchenDisplay() {
               className={`${styles.stationTab} ${station === tab.value ? styles.active : ''}`}
               onClick={() => setStation(tab.value)}
             >
-              {tab.label}
+              {t(tab.label)}
             </button>
           ))}
         </div>
       </div>
 
       {loading ? (
-        <div className={styles.emptyState}>იტვირთება...</div>
+        <div className={styles.emptyState}>{t('nav.loading')}</div>
       ) : grouped.size === 0 ? (
-        <div className={styles.emptyState}>ამ სადგურზე აქტიური ტიკეტები არ არის.</div>
+        <div className={styles.emptyState}>{t('kitchenDisplay.noActiveTickets')}</div>
       ) : (
         <div className={styles.grid}>
           {Array.from(grouped.entries()).map(([orderId, items]) => (
             <div key={orderId} className={styles.orderGroup}>
               <div className={styles.orderGroupHeader}>
-                {items[0].table_name ? `🍽️ ${items[0].table_name}` : '🥡 Takeaway/ბარი'}
+                {items[0].table_name ? `🍽️ ${items[0].table_name}` : t('kitchenDisplay.takeawayLabel')}
               </div>
               {items.map(ticket => {
                 const minutes = elapsedMinutes(ticket.sent_to_kitchen_at ?? ticket.created_at);
@@ -227,13 +229,13 @@ export default function KitchenDisplay() {
                         <span className={styles.ticketNotes}>🧩 {ticket.modifiers.map(m => m.name).join(', ')}</span>
                       )}
                       {ticket.seat_number !== null && (
-                        <span className={styles.ticketMeta}>💺 ადგილი {ticket.seat_number}</span>
+                        <span className={styles.ticketMeta}>{t('kitchenDisplay.seatLabel', { seat: ticket.seat_number })}</span>
                       )}
                       {ticket.notes && <span className={styles.ticketNotes}>📝 {ticket.notes}</span>}
                     </div>
                     <div className={styles.ticketFooter}>
                       <span className={`${styles.elapsedBadge} ${styles[elapsedClass(minutes)]}`}>
-                        ⏱ {minutes} წთ · {STATUS_LABEL[ticket.kitchen_status]}
+                        {t('kitchenDisplay.elapsedMinutes', { minutes })} · {t(STATUS_LABEL_KEYS[ticket.kitchen_status])}
                       </span>
                       {action && (
                         <button
@@ -241,7 +243,7 @@ export default function KitchenDisplay() {
                           disabled={updatingId === ticket.id}
                           onClick={() => handleAdvance(ticket)}
                         >
-                          {updatingId === ticket.id ? '...' : action.label}
+                          {updatingId === ticket.id ? '...' : t(action.label)}
                         </button>
                       )}
                     </div>

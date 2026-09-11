@@ -710,5 +710,29 @@
       "updateFailed": "Failed to update",
       "optionDeleted": "Option deleted"
     }
+  },
+  "kitchenDisplay": {
+    "pageTitle": "🍳 Kitchen/Bar Display",
+    "pageSubtitle": "Updates automatically — new tickets appear as soon as they're added",
+    "stationTabs": {
+      "kitchen": "🍳 Kitchen",
+      "bar": "🍹 Bar"
+    },
+    "statusLabel": {
+      "sent": "New"
+    },
+    "actions": {
+      "start": "🔥 Start",
+      "markReady": "✅ Ready",
+      "markServed": "🍽️ Served"
+    },
+    "noActiveTickets": "No active tickets at this station.",
+    "takeawayLabel": "🥡 Takeaway/Bar",
+    "seatLabel": "💺 Seat {{seat}}",
+    "elapsedMinutes": "⏱ {{minutes}} min",
+    "toasts": {
+      "loadFailed": "Failed to load tickets",
+      "updateStatusFailed": "Failed to update status"
+    }
   }
 }
