@@ -64,7 +64,9 @@
       "served": "მიტანილია",
       "voided": "გაუქმებული"
     },
-    "unknown": "უცნობი"
+    "unknown": "უცნობი",
+    "edit": "რედაქტირება",
+    "delete": "წაშლა"
   },
   "sales": {
     "paymentBadge": {
@@ -576,6 +578,93 @@
         "hourlyPeakTitle": "⏰ დატვირთვა საათების მიხედვით (მიმდინარე თვე)",
         "receiptCountMetricLabel": "ჩეკების რაოდენობა"
       }
+    }
+  },
+  "products": {
+    "pageTitle": "📦 პროდუქტების მართვა",
+    "downloadTemplateBtn": "ნიმუშის ჩამოტვირთვა",
+    "importBtn": "📥 Import",
+    "exportExcelBtn": "Excel ექსპორტი",
+    "exportPdfBtn": "PDF ექსპორტი",
+    "lowStockToggle": "⚠ მხოლოდ ამოწურვადი ({{count}})",
+    "lowStockWarning": "ყურადღება: საწყობში {{count}} დასახელების პროდუქტის მარაგი კრიტიკულ ზღვარზეა (5 ცალი ან ნაკლები)!",
+    "barcodePlaceholder": "შტრიხკოდი",
+    "namePlaceholder": "დასახელება",
+    "pricePlaceholder": "ფასი",
+    "stockPlaceholder": "რაოდენობა",
+    "station": {
+      "none": "🍳/🍹 სადგური (არცერთი)",
+      "kitchen": "🍳 სამზარეულო",
+      "bar": "🍹 ბარი"
+    },
+    "updateBtn": "განახლება",
+    "addBtn": "დამატება",
+    "modifierPanel": {
+      "title": "🧩 მიბმული მოდიფაიერების ჯგუფები",
+      "noGroups": "ჯერ არ არის შექმნილი ჯგუფი — შექმენით \"🧩 მოდიფაიერები\" გვერდზე.",
+      "requiredTag": "სავალდებულო",
+      "saveBtn": "მიბმის შენახვა"
+    },
+    "recipePanel": {
+      "title": "🍲 რეცეპტი (BOM)",
+      "recipeBasedLabel": "ეს პროდუქტი რეცეპტზეა დამოკიდებული (ნედლეულისგან მზადდება — stock ცალკე ინგრედიენტების მარაგიდან გამოითვლება)",
+      "noIngredients": "ჯერ არ არის შექმნილი ინგრედიენტი — შექმენით \"🍲 ინგრედიენტები\" გვერდზე.",
+      "selectIngredientPlaceholder": "— ინგრედიენტი —",
+      "removeIngredientAria": "ინგრედიენტის მოხსნა",
+      "addRowBtn": "➕ ინგრედიენტის დამატება",
+      "saveBtn": "რეცეპტის შენახვა"
+    },
+    "savingEllipsis": "ინახება...",
+    "table": {
+      "stock": "მარაგი",
+      "actions": "მოქმედება",
+      "emptyState": "პროდუქტები არ მოიძებნა",
+      "outOfStock": "ამოიწურა",
+      "lowStock": "იწურება"
+    },
+    "confirmModal": {
+      "deleteMessage": "ნამდვილად გსურთ ამ პროდუქტის წაშლა?",
+      "confirmDeleteBtn": "დიახ, წაშლა"
+    },
+    "scannerModal": {
+      "title": "🔍 შტრიხკოდი: {{code}}",
+      "foundLabel": "ნაპოვნია:",
+      "currentStockSuffix": "(მიმდინარე მარაგი: {{stock}})",
+      "restockQuantityPlaceholder": "რაოდენობა დასამატებლად",
+      "restockSubmitBtn": "მარაგის განახლება",
+      "newProductLabel": "➕ ახალი პროდუქტის რეგისტრაცია",
+      "initialStockPlaceholder": "საწყისი მარაგი",
+      "addToDbBtn": "ბაზაში დამატება"
+    },
+    "importModal": {
+      "title": "📥 Import შედეგი",
+      "importedLabel": "✅ დაემატა:",
+      "skippedLabel": "⚠️ გამოტოვებულია:",
+      "rowLabel": "Row {{number}}"
+    },
+    "toasts": {
+      "restockQuantityInvalid": "დასამატებელი რაოდენობა უნდა იყოს 0-ზე მეტი!",
+      "restockSuccess": "მარაგი წარმატებით განახლდა!",
+      "restockFailed": "მარაგის განახლება ვერ მოხერხდა!",
+      "priceInvalid": "პროდუქტის ფასი უნდა იყოს 0-ზე მეტი!",
+      "stockInvalid": "პროდუქტის მარაგი არ შეიძლება იყოს უარყოფითი!",
+      "productAdded": "პროდუქტი წარმატებით დაემატა!",
+      "productAddFailed": "პროდუქტის დამატება ვერ მოხერხდა!",
+      "productUpdated": "პროდუქტი წარმატებით განახლდა!",
+      "saveFailed": "შეცდომა მონაცემების შენახვისას!",
+      "productDeleted": "პროდუქტი წაიშალა",
+      "deleteFailed": "შეცდომა წაშლისას!",
+      "modifiersSaved": "მოდიფაიერების მიბმა შენახულია!",
+      "modifiersSaveFailed": "მოდიფაიერების შენახვა ვერ მოხერხდა!",
+      "recipeRowInvalid": "ყოველ ხაზს სჭირდება არჩეული ინგრედიენტი და დადებითი რაოდენობა!",
+      "recipeSaved": "რეცეპტი შენახულია!",
+      "recipeSaveFailed": "რეცეპტის შენახვა ვერ მოხერხდა!",
+      "importSuccess": "{{count}} პროდუქტი წარმატებით აიტვირთა!",
+      "importAllSkipped": "არცერთი პროდუქტი ვერ აიტვირთა — იხილეთ დეტალები",
+      "importFailedFallback": "Import ვერ მოხერხდა",
+      "templateDownloadFailed": "ნიმუშის ჩამოტვირთვა ვერ მოხერხდა!",
+      "excelExportFailed": "Excel ექსპორტი ჩავარდა!",
+      "pdfExportFailed": "PDF ექსპორტი ჩავარდა!"
     }
   }
 }

@@ -64,7 +64,9 @@
       "served": "Served",
       "voided": "Voided"
     },
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "edit": "Edit",
+    "delete": "Delete"
   },
   "sales": {
     "paymentBadge": {
@@ -576,6 +578,93 @@
         "hourlyPeakTitle": "⏰ Load by Hour (Current Month)",
         "receiptCountMetricLabel": "Receipt Count"
       }
+    }
+  },
+  "products": {
+    "pageTitle": "📦 Product Management",
+    "downloadTemplateBtn": "Download Template",
+    "importBtn": "📥 Import",
+    "exportExcelBtn": "Excel Export",
+    "exportPdfBtn": "PDF Export",
+    "lowStockToggle": "⚠ Low Stock Only ({{count}})",
+    "lowStockWarning": "Attention: {{count}} product(s) in the warehouse have critically low stock (5 or fewer)!",
+    "barcodePlaceholder": "Barcode",
+    "namePlaceholder": "Name",
+    "pricePlaceholder": "Price",
+    "stockPlaceholder": "Quantity",
+    "station": {
+      "none": "🍳/🍹 Station (None)",
+      "kitchen": "🍳 Kitchen",
+      "bar": "🍹 Bar"
+    },
+    "updateBtn": "Update",
+    "addBtn": "Add",
+    "modifierPanel": {
+      "title": "🧩 Attached Modifier Groups",
+      "noGroups": "No groups created yet — create one on the \"🧩 Modifiers\" page.",
+      "requiredTag": "Required",
+      "saveBtn": "Save Attachment"
+    },
+    "recipePanel": {
+      "title": "🍲 Recipe (BOM)",
+      "recipeBasedLabel": "This product depends on a recipe (made from raw ingredients — stock is calculated separately from ingredient inventory)",
+      "noIngredients": "No ingredients created yet — create one on the \"🍲 Ingredients\" page.",
+      "selectIngredientPlaceholder": "— Ingredient —",
+      "removeIngredientAria": "Remove ingredient",
+      "addRowBtn": "➕ Add Ingredient",
+      "saveBtn": "Save Recipe"
+    },
+    "savingEllipsis": "Saving...",
+    "table": {
+      "stock": "Stock",
+      "actions": "Actions",
+      "emptyState": "No products found",
+      "outOfStock": "Out of Stock",
+      "lowStock": "Running Low"
+    },
+    "confirmModal": {
+      "deleteMessage": "Are you sure you want to delete this product?",
+      "confirmDeleteBtn": "Yes, Delete"
+    },
+    "scannerModal": {
+      "title": "🔍 Barcode: {{code}}",
+      "foundLabel": "Found:",
+      "currentStockSuffix": "(current stock: {{stock}})",
+      "restockQuantityPlaceholder": "Quantity to add",
+      "restockSubmitBtn": "Update Stock",
+      "newProductLabel": "➕ New Product Registration",
+      "initialStockPlaceholder": "Initial Stock",
+      "addToDbBtn": "Add to Database"
+    },
+    "importModal": {
+      "title": "📥 Import Result",
+      "importedLabel": "✅ Added:",
+      "skippedLabel": "⚠️ Skipped:",
+      "rowLabel": "Row {{number}}"
+    },
+    "toasts": {
+      "restockQuantityInvalid": "The quantity to add must be greater than 0!",
+      "restockSuccess": "Stock updated successfully!",
+      "restockFailed": "Failed to update stock!",
+      "priceInvalid": "Product price must be greater than 0!",
+      "stockInvalid": "Product stock cannot be negative!",
+      "productAdded": "Product added successfully!",
+      "productAddFailed": "Failed to add product!",
+      "productUpdated": "Product updated successfully!",
+      "saveFailed": "Error saving data!",
+      "productDeleted": "Product deleted",
+      "deleteFailed": "Error deleting!",
+      "modifiersSaved": "Modifier attachment saved!",
+      "modifiersSaveFailed": "Failed to save modifiers!",
+      "recipeRowInvalid": "Every row needs a selected ingredient and a positive quantity!",
+      "recipeSaved": "Recipe saved!",
+      "recipeSaveFailed": "Failed to save recipe!",
+      "importSuccess": "{{count}} product(s) imported successfully!",
+      "importAllSkipped": "No products were imported — see details",
+      "importFailedFallback": "Import failed",
+      "templateDownloadFailed": "Failed to download template!",
+      "excelExportFailed": "Excel export failed!",
+      "pdfExportFailed": "PDF export failed!"
     }
   }
 }

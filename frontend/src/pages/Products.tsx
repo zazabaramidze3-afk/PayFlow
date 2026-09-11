@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import styles from './Products.module.scss';
 import { ModifierGroupWithOptions, Ingredient, ProductRecipe } from '../lib/horecaTypes';
 import { EditIcon, TrashIcon, XIcon } from '../components/Icons';
@@ -46,6 +47,7 @@ interface ProductImportResult {
 }
 
 export default function Products({ businessType }: ProductsProps) {
+  const { t } = useTranslation();
   // ძირითადი სტეიტები (State)
   const [products, setProducts] = useState<Product[]>([]);
   const [barcode, setBarcode] = useState('');
@@ -202,7 +204,7 @@ export default function Products({ businessType }: ProductsProps) {
 
     const qty = parseInt(restockQuantity);
     if (isNaN(qty) || qty <= 0) {
-      toast.error('დასამატებელი რაოდენობა უნდა იყოს 0-ზე მეტი!');
+      toast.error(t('products.toasts.restockQuantityInvalid'));
       return;
     }
 
@@ -211,10 +213,10 @@ export default function Products({ businessType }: ProductsProps) {
         quantityToAdd: qty
       });
       setProducts(products.map(p => p.id === foundProduct.id ? { ...p, stock: p.stock + qty } : p));
-      toast.success('მარაგი წარმატებით განახლდა!');
+      toast.success(t('products.toasts.restockSuccess'));
       closeScannerModal();
     } catch (err) {
-      toast.error('მარაგის განახლება ვერ მოხერხდა!');
+      toast.error(t('products.toasts.restockFailed'));
     }
   };
 
@@ -225,11 +227,11 @@ export default function Products({ businessType }: ProductsProps) {
     const parsedStock = parseInt(stock);
 
     if (parsedPrice <= 0) {
-      toast.error('პროდუქტის ფასი უნდა იყოს 0-ზე მეტი!');
+      toast.error(t('products.toasts.priceInvalid'));
       return;
     }
     if (parsedStock < 0) {
-      toast.error('პროდუქტის მარაგი არ შეიძლება იყოს უარყოფითი!');
+      toast.error(t('products.toasts.stockInvalid'));
       return;
     }
 
@@ -238,10 +240,10 @@ export default function Products({ businessType }: ProductsProps) {
         barcode: scannedBarcode, name, price: parsedPrice, stock: parsedStock
       });
       setProducts([...products, response.data]);
-      toast.success('პროდუქტი წარმატებით დაემატა!');
+      toast.success(t('products.toasts.productAdded'));
       closeScannerModal();
     } catch (error) {
-      toast.error('პროდუქტის დამატება ვერ მოხერხდა!');
+      toast.error(t('products.toasts.productAddFailed'));
     }
   };
 
@@ -262,11 +264,11 @@ export default function Products({ businessType }: ProductsProps) {
     const parsedStock = parseInt(stock);
 
     if (isNaN(parsedPrice) || parsedPrice <= 0) {
-      toast.error('პროდუქტის ფასი უნდა იყოს 0-ზე მეტი!');
+      toast.error(t('products.toasts.priceInvalid'));
       return;
     }
     if (isNaN(parsedStock) || parsedStock < 0) {
-      toast.error('პროდუქტის მარაგი არ შეიძლება იყოს უარყოფითი!');
+      toast.error(t('products.toasts.stockInvalid'));
       return;
     }
 
@@ -285,15 +287,15 @@ export default function Products({ businessType }: ProductsProps) {
         const response = await axios.put(`/api/products/${editingId}`, productData);
         setProducts(products.map(p => p.id === editingId ? response.data : p));
         setEditingId(null);
-        toast.success('პროდუქტი წარმატებით განახლდა!');
+        toast.success(t('products.toasts.productUpdated'));
       } else {
         const response = await axios.post('/api/products', productData);
         setProducts([...products, response.data]);
-        toast.success('პროდუქტი წარმატებით დაემატა!');
+        toast.success(t('products.toasts.productAdded'));
       }
       setBarcode(''); setName(''); setPrice(''); setStock(''); setStation(null);
     } catch (error) {
-      toast.error('შეცდომა მონაცემების შენახვისას!');
+      toast.error(t('products.toasts.saveFailed'));
     }
   };
 
@@ -302,16 +304,16 @@ export default function Products({ businessType }: ProductsProps) {
     try {
       await axios.delete(`/api/products/${id}`);
       setProducts(products.filter(p => p.id !== id));
-      toast.success('პროდუქტი წაიშალა');
+      toast.success(t('products.toasts.productDeleted'));
     } catch (error) {
-      toast.error('შეცდომა წაშლისას!');
+      toast.error(t('products.toasts.deleteFailed'));
     }
   };
 
   const handleDelete = (id: number) => {
     setConfirmModal({
       show: true,
-      message: 'ნამდვილად გსურთ ამ პროდუქტის წაშლა?',
+      message: t('products.confirmModal.deleteMessage'),
       onConfirm: () => performDelete(id),
     });
   };
@@ -372,9 +374,9 @@ export default function Products({ businessType }: ProductsProps) {
     setModifiersSaving(true);
     try {
       await axios.put(`/api/modifiers/products/${editingId}`, { modifierGroupIds: attachedGroupIds });
-      toast.success('მოდიფაიერების მიბმა შენახულია!');
+      toast.success(t('products.toasts.modifiersSaved'));
     } catch (error) {
-      toast.error('მოდიფაიერების შენახვა ვერ მოხერხდა!');
+      toast.error(t('products.toasts.modifiersSaveFailed'));
     } finally {
       setModifiersSaving(false);
     }
@@ -404,7 +406,7 @@ export default function Products({ businessType }: ProductsProps) {
       for (const row of recipeRows) {
         const qty = Number(row.quantityRequired);
         if (!row.ingredientId || !Number.isFinite(qty) || qty <= 0) {
-          toast.error('ყოველ ხაზს სჭირდება არჩეული ინგრედიენტი და დადებითი რაოდენობა!');
+          toast.error(t('products.toasts.recipeRowInvalid'));
           return;
         }
       }
@@ -418,10 +420,10 @@ export default function Products({ businessType }: ProductsProps) {
           ? recipeRows.map(row => ({ ingredientId: row.ingredientId, quantityRequired: Number(row.quantityRequired) }))
           : [],
       });
-      toast.success('რეცეპტი შენახულია!');
+      toast.success(t('products.toasts.recipeSaved'));
       fetchProducts();
     } catch (error) {
-      toast.error('რეცეპტის შენახვა ვერ მოხერხდა!');
+      toast.error(t('products.toasts.recipeSaveFailed'));
     } finally {
       setRecipeSaving(false);
     }
@@ -453,13 +455,13 @@ export default function Products({ businessType }: ProductsProps) {
       setImportModalOpen(true);
 
       if (response.data.importedCount > 0) {
-        toast.success(`${response.data.importedCount} პროდუქტი წარმატებით აიტვირთა!`);
+        toast.success(t('products.toasts.importSuccess', { count: response.data.importedCount }));
         fetchProducts();
       } else if (response.data.skippedCount > 0) {
-        toast.error('არცერთი პროდუქტი ვერ აიტვირთა — იხილეთ დეტალები');
+        toast.error(t('products.toasts.importAllSkipped'));
       }
     } catch (error: any) {
-      const message = error?.response?.data?.error || 'Import ვერ მოხერხდა';
+      const message = error?.response?.data?.error || t('products.toasts.importFailedFallback');
       toast.error(message);
     } finally {
       setImporting(false);
@@ -481,7 +483,7 @@ export default function Products({ businessType }: ProductsProps) {
       link.download = 'product_import_template.xlsx';
       link.click();
     } catch (error) {
-      toast.error('ნიმუშის ჩამოტვირთვა ვერ მოხერხდა!');
+      toast.error(t('products.toasts.templateDownloadFailed'));
     }
   };
 
@@ -496,7 +498,7 @@ export default function Products({ businessType }: ProductsProps) {
       link.download = `products_report_${showOnlyLowStock ? 'low_stock' : 'all'}.xlsx`;
       link.click();
     } catch (error) {
-      toast.error('Excel ექსპორტი ჩავარდა!');
+      toast.error(t('products.toasts.excelExportFailed'));
     }
   };
 
@@ -510,7 +512,7 @@ export default function Products({ businessType }: ProductsProps) {
       link.download = `products_report_${showOnlyLowStock ? 'low_stock' : 'all'}.pdf`;
       link.click();
     } catch (error) {
-      toast.error('PDF ექსპორტი ჩავარდა!');
+      toast.error(t('products.toasts.pdfExportFailed'));
     }
   };
 
@@ -525,11 +527,11 @@ export default function Products({ businessType }: ProductsProps) {
 
       {/* ჰედერი, ექსპორტის ღილაკები და ფილტრი */}
       <div className={styles.header}>
-        <h2 className={styles.heading}>📦 პროდუქტების მართვა</h2>
+        <h2 className={styles.heading}>{t('products.pageTitle')}</h2>
         <div className={styles.headerActions}>
-          <button type="button" onClick={downloadImportTemplate} className={styles.importTemplateLink}>ნიმუშის ჩამოტვირთვა</button>
+          <button type="button" onClick={downloadImportTemplate} className={styles.importTemplateLink}>{t('products.downloadTemplateBtn')}</button>
           <button type="button" onClick={handleImportClick} className={styles.importBtn} disabled={importing}>
-            {importing ? 'იტვირთება...' : '📥 Import'}
+            {importing ? t('nav.loading') : t('products.importBtn')}
           </button>
           <input
             type="file"
@@ -538,11 +540,11 @@ export default function Products({ businessType }: ProductsProps) {
             accept=".xlsx"
             style={{ display: 'none' }}
           />
-          <button type="button" onClick={exportToExcel} className={styles.exportExcel}>Excel ექსპორტი</button>
-          <button type="button" onClick={exportToPDF} className={styles.exportPdf}>PDF ექსპორტი</button>
+          <button type="button" onClick={exportToExcel} className={styles.exportExcel}>{t('products.exportExcelBtn')}</button>
+          <button type="button" onClick={exportToPDF} className={styles.exportPdf}>{t('products.exportPdfBtn')}</button>
           <label className={`${styles.lowStockToggle} ${showOnlyLowStock ? styles.active : ''}`}>
             <input type="checkbox" checked={showOnlyLowStock} onChange={(e) => { setShowOnlyLowStock(e.target.checked); setCurrentPage(1); }} />
-            ⚠ მხოლოდ ამოწურვადი ({lowStockCount})
+            {t('products.lowStockToggle', { count: lowStockCount })}
           </label>
         </div>
       </div>
@@ -550,20 +552,20 @@ export default function Products({ businessType }: ProductsProps) {
       {/* საინფორმაციო ბანერი კრიტიკულ მარაგებზე */}
       {lowStockCount > 0 && !showOnlyLowStock && (
         <div className={styles.warningBanner}>
-          ყურადღება: საწყობში <strong>{lowStockCount} დასახელების</strong> პროდუქტის მარაგი კრიტიკულ ზღვარზეა (5 ცალი ან ნაკლები)!
+          {t('products.lowStockWarning', { count: lowStockCount })}
         </div>
       )}
 
       {/* პროდუქტის დამატების/რედაქტირების დაცული ფორმა */}
       <form onSubmit={handleSaveProduct} className={styles.form}>
         {/* შტრიხკოდი: ბლოკავს მინუსებს და ასოებს, ტოვებს მხოლოდ ციფრებს */}
-        <input type="text" value={barcode} onChange={e => setBarcode(e.target.value.replace(/\D/g, ''))} className={styles.input} placeholder="შტრიხკოდი" />
+        <input type="text" value={barcode} onChange={e => setBarcode(e.target.value.replace(/\D/g, ''))} className={styles.input} placeholder={t('products.barcodePlaceholder')} />
         {/* დასახელება */}
-        <input type="text" value={name} onChange={e => setName(e.target.value)} className={styles.input} placeholder="დასახელება" />
+        <input type="text" value={name} onChange={e => setName(e.target.value)} className={styles.input} placeholder={t('products.namePlaceholder')} />
         {/* ფასი: მინიმალური ზღვარია 0.01 ბაზის კანონის შესაბამისად, ბლოკავს მინუსს */}
-        <input type="number" step="0.01" min="0.01" value={price} onChange={e => { const val = Number(e.target.value); if (val >= 0 || e.target.value === '') setPrice(e.target.value); }} className={styles.input} placeholder="ფასი" />
+        <input type="number" step="0.01" min="0.01" value={price} onChange={e => { const val = Number(e.target.value); if (val >= 0 || e.target.value === '') setPrice(e.target.value); }} className={styles.input} placeholder={t('products.pricePlaceholder')} />
         {/* რაოდენობა: მინიმალური ზღვარია 0, ბლოკავს მინუსს კლავიატურიდან და ისრებიდან */}
-        <input type="number" min="0" value={stock} onChange={e => { const val = Number(e.target.value); if (val >= 0 || e.target.value === '') setStock(e.target.value); }} className={styles.input} placeholder="რაოდენობა" />
+        <input type="number" min="0" value={stock} onChange={e => { const val = Number(e.target.value); if (val >= 0 || e.target.value === '') setStock(e.target.value); }} className={styles.input} placeholder={t('products.stockPlaceholder')} />
         {/* 🍳 KDS routing (STEP 2, Roadmap "03.09.2026") — მხოლოდ HoReCa
             ორგანიზაციაში ჩანს. აქ განისაზღვრება, სად გაეგზავნება item
             KDS-ზე (KitchenDisplay.tsx) დამატებისთანავე. */}
@@ -573,14 +575,14 @@ export default function Products({ businessType }: ProductsProps) {
             onChange={e => setStation((e.target.value || null) as ProductStation)}
             className={styles.input}
           >
-            <option value="">🍳/🍹 სადგური (არცერთი)</option>
-            <option value="kitchen">🍳 სამზარეულო</option>
-            <option value="bar">🍹 ბარი</option>
+            <option value="">{t('products.station.none')}</option>
+            <option value="kitchen">{t('products.station.kitchen')}</option>
+            <option value="bar">{t('products.station.bar')}</option>
           </select>
         )}
 
         <button type="submit" className={styles.submitBtn}>
-          {editingId ? 'განახლება' : 'დამატება'}
+          {editingId ? t('products.updateBtn') : t('products.addBtn')}
         </button>
       </form>
 
@@ -590,13 +592,13 @@ export default function Products({ businessType }: ProductsProps) {
           შექმნა/რედაქტირება "🧩 მოდიფაიერები" ცალკე გვერდზეა. */}
       {businessType === 'horeca' && editingId && (
         <div className={styles.modifierPanel}>
-          <h3 className={styles.modifierPanelTitle}>🧩 მიბმული მოდიფაიერების ჯგუფები</h3>
+          <h3 className={styles.modifierPanelTitle}>{t('products.modifierPanel.title')}</h3>
           {allModifierGroups.length === 0 ? (
             <p className={styles.emptyState}>
-              ჯერ არ არის შექმნილი ჯგუფი — შექმენით "🧩 მოდიფაიერები" გვერდზე.
+              {t('products.modifierPanel.noGroups')}
             </p>
           ) : modifiersLoadingForProduct ? (
-            <p className={styles.emptyState}>იტვირთება...</p>
+            <p className={styles.emptyState}>{t('nav.loading')}</p>
           ) : (
             <>
               <div className={styles.modifierChecklist}>
@@ -608,12 +610,12 @@ export default function Products({ businessType }: ProductsProps) {
                       onChange={() => toggleModifierGroup(group.id)}
                     />
                     {group.name}
-                    {group.is_required && <span className={styles.stockTag} style={{ background: '#FEF3C7', color: '#92400E' }}>სავალდებულო</span>}
+                    {group.is_required && <span className={styles.stockTag} style={{ background: '#FEF3C7', color: '#92400E' }}>{t('products.modifierPanel.requiredTag')}</span>}
                   </label>
                 ))}
               </div>
               <button type="button" onClick={handleSaveModifiers} disabled={modifiersSaving} className={styles.submitBtn} style={{ marginTop: '12px' }}>
-                {modifiersSaving ? 'ინახება...' : 'მიბმის შენახვა'}
+                {modifiersSaving ? t('products.savingEllipsis') : t('products.modifierPanel.saveBtn')}
               </button>
             </>
           )}
@@ -627,22 +629,22 @@ export default function Products({ businessType }: ProductsProps) {
           "🍲 ინგრედიენტები" ცალკე გვერდზეა. */}
       {businessType === 'horeca' && editingId && (
         <div className={styles.modifierPanel}>
-          <h3 className={styles.modifierPanelTitle}>🍲 რეცეპტი (BOM)</h3>
+          <h3 className={styles.modifierPanelTitle}>{t('products.recipePanel.title')}</h3>
           <label className={styles.modifierCheckItem} style={{ marginBottom: '10px' }}>
             <input
               type="checkbox"
               checked={isRecipeBased}
               onChange={e => setIsRecipeBased(e.target.checked)}
             />
-            ეს პროდუქტი რეცეპტზეა დამოკიდებული (ნედლეულისგან მზადდება — stock ცალკე ინგრედიენტების მარაგიდან გამოითვლება)
+            {t('products.recipePanel.recipeBasedLabel')}
           </label>
 
           {isRecipeBased && (
             recipeLoadingForProduct ? (
-              <p className={styles.emptyState}>იტვირთება...</p>
+              <p className={styles.emptyState}>{t('nav.loading')}</p>
             ) : allIngredients.length === 0 ? (
               <p className={styles.emptyState}>
-                ჯერ არ არის შექმნილი ინგრედიენტი — შექმენით "🍲 ინგრედიენტები" გვერდზე.
+                {t('products.recipePanel.noIngredients')}
               </p>
             ) : (
               <>
@@ -654,7 +656,7 @@ export default function Products({ businessType }: ProductsProps) {
                       className={styles.input}
                       style={{ flex: 2 }}
                     >
-                      <option value="">— ინგრედიენტი —</option>
+                      <option value="">{t('products.recipePanel.selectIngredientPlaceholder')}</option>
                       {allIngredients.map(ingredient => (
                         <option key={ingredient.id} value={ingredient.id}>
                           {ingredient.name} ({ingredient.unit})
@@ -669,13 +671,13 @@ export default function Products({ businessType }: ProductsProps) {
                       onChange={e => { const v = Number(e.target.value); if (v >= 0 || e.target.value === '') updateRecipeRow(index, 'quantityRequired', e.target.value); }}
                       className={styles.input}
                       style={{ flex: 1 }}
-                      placeholder="რაოდენობა"
+                      placeholder={t('products.stockPlaceholder')}
                     />
-                    <button type="button" onClick={() => removeRecipeRow(index)} className={styles.iconBtn} aria-label="ინგრედიენტის მოხსნა"><XIcon /></button>
+                    <button type="button" onClick={() => removeRecipeRow(index)} className={styles.iconBtn} aria-label={t('products.recipePanel.removeIngredientAria')}><XIcon /></button>
                   </div>
                 ))}
                 <button type="button" onClick={addRecipeRow} className={styles.addRowBtn} style={{ marginBottom: '12px' }}>
-                  ➕ ინგრედიენტის დამატება
+                  {t('products.recipePanel.addRowBtn')}
                 </button>
               </>
             )
@@ -683,7 +685,7 @@ export default function Products({ businessType }: ProductsProps) {
 
           <div>
             <button type="button" onClick={handleSaveRecipe} disabled={recipeSaving} className={styles.submitBtn} style={{ marginTop: '4px' }}>
-              {recipeSaving ? 'ინახება...' : 'რეცეპტის შენახვა'}
+              {recipeSaving ? t('products.savingEllipsis') : t('products.recipePanel.saveBtn')}
             </button>
           </div>
         </div>
@@ -695,17 +697,17 @@ export default function Products({ businessType }: ProductsProps) {
           <thead>
             <tr>
               <th>ID</th>
-              <th>შტრიხკოდი</th>
-              <th>დასახელება</th>
-              <th>ფასი</th>
-              <th>მარაგი</th>
-              <th>მოქმედება</th>
+              <th>{t('products.barcodePlaceholder')}</th>
+              <th>{t('products.namePlaceholder')}</th>
+              <th>{t('products.pricePlaceholder')}</th>
+              <th>{t('products.table.stock')}</th>
+              <th>{t('products.table.actions')}</th>
             </tr>
           </thead>
           <tbody>
             {currentProducts.length === 0 ? (
               <tr>
-                <td colSpan={6} className={styles.emptyState}>პროდუქტები არ მოიძებნა</td>
+                <td colSpan={6} className={styles.emptyState}>{t('products.table.emptyState')}</td>
               </tr>
             ) : (
               currentProducts.map(product => (
@@ -716,18 +718,18 @@ export default function Products({ businessType }: ProductsProps) {
                   <td>{product.price} ₾</td>
                   <td>
                     <span className={product.stock <= 5 ? styles.stockLow : styles.stockOk}>
-                      {product.stock} ცალი
+                      {product.stock} {t('dashboard.unitPcs')}
                     </span>
                     {product.stock === 0 ? (
-                      <span className={`${styles.stockTag} ${styles.stockTagOut}`}>ამოიწურა</span>
+                      <span className={`${styles.stockTag} ${styles.stockTagOut}`}>{t('products.table.outOfStock')}</span>
                     ) : product.stock <= 5 ? (
-                      <span className={`${styles.stockTag} ${styles.stockTagLow}`}>იწურება</span>
+                      <span className={`${styles.stockTag} ${styles.stockTagLow}`}>{t('products.table.lowStock')}</span>
                     ) : null}
                   </td>
                   <td>
                     <div className={styles.rowActions}>
-                      <button onClick={() => startEdit(product)} className={styles.iconBtn} aria-label="რედაქტირება"><EditIcon /></button>
-                      <button onClick={() => handleDelete(product.id)} className={styles.iconBtn} aria-label="წაშლა"><TrashIcon /></button>
+                      <button onClick={() => startEdit(product)} className={styles.iconBtn} aria-label={t('common.edit')}><EditIcon /></button>
+                      <button onClick={() => handleDelete(product.id)} className={styles.iconBtn} aria-label={t('common.delete')}><TrashIcon /></button>
                     </div>
                   </td>
                 </tr>
@@ -756,24 +758,24 @@ export default function Products({ businessType }: ProductsProps) {
       {scannerModalOpen && (
         <div className={styles.overlay}>
           <div className={styles.modal}>
-            <h3 className={styles.modalTitle}>🔍 შტრიხკოდი: {scannedBarcode}</h3>
-            <button onClick={closeScannerModal} className={styles.modalCloseBtn} aria-label="დახურვა">&times;</button>
+            <h3 className={styles.modalTitle}>{t('products.scannerModal.title', { code: scannedBarcode })}</h3>
+            <button onClick={closeScannerModal} className={styles.modalCloseBtn} aria-label={t('common.close')}>&times;</button>
 
             {foundProduct && (
               <form onSubmit={handleRestockSubmit} className={styles.modalForm}>
-                <p className={styles.modalText}>ნაპოვნია: <strong>{foundProduct.name}</strong> (მიმდინარე მარაგი: {foundProduct.stock})</p>
-                <input type="number" min="1" value={restockQuantity} onChange={e => { const val = Number(e.target.value); if (val >= 0 || e.target.value === '') setRestockQuantity(e.target.value); }} className={styles.modalFullInput} placeholder="რაოდენობა დასამატებლად" required />
-                <button type="submit" className={styles.restockBtn}>მარაგის განახლება</button>
+                <p className={styles.modalText}>{t('products.scannerModal.foundLabel')} <strong>{foundProduct.name}</strong> {t('products.scannerModal.currentStockSuffix', { stock: foundProduct.stock })}</p>
+                <input type="number" min="1" value={restockQuantity} onChange={e => { const val = Number(e.target.value); if (val >= 0 || e.target.value === '') setRestockQuantity(e.target.value); }} className={styles.modalFullInput} placeholder={t('products.scannerModal.restockQuantityPlaceholder')} required />
+                <button type="submit" className={styles.restockBtn}>{t('products.scannerModal.restockSubmitBtn')}</button>
               </form>
             )}
 
             {isNewProductMode && (
               <form onSubmit={handleCreateScannedProduct} className={styles.modalForm}>
-                <p className={styles.newProductLabel}>➕ ახალი პროდუქტის რეგისტრაცია</p>
-                <input type="text" value={name} onChange={e => setName(e.target.value)} className={styles.modalFullInput} placeholder="დასახელება" required />
-                <input type="number" step="0.01" min="0.01" value={price} onChange={e => { const val = Number(e.target.value); if (val >= 0 || e.target.value === '') setPrice(e.target.value); }} className={styles.modalFullInput} placeholder="ფასი" required />
-                <input type="number" min="0" value={stock} onChange={e => { const val = Number(e.target.value); if (val >= 0 || e.target.value === '') setStock(e.target.value); }} className={styles.modalFullInput} placeholder="საწყისი მარაგი" required />
-                <button type="submit" className={styles.newProductBtn}>ბაზაში დამატება</button>
+                <p className={styles.newProductLabel}>{t('products.scannerModal.newProductLabel')}</p>
+                <input type="text" value={name} onChange={e => setName(e.target.value)} className={styles.modalFullInput} placeholder={t('products.namePlaceholder')} required />
+                <input type="number" step="0.01" min="0.01" value={price} onChange={e => { const val = Number(e.target.value); if (val >= 0 || e.target.value === '') setPrice(e.target.value); }} className={styles.modalFullInput} placeholder={t('products.pricePlaceholder')} required />
+                <input type="number" min="0" value={stock} onChange={e => { const val = Number(e.target.value); if (val >= 0 || e.target.value === '') setStock(e.target.value); }} className={styles.modalFullInput} placeholder={t('products.scannerModal.initialStockPlaceholder')} required />
+                <button type="submit" className={styles.newProductBtn}>{t('products.scannerModal.addToDbBtn')}</button>
               </form>
             )}
           </div>
@@ -788,10 +790,10 @@ export default function Products({ businessType }: ProductsProps) {
             <p className={styles.confirmText}>{confirmModal.message}</p>
             <div className={styles.confirmActions}>
               <button type="button" onClick={closeConfirmModal} className={styles.cancelBtn}>
-                გაუქმება
+                {t('common.cancel')}
               </button>
               <button type="button" onClick={() => { confirmModal.onConfirm?.(); closeConfirmModal(); }} className={styles.confirmDeleteBtn}>
-                დიახ, წაშლა
+                {t('products.confirmModal.confirmDeleteBtn')}
               </button>
             </div>
           </div>
@@ -802,20 +804,20 @@ export default function Products({ businessType }: ProductsProps) {
       {importModalOpen && importResult && (
         <div className={styles.overlay}>
           <div className={styles.modal}>
-            <h3 className={styles.modalTitle}>📥 Import შედეგი</h3>
-            <button onClick={closeImportModal} className={styles.modalCloseBtn} aria-label="დახურვა">&times;</button>
+            <h3 className={styles.modalTitle}>{t('products.importModal.title')}</h3>
+            <button onClick={closeImportModal} className={styles.modalCloseBtn} aria-label={t('common.close')}>&times;</button>
 
             <p className={styles.modalText}>
-              ✅ დაემატა: <strong>{importResult.importedCount}</strong>
+              {t('products.importModal.importedLabel')} <strong>{importResult.importedCount}</strong>
               {' '}&nbsp;|&nbsp;{' '}
-              ⚠️ გამოტოვებულია: <strong>{importResult.skippedCount}</strong>
+              {t('products.importModal.skippedLabel')} <strong>{importResult.skippedCount}</strong>
             </p>
 
             {importResult.skipped.length > 0 && (
               <div className={styles.importSkippedList}>
                 {importResult.skipped.map((row) => (
                   <div key={row.rowNumber} className={styles.importSkippedRow}>
-                    <span className={styles.importSkippedRowNumber}>Row {row.rowNumber}</span>
+                    <span className={styles.importSkippedRowNumber}>{t('products.importModal.rowLabel', { number: row.rowNumber })}</span>
                     <span>{row.reason}</span>
                   </div>
                 ))}
