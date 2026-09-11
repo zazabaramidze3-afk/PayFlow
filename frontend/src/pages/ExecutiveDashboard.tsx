@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 import gsap from 'gsap';
 import {
   LineChart,
@@ -189,6 +190,7 @@ function StatCardView({ card }: { card: StatCard }) {
 }
 
 export default function ExecutiveDashboard() {
+  const { t } = useTranslation();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -202,7 +204,7 @@ export default function ExecutiveDashboard() {
     } catch (err: unknown) {
       // "any"-ის ნაცვლად axios.isAxiosError ტიპის დამცველი — Clean Architecture წესი.
       const serverMessage = axios.isAxiosError<{ error?: string }>(err) ? err.response?.data?.error : undefined;
-      setError(serverMessage || 'ანალიტიკის ჩატვირთვა ვერ მოხერხდა');
+      setError(serverMessage || t('dashboard.analytics.loadError'));
     } finally {
       setLoading(false);
     }
@@ -339,54 +341,54 @@ export default function ExecutiveDashboard() {
   const formatHourFull = (hour: number): string => `${String(hour).padStart(2, '0')}:00`;
 
   if (loading) {
-    return <div className={styles.stateBox}>იტვირთება ანალიტიკა...</div>;
+    return <div className={styles.stateBox}>{t('dashboard.analytics.loading')}</div>;
   }
 
   if (error || !stats) {
     return (
       <div className={styles.errorBox}>
-        <p>⚠ {error || 'მონაცემები ვერ ჩაიტვირთა'}</p>
+        <p>⚠ {error || t('dashboard.analytics.loadFailedFallback')}</p>
         <button onClick={loadStats} className={styles.retryBtn}>
-          ხელახლა ცდა
+          {t('dashboard.analytics.retryBtn')}
         </button>
       </div>
     );
   }
 
   const cards: StatCard[] = [
-    { label: 'დღევანდელი შემოსავალი', rawValue: stats.today.revenue, decimals: 2, suffix: ' ₾', icon: '💰', color: '#10b981' },
-    { label: 'დღევანდელი ჩეკები', rawValue: stats.today.receiptCount, icon: '🧾', color: '#3b82f6' },
-    { label: 'საშუალო ჩეკი', rawValue: stats.today.averageReceipt, decimals: 2, suffix: ' ₾', icon: '📊', color: '#8b5cf6' },
-    { label: 'აქტიური ცვლები', rawValue: stats.activeShifts, icon: '🟢', color: '#f59e0b' },
+    { label: t('dashboard.analytics.cards.todayRevenue'), rawValue: stats.today.revenue, decimals: 2, suffix: ' ₾', icon: '💰', color: '#10b981' },
+    { label: t('dashboard.analytics.cards.todayReceipts'), rawValue: stats.today.receiptCount, icon: '🧾', color: '#3b82f6' },
+    { label: t('dashboard.analytics.cards.averageReceipt'), rawValue: stats.today.averageReceipt, decimals: 2, suffix: ' ₾', icon: '📊', color: '#8b5cf6' },
+    { label: t('dashboard.analytics.cards.activeShifts'), rawValue: stats.activeShifts, icon: '🟢', color: '#f59e0b' },
   ];
 
   // 💰 Roadmap ეტაპი 8 — დღევანდელი შემოსავლის იგივე ჯამის დაშლა
   // გადახდის მეთოდის მიხედვით (ნაღდი / ბარათი / შერეული).
   const paymentCards: StatCard[] = [
     {
-      label: 'ნაღდი გადახდები',
+      label: t('dashboard.analytics.cards.cashPayments'),
       rawValue: stats.paymentBreakdown.cash.total,
       decimals: 2,
       suffix: ' ₾',
-      subtitle: `${stats.paymentBreakdown.cash.count} ჩეკი`,
+      subtitle: t('dashboard.analytics.receiptCountValue', { count: stats.paymentBreakdown.cash.count }),
       icon: '💵',
       color: '#10b981',
     },
     {
-      label: 'ბარათით გადახდები',
+      label: t('dashboard.analytics.cards.cardPayments'),
       rawValue: stats.paymentBreakdown.card.total,
       decimals: 2,
       suffix: ' ₾',
-      subtitle: `${stats.paymentBreakdown.card.count} ჩეკი`,
+      subtitle: t('dashboard.analytics.receiptCountValue', { count: stats.paymentBreakdown.card.count }),
       icon: '💳',
       color: '#3b82f6',
     },
     {
-      label: 'შერეული გადახდები',
+      label: t('dashboard.analytics.cards.splitPayments'),
       rawValue: stats.paymentBreakdown.split.total,
       decimals: 2,
       suffix: ' ₾',
-      subtitle: `${stats.paymentBreakdown.split.count} ჩეკი`,
+      subtitle: t('dashboard.analytics.receiptCountValue', { count: stats.paymentBreakdown.split.count }),
       icon: '🔀',
       color: '#8b5cf6',
     },
@@ -395,8 +397,8 @@ export default function ExecutiveDashboard() {
   // 🚫 Roadmap ეტაპი 8 — დღევანდელი გაუქმებული ჩეკები, ცალკე ბარათი (წითელი
   // აქცენტი, თანხობრივად ცხადად გამოსარჩევად).
   const voidedCards: StatCard[] = [
-    { label: 'გაუქმებული ჩეკები', rawValue: stats.voided.count, icon: '🚫', color: '#dc2626' },
-    { label: 'გაუქმებული თანხა', rawValue: stats.voided.total, decimals: 2, suffix: ' ₾', icon: '🚫', color: '#dc2626' },
+    { label: t('dashboard.analytics.cards.voidedReceipts'), rawValue: stats.voided.count, icon: '🚫', color: '#dc2626' },
+    { label: t('dashboard.analytics.cards.voidedAmount'), rawValue: stats.voided.total, decimals: 2, suffix: ' ₾', icon: '🚫', color: '#dc2626' },
   ];
 
   return (
@@ -425,7 +427,7 @@ export default function ExecutiveDashboard() {
       {!deficitsLoading && deficits.length > 0 && (
         <div className={styles.deficitPanel}>
           <div className={styles.deficitHeader}>
-            <h3 className={styles.chartTitle}>⚠️ ოფლაინ სინქრონიზაციის oversell შეტყობინებები</h3>
+            <h3 className={styles.chartTitle}>{t('dashboard.analytics.deficitPanel.title')}</h3>
             <span className={styles.deficitCountBadge}>{deficits.length}</span>
           </div>
           <div className={styles.deficitList}>
@@ -434,13 +436,12 @@ export default function ExecutiveDashboard() {
                 <div className={styles.deficitMain}>
                   <strong>{d.product_name}</strong>
                   <span className={styles.deficitQty}>
-                    მოთხოვნილი {d.requested_quantity} ცალი, ხელმისაწვდომი იყო {d.available_quantity} ცალი
-                    (დეფიციტი: {d.deficit_quantity} ცალი)
+                    {t('dashboard.analytics.deficitPanel.detailLine', { requested: d.requested_quantity, available: d.available_quantity, deficit: d.deficit_quantity })}
                   </span>
                 </div>
                 <div className={styles.deficitMeta}>
-                  <span>{d.cashier_name || 'უცნობი მოლარე'}</span>
-                  <span>{d.register_name || 'უცნობი სალარო'}</span>
+                  <span>{d.cashier_name || t('dashboard.analytics.deficitPanel.unknownCashier')}</span>
+                  <span>{d.register_name || t('dashboard.analytics.deficitPanel.unknownRegister')}</span>
                   <span>{new Date(d.created_at).toLocaleString('ka-GE', { hour12: false })}</span>
                 </div>
                 <button
@@ -448,7 +449,7 @@ export default function ExecutiveDashboard() {
                   onClick={() => handleResolveDeficit(d.id)}
                   disabled={resolvingId === d.id}
                 >
-                  {resolvingId === d.id ? '...' : '✅ განხილულია'}
+                  {resolvingId === d.id ? '...' : t('dashboard.analytics.deficitPanel.resolveBtn')}
                 </button>
               </div>
             ))}
@@ -461,22 +462,21 @@ export default function ExecutiveDashboard() {
       {!amendmentsLoading && amendments.length > 0 && (
         <div className={styles.amendmentPanel}>
           <div className={styles.deficitHeader}>
-            <h3 className={styles.chartTitle}>🧾 დაგვიანებული სინქრონიზაციით შეცვლილი Z-Report-ები</h3>
+            <h3 className={styles.chartTitle}>{t('dashboard.analytics.amendmentPanel.title')}</h3>
             <span className={styles.amendmentCountBadge}>{amendments.length}</span>
           </div>
           <div className={styles.deficitList}>
             {amendments.map((a) => (
               <div key={a.id} className={styles.deficitRow}>
                 <div className={styles.deficitMain}>
-                  <strong>ცვლა #{a.shift_id.slice(0, 8)}</strong>
+                  <strong>{t('dashboard.analytics.amendmentPanel.shiftLabel', { id: a.shift_id.slice(0, 8) })}</strong>
                   <span className={styles.deficitQty}>
-                    მოსალოდნელი: {a.previous_expected.toFixed(2)} ₾ → {a.new_expected.toFixed(2)} ₾,
-                    სხვაობა: {a.previous_difference.toFixed(2)} ₾ → {a.new_difference.toFixed(2)} ₾
+                    {t('dashboard.analytics.amendmentPanel.detailLine', { prevExpected: a.previous_expected.toFixed(2), newExpected: a.new_expected.toFixed(2), prevDifference: a.previous_difference.toFixed(2), newDifference: a.new_difference.toFixed(2) })}
                   </span>
                 </div>
                 <div className={styles.deficitMeta}>
-                  <span>{a.cashier_name || 'უცნობი მოლარე'}</span>
-                  <span>{a.register_name || 'უცნობი სალარო'}</span>
+                  <span>{a.cashier_name || t('dashboard.analytics.deficitPanel.unknownCashier')}</span>
+                  <span>{a.register_name || t('dashboard.analytics.deficitPanel.unknownRegister')}</span>
                   <span>{new Date(a.created_at).toLocaleString('ka-GE', { hour12: false })}</span>
                 </div>
                 <button
@@ -484,7 +484,7 @@ export default function ExecutiveDashboard() {
                   onClick={() => handleResolveAmendment(a.id)}
                   disabled={resolvingAmendmentId === a.id}
                 >
-                  {resolvingAmendmentId === a.id ? '...' : '✅ ხელახლა დავბეჭდე'}
+                  {resolvingAmendmentId === a.id ? '...' : t('dashboard.analytics.amendmentPanel.resolveBtn')}
                 </button>
               </div>
             ))}
@@ -496,9 +496,9 @@ export default function ExecutiveDashboard() {
       <div className={styles.chartGrid}>
         {/* ხაზოვანი გრაფიკი — გაყიდვების დინამიკა მიმდინარე თვეში */}
         <div className={styles.chartCard}>
-          <h3 className={styles.chartTitle}>📈 გაყიდვების დინამიკა (მიმდინარე თვე)</h3>
+          <h3 className={styles.chartTitle}>{t('dashboard.analytics.charts.dailyTrendTitle')}</h3>
           {stats.dailyTrend.length === 0 ? (
-            <p className={styles.chartEmpty}>მონაცემები არ მოიძებნა</p>
+            <p className={styles.chartEmpty}>{t('dashboard.analytics.charts.noData')}</p>
           ) : (
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={stats.dailyTrend} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
@@ -511,11 +511,11 @@ export default function ExecutiveDashboard() {
                     კონვერტაცია, "as"/"any"-ის გარეშე. */}
                 <Tooltip
                   labelFormatter={(label) => formatDayFull(String(label))}
-                  formatter={(value) => [`${Number(value).toFixed(2)} ₾`, 'შემოსავალი']}
+                  formatter={(value) => [`${Number(value).toFixed(2)} ₾`, t('dashboard.analytics.charts.revenueMetricLabel')]}
                   contentStyle={{ backgroundColor: '#FFFFFF', borderRadius: 10, border: '1px solid #E9ECEF', boxShadow: '0 10px 20px rgba(17,17,17,0.08)' }}
                   labelStyle={{ color: '#111111', fontWeight: 600, marginBottom: 4 }}
                 />
-                <Legend formatter={() => 'შემოსავალი (₾)'} />
+                <Legend formatter={() => t('dashboard.analytics.charts.revenueLegendLabel')} />
                 <Line type="monotone" dataKey="revenue" name="revenue" stroke="#2563EB" strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} />
               </LineChart>
             </ResponsiveContainer>
@@ -524,9 +524,9 @@ export default function ExecutiveDashboard() {
 
         {/* სვეტოვანი გრაფიკი — ტოპ 5 პროდუქტი */}
         <div className={styles.chartCard} ref={barChartWrapRef}>
-          <h3 className={styles.chartTitle}>🏆 ტოპ 5 პროდუქტი (მიმდინარე თვე)</h3>
+          <h3 className={styles.chartTitle}>{t('dashboard.analytics.charts.topProductsTitle')}</h3>
           {stats.topProducts.length === 0 ? (
-            <p className={styles.chartEmpty}>მონაცემები არ მოიძებნა</p>
+            <p className={styles.chartEmpty}>{t('dashboard.analytics.charts.noData')}</p>
           ) : (
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={stats.topProducts} layout="vertical" margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
@@ -534,7 +534,7 @@ export default function ExecutiveDashboard() {
                 <XAxis type="number" stroke="#9CA3AF" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis type="category" dataKey="name" width={110} stroke="#9CA3AF" fontSize={12} tickLine={false} axisLine={false} />
                 <Tooltip
-                  formatter={(value) => [`${Number(value)} ცალი`, 'რაოდენობა']}
+                  formatter={(value) => [t('dashboard.analytics.charts.quantityValue', { value: Number(value) }), t('dashboard.analytics.charts.quantityMetricLabel')]}
                   contentStyle={{ backgroundColor: '#FFFFFF', borderRadius: 10, border: '1px solid #E9ECEF', boxShadow: '0 10px 20px rgba(17,17,17,0.08)' }}
                   labelStyle={{ color: '#111111', fontWeight: 600, marginBottom: 4 }}
                   cursor={{ fill: 'rgba(37, 99, 235, 0.05)' }}
@@ -542,7 +542,7 @@ export default function ExecutiveDashboard() {
                 {/* isAnimationActive={false} — Recharts-ის ჩაშენებული ერთდროული
                     ანიმაცია გამორთულია, GSAP-ის stagger-ი (useEffect ზემოთ) მართავს
                     თითოეული ბარის reveal-ს ცალ-ცალკე. */}
-                <Bar dataKey="totalQuantity" name="რაოდენობა" fill="#93C5FD" radius={[0, 6, 6, 0]} isAnimationActive={false} />
+                <Bar dataKey="totalQuantity" name={t('dashboard.analytics.charts.quantityMetricLabel')} fill="#93C5FD" radius={[0, 6, 6, 0]} isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -553,9 +553,9 @@ export default function ExecutiveDashboard() {
             განრიგის დაგეგმვას (shift optimization) ემსახურება. Full-width
             (`chartCardWide`), ორივე ზემოთა ვიწრო chart-ის ქვემოთ. */}
         <div className={`${styles.chartCard} ${styles.chartCardWide}`}>
-          <h3 className={styles.chartTitle}>⏰ დატვირთვა საათების მიხედვით (მიმდინარე თვე)</h3>
+          <h3 className={styles.chartTitle}>{t('dashboard.analytics.charts.hourlyPeakTitle')}</h3>
           {stats.hourlyPeak.length === 0 ? (
-            <p className={styles.chartEmpty}>მონაცემები არ მოიძებნა</p>
+            <p className={styles.chartEmpty}>{t('dashboard.analytics.charts.noData')}</p>
           ) : (
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={stats.hourlyPeak} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
@@ -564,12 +564,12 @@ export default function ExecutiveDashboard() {
                 <YAxis stroke="#9CA3AF" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
                 <Tooltip
                   labelFormatter={(label) => formatHourFull(Number(label))}
-                  formatter={(value) => [`${Number(value)} ჩეკი`, 'ჩეკების რაოდენობა']}
+                  formatter={(value) => [t('dashboard.analytics.receiptCountValue', { count: Number(value) }), t('dashboard.analytics.charts.receiptCountMetricLabel')]}
                   contentStyle={{ backgroundColor: '#FFFFFF', borderRadius: 10, border: '1px solid #E9ECEF', boxShadow: '0 10px 20px rgba(17,17,17,0.08)' }}
                   labelStyle={{ color: '#111111', fontWeight: 600, marginBottom: 4 }}
                   cursor={{ fill: 'rgba(37, 99, 235, 0.05)' }}
                 />
-                <Bar dataKey="receiptCount" name="ჩეკები" fill="#FBBF24" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="receiptCount" name={t('dashboard.analytics.charts.receiptCountMetricLabel')} fill="#FBBF24" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}

@@ -63,7 +63,8 @@
       "ready": "მზადაა",
       "served": "მიტანილია",
       "voided": "გაუქმებული"
-    }
+    },
+    "unknown": "უცნობი"
   },
   "sales": {
     "paymentBadge": {
@@ -454,6 +455,127 @@
       "managerPinUpdate": "{{actor}}-მა შეცვალა {{target}}-ის მენეჯერის PIN-კოდი",
       "defaultAction": "{{actor}}-მა შეცვალა {{target}}-ის უფლება ({{action}}): {{value}}",
       "unknownValue": "—"
+    }
+  },
+  "dashboard": {
+    "pageTitle": "გაყიდვების მართვის პანელი",
+    "tabs": {
+      "analytics": "📈 ანალიტიკა",
+      "salesHistory": "📝 გაყიდვების ისტორია",
+      "shifts": "⏰ მოლარეეების ცვლები"
+    },
+    "revenueLabel": "საერთო შემოსავალი",
+    "filters": {
+      "allCashiers": "-- ყველა მოლარე --",
+      "productSearchPlaceholder": "🔍 პროდუქტი ...",
+      "fromDateTitle": "თარიღიდან",
+      "toDateTitle": "თარიღამდე",
+      "allPayments": "-- ყველა გადახდა --",
+      "allStatuses": "-- ყველა სტატუსი --",
+      "activeStatus": "✅ აქტიური",
+      "voidedStatus": "🚫 გაუქმებული",
+      "allDiscounts": "-- ფასდაკლება: ყველა --",
+      "withDiscount": "🏷️ ფასდაკლებით",
+      "withoutDiscount": "ფასდაკლების გარეშე",
+      "pageSizeOption": "{{count}} / გვერდზე"
+    },
+    "export": {
+      "excel": "Excel 📥",
+      "pdf": "PDF 📄"
+    },
+    "table": {
+      "headers": {
+        "id": "ID",
+        "cashier": "მოლარე",
+        "date": "თარიღი",
+        "subtotalBeforeDiscount": "ჯამი ფასდაკლებამდე",
+        "discount": "ფასდაკლება",
+        "finalPrice": "საბოლოო ფასი",
+        "payment": "გადახდა",
+        "details": "დეტალები"
+      }
+    },
+    "emptyState": "📭 გაყიდვების ისტორია ცარიელია ან მონაცემები ვერ მოიძებნა",
+    "productFallbackName": "პროდუქტი",
+    "unitPcs": "ცალი",
+    "sharedItemsNote": "🔀 ეს ჩეკი გაყოფილი ანგარიშის ერთ-ერთი ნაწილია — ქვემოთ საერთო შეკვეთის სრული პროდუქტების ჩამონათვალია (ორმაგი დათვლის თავიდან ასაცილებლად, პროდუქტები ბაზაში მხოლოდ ერთ ნაწილზეა მიბმული):",
+    "detailsUnavailable": "ℹ ამ ქვითრის დეტალები არ არის ხელმისაწვდომი",
+    "discountDetailLine": "🏷 ფასდაკლება: {{value}} ({{subtotal}} ₾ → {{total}} ₾)",
+    "pagination": {
+      "summary": "ნაჩვენებია {{start}}–{{end}} / სულ {{total}}"
+    },
+    "shifts": {
+      "headers": {
+        "status": "სტატუსი",
+        "opened": "გახსნა",
+        "closed": "დახურვა",
+        "start": "საწყისი",
+        "expected": "მოსალოდნელი",
+        "actual": "ფაქტობრივი",
+        "difference": "სხვაობა",
+        "zReport": "Z-Report"
+      },
+      "statusOpen": "open",
+      "statusClosed": "🔒 closed",
+      "amendedTitle": "დაგვიანებული სინქრონიზაციის გამო შესწორდა — Z-Report ხელახლა დაბეჭდეთ",
+      "amendedBadge": "⚠️ შესწორებული",
+      "reprintBtn": "🖨 ხელახლა დაბეჭდვა"
+    },
+    "zReportPrint": {
+      "subtitle": "Z-რეპორტი (ცვლის დახურვა)",
+      "shiftNumberLabel": "ცვლა #:",
+      "cashierLabel": "მოლარე:",
+      "openedLabel": "გახსნა:",
+      "closedLabel": "დახურვა:",
+      "startBalanceLabel": "საწყისი ბალანსი:",
+      "receiptsSoldLabel": "გაყიდული ჩეკები:",
+      "expectedAmountLabel": "მოსალოდნელი თანხა:",
+      "actualAmountLabel": "ფაქტობრივი თანხა:",
+      "tipTotalLabel": "ჯამური tip:",
+      "differenceLabel": "სხვაობა:",
+      "signatureLine": "ხელმოწერა: ____________________"
+    },
+    "analytics": {
+      "loadError": "ანალიტიკის ჩატვირთვა ვერ მოხერხდა",
+      "loading": "იტვირთება ანალიტიკა...",
+      "loadFailedFallback": "მონაცემები ვერ ჩაიტვირთა",
+      "retryBtn": "ხელახლა ცდა",
+      "cards": {
+        "todayRevenue": "დღევანდელი შემოსავალი",
+        "todayReceipts": "დღევანდელი ჩეკები",
+        "averageReceipt": "საშუალო ჩეკი",
+        "activeShifts": "აქტიური ცვლები",
+        "cashPayments": "ნაღდი გადახდები",
+        "cardPayments": "ბარათით გადახდები",
+        "splitPayments": "შერეული გადახდები",
+        "voidedReceipts": "გაუქმებული ჩეკები",
+        "voidedAmount": "გაუქმებული თანხა"
+      },
+      "receiptCountValue": "{{count}} ჩეკი",
+      "deficitPanel": {
+        "title": "⚠️ ოფლაინ სინქრონიზაციის oversell შეტყობინებები",
+        "detailLine": "მოთხოვნილი {{requested}} ცალი, ხელმისაწვდომი იყო {{available}} ცალი (დეფიციტი: {{deficit}} ცალი)",
+        "unknownCashier": "უცნობი მოლარე",
+        "unknownRegister": "უცნობი სალარო",
+        "resolveBtn": "✅ განხილულია"
+      },
+      "amendmentPanel": {
+        "title": "🧾 დაგვიანებული სინქრონიზაციით შეცვლილი Z-Report-ები",
+        "shiftLabel": "ცვლა #{{id}}",
+        "detailLine": "მოსალოდნელი: {{prevExpected}} ₾ → {{newExpected}} ₾, სხვაობა: {{prevDifference}} ₾ → {{newDifference}} ₾",
+        "resolveBtn": "✅ ხელახლა დავბეჭდე"
+      },
+      "charts": {
+        "dailyTrendTitle": "📈 გაყიდვების დინამიკა (მიმდინარე თვე)",
+        "noData": "მონაცემები არ მოიძებნა",
+        "revenueMetricLabel": "შემოსავალი",
+        "revenueLegendLabel": "შემოსავალი (₾)",
+        "topProductsTitle": "🏆 ტოპ 5 პროდუქტი (მიმდინარე თვე)",
+        "quantityMetricLabel": "რაოდენობა",
+        "quantityValue": "{{value}} ცალი",
+        "hourlyPeakTitle": "⏰ დატვირთვა საათების მიხედვით (მიმდინარე თვე)",
+        "receiptCountMetricLabel": "ჩეკების რაოდენობა"
+      }
     }
   }
 }

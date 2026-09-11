@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, Fragment } from 'react';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 // 📊 Roadmap ეტაპი 6 — Executive Dashboard (ანალიტიკის ტაბი)
 import ExecutiveDashboard from './ExecutiveDashboard';
 import styles from './Dashboard.module.scss';
@@ -40,9 +42,9 @@ interface Payment {
 // შეიძლება არასდროს იყოს რეალურად (backend DEFAULT 'cash'-ს აყენებს), მაგრამ
 // frontend-ის მხრიდან მაინც უსაფრთხოდ ვმართავთ.
 const paymentMethodBadge = (method: Payment['payment_method']): { text: string; className: string } => {
-  if (method === 'card') return { text: '💳 ბარათი', className: styles.badgeCard };
-  if (method === 'split') return { text: '🔀 შერეული', className: styles.badgeSplit };
-  return { text: '💵 ნაღდი', className: styles.badgeCash };
+  if (method === 'card') return { text: i18n.t('sales.paymentBadge.card'), className: styles.badgeCard };
+  if (method === 'split') return { text: i18n.t('sales.paymentBadge.split'), className: styles.badgeSplit };
+  return { text: i18n.t('sales.paymentBadge.cash'), className: styles.badgeCash };
 };
 // 🆔 UUID მიგრაცია (Roadmap STEP 1) — shifts.id ახლა UUID string-ია.
 // 🧾 Migration 012 — receipt_count/card_total ახლა GET /shifts/history-ის
@@ -75,6 +77,7 @@ interface Shift {
 }
 
 export default function Dashboard() {
+  const { t } = useTranslation();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -243,13 +246,13 @@ export default function Dashboard() {
 
   return (
     <div className={styles.page}>
-      <h2 className={styles.heading}><DashboardIcon size={20} /> გაყიდვების მართვის პანელი</h2>
+      <h2 className={styles.heading}><DashboardIcon size={20} /> {t('dashboard.pageTitle')}</h2>
 
       {/* ტაბები — ერთიანი Tab Bar */}
       <div className={styles.tabBar}>
-        <button onClick={() => setActiveTab('analytics')} className={`${styles.tabBtn} ${activeTab === 'analytics' ? styles.tabActive : ''}`}>📈 ანალიტიკა</button>
-        <button onClick={() => setActiveTab('sales')} className={`${styles.tabBtn} ${activeTab === 'sales' ? styles.tabActive : ''}`}>📝 გაყიდვების ისტორია</button>
-        <button onClick={() => setActiveTab('shifts')} className={`${styles.tabBtn} ${activeTab === 'shifts' ? styles.tabActive : ''}`}>⏰ მოლარეეების ცვლები</button>
+        <button onClick={() => setActiveTab('analytics')} className={`${styles.tabBtn} ${activeTab === 'analytics' ? styles.tabActive : ''}`}>{t('dashboard.tabs.analytics')}</button>
+        <button onClick={() => setActiveTab('sales')} className={`${styles.tabBtn} ${activeTab === 'sales' ? styles.tabActive : ''}`}>{t('dashboard.tabs.salesHistory')}</button>
+        <button onClick={() => setActiveTab('shifts')} className={`${styles.tabBtn} ${activeTab === 'shifts' ? styles.tabActive : ''}`}>{t('dashboard.tabs.shifts')}</button>
       </div>
 
       {/* 📊 ანალიტიკის ტაბი (Roadmap ეტაპი 6) — ცალკე კომპონენტი, საკუთარი
@@ -260,7 +263,7 @@ export default function Dashboard() {
       {activeTab === 'sales' && (
         <>
           <div className={styles.revenueCard}>
-            <span className={styles.revenueLabel}>საერთო შემოსავალი</span>
+            <span className={styles.revenueLabel}>{t('dashboard.revenueLabel')}</span>
             <h1 className={styles.revenueValue}>{(totalRevenue || 0).toFixed(2)} ₾</h1>
           </div>
 
@@ -269,74 +272,74 @@ export default function Dashboard() {
 
             {/* მოლარის არჩევა Dropdown სტილში */}
             <select value={cashierId} onChange={e => setCashierId(e.target.value)} className={styles.filterSelect}>
-              <option value="">-- ყველა მოლარე --</option>
+              <option value="">{t('dashboard.filters.allCashiers')}</option>
               {cashiersList.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
 
             {/* პროდუქტის სახელით ძებნა */}
-            <input type="text" placeholder="🔍 პროდუქტი ..." value={productName} onChange={e => setProductName(e.target.value)} className={styles.filterInput} />
+            <input type="text" placeholder={t('dashboard.filters.productSearchPlaceholder')} value={productName} onChange={e => setProductName(e.target.value)} className={styles.filterInput} />
 
             {/* თარიღის ფილტრები (დან - მდე) */}
-            <input type="date" value={from} onChange={e => setFrom(e.target.value)} className={styles.filterInput} title="თარიღიდან" />
-            <input type="date" value={to} onChange={e => setTo(e.target.value)} className={styles.filterInput} title="თარიღამდე" />
+            <input type="date" value={from} onChange={e => setFrom(e.target.value)} className={styles.filterInput} title={t('dashboard.filters.fromDateTitle')} />
+            <input type="date" value={to} onChange={e => setTo(e.target.value)} className={styles.filterInput} title={t('dashboard.filters.toDateTitle')} />
 
             {/* 💰 Roadmap ეტაპი 8 — გადახდის მეთოდის ფილტრი. buildPaymentsFilterQuery-ს
                 ერთი და იგივე whitelist-ს იზიარებს GET /payments-იც და ორივე
                 export route-იც, ამიტომ ეს არჩევანი ცხრილსაც და Excel/PDF-საც
                 ერთნაირად ფილტრავს. */}
             <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value as '' | 'cash' | 'card' | 'split')} className={styles.filterSelect}>
-              <option value="">-- ყველა გადახდა --</option>
-              <option value="cash">💵 ნაღდი</option>
-              <option value="card">💳 ბარათი</option>
-              <option value="split">🔀 შერეული</option>
+              <option value="">{t('dashboard.filters.allPayments')}</option>
+              <option value="cash">{t('sales.paymentBadge.cash')}</option>
+              <option value="card">{t('sales.paymentBadge.card')}</option>
+              <option value="split">{t('sales.paymentBadge.split')}</option>
             </select>
 
             {/* 🚫 სტატუსის ფილტრი — აქტიური / გაუქმებული */}
             <select value={status} onChange={e => setStatus(e.target.value as '' | 'active' | 'voided')} className={styles.filterSelect}>
-              <option value="">-- ყველა სტატუსი --</option>
-              <option value="active">✅ აქტიური</option>
-              <option value="voided">🚫 გაუქმებული</option>
+              <option value="">{t('dashboard.filters.allStatuses')}</option>
+              <option value="active">{t('dashboard.filters.activeStatus')}</option>
+              <option value="voided">{t('dashboard.filters.voidedStatus')}</option>
             </select>
 
             {/* 💸 ფასდაკლების ფილტრი */}
             <select value={discount} onChange={e => setDiscount(e.target.value as '' | 'yes' | 'no')} className={styles.filterSelect}>
-              <option value="">-- ფასდაკლება: ყველა --</option>
-              <option value="yes">🏷️ ფასდაკლებით</option>
-              <option value="no">ფასდაკლების გარეშე</option>
+              <option value="">{t('dashboard.filters.allDiscounts')}</option>
+              <option value="yes">{t('dashboard.filters.withDiscount')}</option>
+              <option value="no">{t('dashboard.filters.withoutDiscount')}</option>
             </select>
 
             <select value={pageSize} onChange={e => setPageSize(Number(e.target.value))} className={styles.filterSelect} style={{ width: '160px' }}>
-              <option value={20}>20 / გვერდზე</option>
-              <option value={50}>50 / გვერდზე</option>
-              <option value={100}>100 / გვერდზე</option>
+              <option value={20}>{t('dashboard.filters.pageSizeOption', { count: 20 })}</option>
+              <option value={50}>{t('dashboard.filters.pageSizeOption', { count: 50 })}</option>
+              <option value={100}>{t('dashboard.filters.pageSizeOption', { count: 100 })}</option>
             </select>
 
-            <button onClick={() => handleExport('excel')} className={`${styles.exportBtn} ${styles.exportExcel}`}>Excel 📥</button>
-            <button onClick={() => handleExport('pdf')} className={`${styles.exportBtn} ${styles.exportPdf}`}>PDF 📄</button>
+            <button onClick={() => handleExport('excel')} className={`${styles.exportBtn} ${styles.exportExcel}`}>{t('dashboard.export.excel')}</button>
+            <button onClick={() => handleExport('pdf')} className={`${styles.exportBtn} ${styles.exportPdf}`}>{t('dashboard.export.pdf')}</button>
           </div>
 
           <div className={styles.tableWrapper}>
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th>ID</th>
-                  <th>მოლარე</th>
-                  <th>თარიღი</th>
-                  <th>ჯამი ფასდაკლებამდე</th>
-                  <th>ფასდაკლება</th>
-                  <th>საბოლოო ფასი</th>
+                  <th>{t('dashboard.table.headers.id')}</th>
+                  <th>{t('dashboard.table.headers.cashier')}</th>
+                  <th>{t('dashboard.table.headers.date')}</th>
+                  <th>{t('dashboard.table.headers.subtotalBeforeDiscount')}</th>
+                  <th>{t('dashboard.table.headers.discount')}</th>
+                  <th>{t('dashboard.table.headers.finalPrice')}</th>
                   {/* 💰 Roadmap ეტაპი 8 */}
-                  <th>გადახდა</th>
-                  <th>დეტალები</th>
+                  <th>{t('dashboard.table.headers.payment')}</th>
+                  <th>{t('dashboard.table.headers.details')}</th>
                 </tr>
               </thead>
               <tbody>
                 {payments.length === 0 ? (
                   <tr>
                     <td colSpan={8} className={styles.emptyState}>
-                      📭 გაყიდვების ისტორია ცარიელია ან მონაცემები ვერ მოიძებნა
+                      {t('dashboard.emptyState')}
                     </td>
                   </tr>
                 ) : (
@@ -351,12 +354,12 @@ export default function Dashboard() {
                       <Fragment key={p.id}>
                         <tr className={isVoided ? styles.rowVoided : undefined}>
                           <td>#{p.id}</td>
-                          <td>{p.cashier_name || 'უცნობი'}</td>
+                          <td>{p.cashier_name || t('common.unknown')}</td>
                           <td>{formatDate(p.created_at)}</td>
                           <td className={isVoided ? styles.strike : undefined} style={{ color: '#94a3b8' }}>{(p.subtotal_amount ?? p.total_amount ?? 0).toFixed(2)} ₾</td>
                           <td>
                             <div className={styles.badgeStack}>
-                              {isVoided && <span className={styles.badgeVoided}>🚫 გაუქმებული</span>}
+                              {isVoided && <span className={styles.badgeVoided}>{t('sales.voided')}</span>}
                               {discountLabel ? (
                                 <span className={styles.badgeDiscount}>{discountLabel}</span>
                               ) : !isVoided ? (
@@ -388,7 +391,7 @@ export default function Dashboard() {
                                   if (ownItems.length > 0) {
                                     return ownItems.map((item, index) => (
                                       <div key={index} className={styles.detailItem}>
-                                        └── 📦 <strong>{item?.name || 'პროდუქტი'}</strong> — {item?.quantity || 0} ცალი × {(item?.price || 0).toFixed(2)} ₾
+                                        └── 📦 <strong>{item?.name || t('dashboard.productFallbackName')}</strong> — {item?.quantity || 0} {t('dashboard.unitPcs')} × {(item?.price || 0).toFixed(2)} ₾
                                       </div>
                                     ));
                                   }
@@ -414,11 +417,11 @@ export default function Dashboard() {
                                     return (
                                       <>
                                         <div style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic', marginBottom: '4px' }}>
-                                          🔀 ეს ჩეკი გაყოფილი ანგარიშის ერთ-ერთი ნაწილია — ქვემოთ საერთო შეკვეთის სრული პროდუქტების ჩამონათვალია (ორმაგი დათვლის თავიდან ასაცილებლად, პროდუქტები ბაზაში მხოლოდ ერთ ნაწილზეა მიბმული):
+                                          {t('dashboard.sharedItemsNote')}
                                         </div>
                                         {shared.map((item, index) => (
                                           <div key={index} className={styles.detailItem}>
-                                            └── 📦 <strong>{item?.name || 'პროდუქტი'}</strong> — {item?.quantity || 0} ცალი × {(item?.price || 0).toFixed(2)} ₾
+                                            └── 📦 <strong>{item?.name || t('dashboard.productFallbackName')}</strong> — {item?.quantity || 0} {t('dashboard.unitPcs')} × {(item?.price || 0).toFixed(2)} ₾
                                           </div>
                                         ))}
                                       </>
@@ -426,13 +429,13 @@ export default function Dashboard() {
                                   }
                                   return (
                                     <div style={{ fontSize: '13px', color: '#94a3b8', fontStyle: 'italic' }}>
-                                      ℹ ამ ქვითრის დეტალები არ არის ხელმისაწვდომი
+                                      {t('dashboard.detailsUnavailable')}
                                     </div>
                                   );
                                 })()}
                                 {discountLabel && (
                                   <div className={styles.detailDiscount}>
-                                    🏷 ფასდაკლება: {discountLabel} ({(p.subtotal_amount ?? 0).toFixed(2)} ₾ → {(p.total_amount ?? 0).toFixed(2)} ₾)
+                                    {t('dashboard.discountDetailLine', { value: discountLabel, subtotal: (p.subtotal_amount ?? 0).toFixed(2), total: (p.total_amount ?? 0).toFixed(2) })}
                                   </div>
                                 )}
                                 {/* 💰 Roadmap ეტაპი 8 — SPLIT ჩეკის ცალ-ცალკე ნაღდი/ბარათის
@@ -440,9 +443,9 @@ export default function Dashboard() {
                                     ზემოთა ბეიჯი უკვე ცალსახად აჩვენებს მთელ თანხას. */}
                                 {p.payment_method === 'split' && p.splits && (
                                   <div className={styles.detailSplit}>
-                                    <span>🔀 შერეული:</span>
-                                    <span>💵 ნაღდი — {p.splits.cash.toFixed(2)} ₾</span>
-                                    <span>💳 ბარათი — {p.splits.card.toFixed(2)} ₾</span>
+                                    <span>{t('sales.splitBreakdownLabel')}</span>
+                                    <span>{t('sales.splitCashLine', { amount: p.splits.cash.toFixed(2) })}</span>
+                                    <span>{t('sales.splitCardLine', { amount: p.splits.card.toFixed(2) })}</span>
                                   </div>
                                 )}
                               </div>
@@ -459,11 +462,11 @@ export default function Dashboard() {
           {/* პაგინაცია */}
           {payments.length > 0 && (
             <div className={styles.pagination}>
-              <span className={styles.pageInfo}>ნაჩვენებია {rangeStart}–{rangeEnd} / სულ {payments.length}</span>
+              <span className={styles.pageInfo}>{t('dashboard.pagination.summary', { start: rangeStart, end: rangeEnd, total: payments.length })}</span>
               <div className={styles.pageControls}>
-                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className={styles.pageBtn}>‹ წინა</button>
-                <span className={styles.pageInfo}>გვერდი {currentPage} / {totalPages}</span>
-                <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className={styles.pageBtn}>შემდეგი ›</button>
+                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className={styles.pageBtn}>{t('sales.prevPage')}</button>
+                <span className={styles.pageInfo}>{t('sales.pageInfo', { page: currentPage, total: totalPages })}</span>
+                <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className={styles.pageBtn}>{t('sales.nextPage')}</button>
               </div>
             </div>
           )}
@@ -476,17 +479,17 @@ export default function Dashboard() {
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>მოლარე</th>
-                <th>სტატუსი</th>
-                <th>გახსნა</th>
-                <th>დახურვა</th>
-                <th>საწყისი</th>
-                <th>მოსალოდნელი</th>
-                <th>ფაქტობრივი</th>
-                <th>სხვაობა</th>
+                <th>{t('dashboard.table.headers.id')}</th>
+                <th>{t('dashboard.table.headers.cashier')}</th>
+                <th>{t('dashboard.shifts.headers.status')}</th>
+                <th>{t('dashboard.shifts.headers.opened')}</th>
+                <th>{t('dashboard.shifts.headers.closed')}</th>
+                <th>{t('dashboard.shifts.headers.start')}</th>
+                <th>{t('dashboard.shifts.headers.expected')}</th>
+                <th>{t('dashboard.shifts.headers.actual')}</th>
+                <th>{t('dashboard.shifts.headers.difference')}</th>
                 {/* 🧾 Migration 012 */}
-                <th>Z-Report</th>
+                <th>{t('dashboard.shifts.headers.zReport')}</th>
               </tr>
             </thead>
             <tbody>
@@ -499,15 +502,15 @@ export default function Dashboard() {
                     <td style={{ fontWeight: 700 }}>{s.cashier_name}</td>
                     <td>
                       <span className={isOpen ? styles.badgeOpen : styles.badgeClosed}>
-                        {isOpen ? 'open' : '🔒 closed'}
+                        {isOpen ? t('dashboard.shifts.statusOpen') : t('dashboard.shifts.statusClosed')}
                       </span>
                       {/* 🧾 Migration 012 — დაგვიანებული offline sync-ის მიერ
                           "შესწორებული" ცვლა (routes/sales.ts,
                           syncSingleOfflineReceipt) — ორიგინალურად
                           დაბეჭდილი Z-Report საბოლოო აღარ არის ზუსტი. */}
                       {s.is_amended && (
-                        <span className={styles.badgeAmended} title="დაგვიანებული სინქრონიზაციის გამო შესწორდა — Z-Report ხელახლა დაბეჭდეთ">
-                          ⚠️ შესწორებული
+                        <span className={styles.badgeAmended} title={t('dashboard.shifts.amendedTitle')}>
+                          {t('dashboard.shifts.amendedBadge')}
                         </span>
                       )}
                     </td>
@@ -528,7 +531,7 @@ export default function Dashboard() {
                           className={styles.reprintBtn}
                           onClick={() => handleReprintZReport(s)}
                         >
-                          🖨 ხელახლა დაბეჭდვა
+                          {t('dashboard.shifts.reprintBtn')}
                         </button>
                       )}
                     </td>

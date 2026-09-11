@@ -63,7 +63,8 @@
       "ready": "Ready",
       "served": "Served",
       "voided": "Voided"
-    }
+    },
+    "unknown": "Unknown"
   },
   "sales": {
     "paymentBadge": {
@@ -454,6 +455,127 @@
       "managerPinUpdate": "{{actor}} changed {{target}}'s manager PIN code",
       "defaultAction": "{{actor}} changed {{target}}'s permission ({{action}}): {{value}}",
       "unknownValue": "—"
+    }
+  },
+  "dashboard": {
+    "pageTitle": "Sales Management Panel",
+    "tabs": {
+      "analytics": "📈 Analytics",
+      "salesHistory": "📝 Sales History",
+      "shifts": "⏰ Cashier Shifts"
+    },
+    "revenueLabel": "Total Revenue",
+    "filters": {
+      "allCashiers": "-- All Cashiers --",
+      "productSearchPlaceholder": "🔍 Product ...",
+      "fromDateTitle": "From date",
+      "toDateTitle": "To date",
+      "allPayments": "-- All Payments --",
+      "allStatuses": "-- All Statuses --",
+      "activeStatus": "✅ Active",
+      "voidedStatus": "🚫 Voided",
+      "allDiscounts": "-- Discount: All --",
+      "withDiscount": "🏷️ With Discount",
+      "withoutDiscount": "Without Discount",
+      "pageSizeOption": "{{count}} / page"
+    },
+    "export": {
+      "excel": "Excel 📥",
+      "pdf": "PDF 📄"
+    },
+    "table": {
+      "headers": {
+        "id": "ID",
+        "cashier": "Cashier",
+        "date": "Date",
+        "subtotalBeforeDiscount": "Subtotal Before Discount",
+        "discount": "Discount",
+        "finalPrice": "Final Price",
+        "payment": "Payment",
+        "details": "Details"
+      }
+    },
+    "emptyState": "📭 Sales history is empty or no data found",
+    "productFallbackName": "Product",
+    "unitPcs": "pcs",
+    "sharedItemsNote": "🔀 This receipt is part of a split bill — below is the full list of products from the shared order (to avoid double counting, products are linked to only one part in the database):",
+    "detailsUnavailable": "ℹ Details of this receipt are not available",
+    "discountDetailLine": "🏷 Discount: {{value}} ({{subtotal}} ₾ → {{total}} ₾)",
+    "pagination": {
+      "summary": "Showing {{start}}–{{end}} of {{total}}"
+    },
+    "shifts": {
+      "headers": {
+        "status": "Status",
+        "opened": "Opened",
+        "closed": "Closed",
+        "start": "Starting",
+        "expected": "Expected",
+        "actual": "Actual",
+        "difference": "Difference",
+        "zReport": "Z-Report"
+      },
+      "statusOpen": "open",
+      "statusClosed": "🔒 closed",
+      "amendedTitle": "Corrected due to delayed sync — please reprint the Z-Report",
+      "amendedBadge": "⚠️ Amended",
+      "reprintBtn": "🖨 Reprint"
+    },
+    "zReportPrint": {
+      "subtitle": "Z-Report (Shift Close)",
+      "shiftNumberLabel": "Shift #:",
+      "cashierLabel": "Cashier:",
+      "openedLabel": "Opened:",
+      "closedLabel": "Closed:",
+      "startBalanceLabel": "Starting Balance:",
+      "receiptsSoldLabel": "Receipts Sold:",
+      "expectedAmountLabel": "Expected Amount:",
+      "actualAmountLabel": "Actual Amount:",
+      "tipTotalLabel": "Total Tip:",
+      "differenceLabel": "Difference:",
+      "signatureLine": "Signature: ____________________"
+    },
+    "analytics": {
+      "loadError": "Failed to load analytics",
+      "loading": "Loading analytics...",
+      "loadFailedFallback": "Failed to load data",
+      "retryBtn": "Retry",
+      "cards": {
+        "todayRevenue": "Today's Revenue",
+        "todayReceipts": "Today's Receipts",
+        "averageReceipt": "Average Receipt",
+        "activeShifts": "Active Shifts",
+        "cashPayments": "Cash Payments",
+        "cardPayments": "Card Payments",
+        "splitPayments": "Split Payments",
+        "voidedReceipts": "Voided Receipts",
+        "voidedAmount": "Voided Amount"
+      },
+      "receiptCountValue": "{{count}} receipts",
+      "deficitPanel": {
+        "title": "⚠️ Offline Sync Oversell Notifications",
+        "detailLine": "Requested {{requested}} pcs, {{available}} pcs were available (deficit: {{deficit}} pcs)",
+        "unknownCashier": "Unknown cashier",
+        "unknownRegister": "Unknown register",
+        "resolveBtn": "✅ Reviewed"
+      },
+      "amendmentPanel": {
+        "title": "🧾 Z-Reports Amended by Delayed Sync",
+        "shiftLabel": "Shift #{{id}}",
+        "detailLine": "Expected: {{prevExpected}} ₾ → {{newExpected}} ₾, Difference: {{prevDifference}} ₾ → {{newDifference}} ₾",
+        "resolveBtn": "✅ Reprinted"
+      },
+      "charts": {
+        "dailyTrendTitle": "📈 Sales Trend (Current Month)",
+        "noData": "No data found",
+        "revenueMetricLabel": "Revenue",
+        "revenueLegendLabel": "Revenue (₾)",
+        "topProductsTitle": "🏆 Top 5 Products (Current Month)",
+        "quantityMetricLabel": "Quantity",
+        "quantityValue": "{{value}} pcs",
+        "hourlyPeakTitle": "⏰ Load by Hour (Current Month)",
+        "receiptCountMetricLabel": "Receipt Count"
+      }
     }
   }
 }
