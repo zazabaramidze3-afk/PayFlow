@@ -1,6 +1,6 @@
 # Multi-Language (i18n) — Roadmap
 
-**სტატუსი:** 🟡 მიმდინარე — ინფრასტრუქტურა + 8 გვერდი დასრულებულია (Sales.tsx, Tables.tsx, OrderScreen.tsx, UsersManagement.tsx, Dashboard.tsx + ExecutiveDashboard.tsx, Products.tsx, Modifiers.tsx, KitchenDisplay.tsx), დარჩენილია 3 გვერდი + backend error-message-ების ფენა.
+**სტატუსი:** 🟡 მიმდინარე — ინფრასტრუქტურა + 10 გვერდი დასრულებულია (Sales.tsx, Tables.tsx, OrderScreen.tsx, UsersManagement.tsx, Dashboard.tsx + ExecutiveDashboard.tsx, Products.tsx, Modifiers.tsx, KitchenDisplay.tsx, Ingredients.tsx, Register.tsx), დარჩენილია 1 გვერდი (Settings.tsx) + backend error-message-ების ფენა.
 **თარიღი:** 11.09.2026 (განახლდა)
 **წყარო:** react-i18next-ზე გადასვლის ეტაპობრივი (page-by-page) rollout, დაწყებული Cowork session-ში.
 
@@ -97,15 +97,28 @@
 - ახალი `kitchenDisplay.*` namespace (14 key). გამოყენებულია არსებული გაზიარებული `common.kitchenStatus.*` (OrderScreen.tsx-ის სესიიდან) 5 სტატუსისთვის ზუსტი დამთხვევით (pending/preparing/ready/served/voided) — **გარდა** `sent`-ისა, რომელიც KDS-ზე "ახალი"-დ ჩანს (არა "გაგზავნილია", რასაც OrderScreen.tsx-ის ბეჯი წერს), ამიტომ ცალკე `kitchenDisplay.statusLabel.sent` key შეიქმნა ამ ერთი განსხვავებისთვის.
 - ტესტირებულია მომხმარებლის მიერ ორივე ენაზე, ორივე თემაზე — station-ტაბები, ტიკეტების ბარათები, advance-flow.
 
+### 10. Ingredients.tsx (ნედლეულის მარაგის მართვა — HoReCa)
+**Commit:** `529c99b` — `feat(i18n): translate Ingredients.tsx (raw material stock management)`
+
+- სრულად გადათარგმნილია: header + subtitle, ინგრედიენტების სია (stock ბეჯები "ამოიწურა"/"იწურება"), ინლაინ restock ფორმა, create/edit მოდალი, delete confirm-modal (`{{name}}` ინტერპოლაციით), 9 toast შეტყობინება.
+- ამ გვერდსაც ცალკე child/modal კომპონენტები არ აქვს `ConfirmModal.tsx`-ის გარდა (გადამოწმდა — უკვე ნათარგმნია, ცვლილება არ დასჭირდა).
+- ახალი `ingredients.*` namespace (23 key). ფართო cross-page key reuse Modifiers.tsx-ის (STEP 3.1) namespace-იდან, სადაც ტექსტი ზუსტად ემთხვევა: `modifiers.toasts.saveFailed`/`modifiers.toasts.deleteFailed`, `modifiers.nameLabel`, `modifiers.addOptionAria` — ახალი დუბლიკატი key-ების გარეშე.
+- ტესტირებულია მომხმარებლის მიერ ორივე ენაზე, ორივე თემაზე — დამატება/რედაქტირება/წაშლა, restock flow.
+
+### 11. Register.tsx (კომპანიის თვით-რეგისტრაცია)
+**Commit:** `14231ab` — `feat(i18n): translate Register.tsx (company self-registration page)`
+
+- **შენიშვნა:** ეს გვერდი აღმოჩნდა კომპანიის თვით-რეგისტრაციის ფორმა (ახალი ორგანიზაციის sign-up, Login-ის წინ ჩანს, `App.tsx`-ის `showRegister` state-ტოგლით) — არა "სალარო/register" გვერდი, როგორც roadmap-ში თავდაპირველად მიახლოებით იყო ჩაწერილი (დარჩენილი-გვერდების სია ეფუძნებოდა მხოლოდ ფაილის სახელს, კონტენტის გარეშე). Login.tsx-ის მსგავსად, ავტორიზაციამდეც მუშაობს `useTranslation()`.
+- სრულად გადათარგმნილია: subtitle, ყველა ველის label/placeholder (კომპანიის სახელი, საქმიანობის ტიპი Retail/HoReCa + hint-ები, Subdomain, ადმინის სახელი, Email, პაროლი, გაიმეორეთ პაროლი), submit ღილაკი, "← უკვე გაქვთ ანგარიში?" ლინკი, 7 ვალიდაციის შეცდომა.
+- ახალი `register.*` namespace (28 key). ფართო cross-page key reuse `login.*` namespace-იდან ზუსტი დამთხვევებისთვის: `login.fillAllFields`, `login.passwordMismatch`, `login.slugLabel`/`login.slugPlaceholder`, `login.password`, `login.loading`.
+- **მნიშვნელოვანი დეტალი:** `login.passwordTooShort` (მინ. 4 სიმბოლო, password-reset-ისთვის) და Register.tsx-ის საკუთარი წესი (მინ. 8 სიმბოლო) განზრახ **არ** გაერთიანდა ერთ key-ში — სხვადასხვა ბიზნეს-წესია, საერთო key ბაგს გამოიწვევდა.
+- ტესტირებულია მომხმარებლის მიერ ორივე ენაზე, ორივე თემაზე — ორივე business-type არჩევანი (Retail/HoReCa hint-ების ჩათვლით).
+
 ---
 
 ## ⏳ დარჩენილი გვერდები (თარგმანი ჯერ არ დაწყებულა)
 
-გვერდები დალაგებულია `frontend/src/pages/`-ში ჯერ კიდევ დარჩენილი ქართული ტექსტის მოცულობის მიხედვით (მიახლოებითი, მოიცავს კომენტარებსაც — რეალური scope დაზუსტდება თითოეულის თარგმნის დაწყებისას):
-
-1. **Ingredients.tsx** — ინგრედიენტების მართვა.
-2. **Register.tsx** — სალარო/register-ის გვერდი.
-3. **Settings.tsx** — პარამეტრების გვერდი.
+1. **Settings.tsx** — პარამეტრების გვერდი.
 
 **შენიშვნა:** ეს სია მოიცავს მხოლოდ `frontend/src/pages/`-ს. დამატებით საჭირო იქნება გაზიარებული კომპონენტების (`frontend/src/components/`) გადამოწმებაც თითოეული გვერდის თარგმნისას — ისე, როგორც `ConfirmModal.tsx` მოგვეყარა Tables.tsx-ის დროს, `SplitBillModal.tsx` — OrderScreen.tsx-ის დროს, და `PrintableZReport.tsx`/`ExecutiveDashboard.tsx` — Dashboard.tsx-ის დროს.
 
