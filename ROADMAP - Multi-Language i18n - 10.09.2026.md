@@ -136,6 +136,10 @@
 - **Backend error-message-ების i18n** — ამჟამად API error-ები ინგლისურ/ქართულად ჰარდკოდილია backend-ში; frontend-ზე ნაჩვენებ toast/error ტექსტებთან შესათანხმებლად საჭირო იქნება ცალკე გადაწყვეტა (key-ების დაბრუნება ტექსტის მაგივრად + frontend-ზე თარგმნა, ან locale-aware error-messaging backend-ზე). არ დაწყებულა.
 - Dev-only `console.error()` ზარები და კოდის კომენტარები **განზრახ რჩება** ნათარგმნი — out of scope (დადგენილია პროექტის დასაწყისშივე).
 - OrderScreen.tsx-ში ერთი backend-error substring-check (`message?.includes('ღია შეკვეთა')`) განზრახ დარჩა ჰარდკოდილი ქართულად — ეს backend-ის საპასუხო ტექსტს პარსავს (race-condition detection), არა UI-ს, ამიტომ frontend-ის ენას არ უნდა მისდევდეს backend i18n-ის დანერგვამდე.
+- **⚠️ Live-ტესტირებით დადასტურებული დაკვირვება (11.09.2026, Products.tsx):** გვერდებს შორის **ორი განსხვავებული, შეუთანხმებელი catch-error პატერნი** არსებობს:
+  - **Products.tsx** (`handleSaveProduct`, `performDelete` და დანარჩენი catch-ბლოკები) — `error.response.data.error`-ს საერთოდ არ კითხულობს, ყოველთვის generic `t('products.toasts.saveFailed')`-ს აჩვენებს. **ტესტით დადასტურდა:** duplicate barcode-ის დამატებისას backend-მა დააბრუნა კონკრეტული `409 { error: 'ეს სახელი ან ბარკოდი უკვე დაკავებულია!' }` (`backend/src/routes/products.ts:152`, postgres `23505` unique-violation), მაგრამ user-მა დაინახა მხოლოდ generic "Error saving data!" — კონკრეტული მიზეზი დაიკარგა. i18n-ის კუთხით ხარვეზი არ არის (fallback ტექსტი სწორად ითარგმნება), მაგრამ UX-ის კუთხით — კი.
+  - **Settings.tsx/Ingredients.tsx/KitchenDisplay.tsx და სხვები** (`getErrorMessage(error) || t('...')` პატერნი) — პირიქით, backend-ის კონკრეტულ ტექსტს პირდაპირ აჩვენებენ, მაგრამ სწორედ ეს backend-ტექსტი ვერ გადის frontend-ის i18n-ში (არ სვიჩდება user-ის ენაზე).
+  - **დასკვნა:** ორივე მიდგომის სისტემური გამოსწორება ერთი და იგივე გადაწყვეტას საჭიროებს — ზემოთ აღწერილი "Backend error-message-ების i18n" ცალკე ფენა (key-based error response + frontend თარგმანი). სანამ ეს არ დაინერგება, არჩევანია: ან specific-but-untranslated (Settings.tsx-ის ტიპის გვერდები), ან translated-but-generic (Products.tsx). არცერთი არ დაწყებულა გამოსწორება.
 
 ---
 
