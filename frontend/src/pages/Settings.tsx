@@ -19,6 +19,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import styles from './Settings.module.scss';
 import { SettingsIcon } from '../components/Icons';
+import { useTranslation } from 'react-i18next';
 
 type TipDistributionMode = 'individual' | 'pooled';
 type ToastType = 'success' | 'error';
@@ -30,6 +31,7 @@ interface OrganizationMeResponse {
 }
 
 export default function Settings() {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [tipDistributionMode, setTipDistributionMode] = useState<TipDistributionMode>('individual');
@@ -52,7 +54,7 @@ export default function Settings() {
       setTipDistributionMode(response.data.tipDistributionMode);
       setSavedMode(response.data.tipDistributionMode);
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || 'პარამეტრების ჩატვირთვა ვერ მოხერხდა', 'error');
+      showToast(getErrorMessage(error) || t('settings.toasts.loadFailed'), 'error');
     } finally {
       setLoading(false);
     }
@@ -73,34 +75,30 @@ export default function Settings() {
         { tipDistributionMode }
       );
       setSavedMode(response.data.tipDistributionMode);
-      showToast('პარამეტრი შენახულია', 'success');
+      showToast(t('settings.toasts.saved'), 'success');
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || 'შენახვა ვერ მოხერხდა', 'error');
+      showToast(getErrorMessage(error) || t('modifiers.toasts.saveFailed'), 'error');
     } finally {
       setSaving(false);
     }
   };
 
   if (loading) {
-    return <div className={styles.container}>იტვირთება...</div>;
+    return <div className={styles.container}>{t('nav.loading')}</div>;
   }
 
   return (
     <div className={styles.container}>
       <div className={styles.topPanel}>
         <div>
-          <h2><SettingsIcon size={18} /> პარამეტრები</h2>
-          <small>ორგანიზაციის ბიზნეს-დონის პარამეტრები</small>
+          <h2><SettingsIcon size={18} /> {t('settings.pageTitle')}</h2>
+          <small>{t('settings.pageSubtitle')}</small>
         </div>
       </div>
 
       <div className={styles.card}>
-        <h3>💰 Tips-ის განაწილება</h3>
-        <p className={styles.hint}>
-          განსაზღვრეთ, როგორ ნაწილდება checkout-ზე მიღებული tip —
-          ინდივიდუალურად (ვინც checkout გაატარა, მას ეკუთვნის) თუ საერთო
-          (pooled — ცვლის ბოლოს თანაბრად ნაწილდება აქტიურ ვეითერებზე).
-        </p>
+        <h3>{t('settings.tipsCard.title')}</h3>
+        <p className={styles.hint}>{t('settings.tipsCard.hint')}</p>
 
         <div className={styles.optionList}>
           <label className={styles.optionRow}>
@@ -112,11 +110,8 @@ export default function Settings() {
               className={styles.radio}
             />
             <span className={styles.optionText}>
-              <span className={styles.optionTitle}>👤 ინდივიდუალური</span>
-              <span className={styles.optionDesc}>
-                ამჟამინდელი (და ნაგულისხმევი) ქცევა — checkout-ზე მთელი tip
-                იმ ვეითერს/მოლარეს ეკუთვნის, ვინც checkout გაატარა.
-              </span>
+              <span className={styles.optionTitle}>{t('settings.tipsCard.individualTitle')}</span>
+              <span className={styles.optionDesc}>{t('settings.tipsCard.individualDesc')}</span>
             </span>
           </label>
 
@@ -129,12 +124,8 @@ export default function Settings() {
               className={styles.radio}
             />
             <span className={styles.optionText}>
-              <span className={styles.optionTitle}>🤝 საერთო (Pooled)</span>
-              <span className={styles.optionDesc}>
-                ⚠️ ეს პარამეტრი ჯერჯერობით მხოლოდ არჩევანს ინახავს —
-                ფაქტობრივი გადანაწილების ალგორითმი მომავალ ეტაპზეა
-                დაგეგმილი, checkout-ის ლოგიკა ჯერ არ იცვლება.
-              </span>
+              <span className={styles.optionTitle}>{t('settings.tipsCard.pooledTitle')}</span>
+              <span className={styles.optionDesc}>{t('settings.tipsCard.pooledDesc')}</span>
             </span>
           </label>
         </div>
@@ -145,7 +136,7 @@ export default function Settings() {
           disabled={!isDirty || saving}
           onClick={handleSave}
         >
-          {saving ? 'ინახება...' : 'შენახვა'}
+          {saving ? t('products.savingEllipsis') : t('tables.save')}
         </button>
       </div>
 

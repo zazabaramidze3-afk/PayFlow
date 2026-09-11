@@ -792,5 +792,21 @@
       "passwordTooShort": "Password must be at least 8 characters!",
       "registrationFailed": "Registration failed — please try again"
     }
+  },
+  "settings": {
+    "pageTitle": "Settings",
+    "pageSubtitle": "Organization-level business settings",
+    "tipsCard": {
+      "title": "💰 Tip Distribution",
+      "hint": "Choose how tips received at checkout are distributed — individually (whoever ran the checkout keeps it) or pooled (split evenly among active waiters at the end of the shift).",
+      "individualTitle": "👤 Individual",
+      "individualDesc": "Current (and default) behavior — at checkout, the entire tip belongs to the waiter/cashier who ran it.",
+      "pooledTitle": "🤝 Pooled",
+      "pooledDesc": "⚠️ This setting currently only saves your choice — the actual distribution algorithm is planned for a future stage; checkout logic does not change yet."
+    },
+    "toasts": {
+      "loadFailed": "Failed to load settings",
+      "saved": "Setting saved"
+    }
   }
 }
