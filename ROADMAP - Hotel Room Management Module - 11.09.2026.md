@@ -119,9 +119,139 @@ room service შეკვეთები (`orders`-თან კავშირ�
 
 ---
 
+## 5. STEP 3 — Booking/Calendar ინტეგრაცია (დაგეგმილი, არ დაწყებულა)
+
+**კონცეფცია:** `bookings` — ცალკე entity, `rooms.status`-ისგან
+დამოუკიდებელი. `rooms.status` არის "ახლა რა ხდება ოთახში" (მყისიერი,
+manually-toggled), `bookings` — დროში გაწელილი ჩანაწერი (check-in →
+check-out თარიღების დიაპაზონი).
+
+**სქემა (draft):**
+```sql
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
+CREATE TABLE public.bookings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES public.organizations(id),
+  room_id UUID NOT NULL REFERENCES public.rooms(id),
+  guest_name TEXT NOT NULL,
+  guest_phone TEXT,
+  check_in_date DATE NOT NULL,
+  check_out_date DATE NOT NULL,
+  status TEXT NOT NULL DEFAULT 'confirmed'
+    CHECK (status IN ('confirmed', 'checked_in', 'checked_out', 'cancelled', 'no_show')),
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CHECK (check_out_date > check_in_date),
+
+  -- 🔒 ორმაგი დაჯავშნის აკრძალვა DB-დონეზე (race condition-საც კი
+  -- იცავს) — cancelled/no_show აღარ ითვლება "დაკავებულად".
+  EXCLUDE USING gist (
+    room_id WITH =,
+    daterange(check_in_date, check_out_date, '[)') WITH &&
+  ) WHERE (status NOT IN ('cancelled', 'no_show'))
+);
+```
+`guest_name`/`guest_phone` პირდაპირ `bookings`-ზეა, ცალკე
+`guests`/CRM ცხრილის გარეშე (YAGNI — CRM ცნება ჯერ არსად არსებობს
+codebase-ში).
+
+**`rooms.status` ↔ `bookings` კავშირი — manual action, არა auto-derive:**
+`Tables.tsx`-ის quick-status ღილაკების იგივე ფილოსოფია:
+- **"Check-in" ღილაკი** → `bookings.status → checked_in` +
+  `rooms.status → occupied`.
+- **"Check-out" ღილაკი** → `bookings.status → checked_out` +
+  `rooms.status → dirty` (housekeeping-ს სჭირდება დალაგება).
+- დღეს-არსებული, ჯერ check-in-არდამდგარი ჯავშანი ოთახის `status`-ს
+  ავტომატურად **არ** ცვლის `reserved`-ზე — date-ზე დამოკიდებული
+  auto-compute (cron/scheduled job) მომავალი, გამარტივებული STEP-ია.
+
+**Calendar UI:** ცალკე `RoomCalendar.tsx` — Gantt/timeline grid
+(მწკრივები = ოთახები, სვეტები = თარიღები, ~14/30-დღიანი ფანჯარა),
+ჯავშნები ზოლებად. `Rooms.tsx` რჩება "დღევანდელი სტატუს-დაფად"
+(Tables.tsx-ის ანალოგი), `RoomCalendar.tsx` — ცალკე გვერდი/ტაბი.
+
+**Payments:** STEP 3-ში არ შედის — `orders.closed_payment_id`-ის იგივე
+პატერნი (`bookings.deposit_payment_id`/`final_payment_id`) STEP 5-ზეა
+გადატანილი.
+
+---
+
+## 6. STEP 4 — OTA Sync (Booking.com) — ანალიზი და გადაწყვეტილება
+
+**კონტექსტი:** განხილულია სამი შესაძლო გზა Booking.com-თან ოთახების
+ხელმისაწვდომობის სინქრონისთვის (Booking.com-ზე პირდაპირ დაჯავშნისას
+PayFlow-შიც აისახოს, და პირიქით).
+
+### 6.1 სამი ვარიანტის შედარება
+
+| მეთოდი | ღირს? | დამტკიცება საჭიროა? | სისწრაფე |
+|---|---|---|---|
+| **iCal calendar sync** | უფასო | არა — extranet-ის ჩვეულებრივი პარამეტრი | ნელი — polling, 15წთ-რამდენიმე საათი |
+| **Connectivity API (პირდაპირ)** | უფასო (API თავად), მაგრამ commission ცალკეა | დიახ — Booking.com Connectivity Partner-ის სერტიფიცირება (კვირები/თვეები, ზოგჯერ დახურულია ახალი განაცხადებისთვის) | Tier-ზეა დამოკიდებული: **Standard** = საათობრივი/batch, **Premier** = near real-time (webhook, წამები) |
+| **Channel Manager** (SiteMinder/RateGain/HotelRunner და ა.შ.) | ფასიანი — ყოველთვიური subscription | არა ჩვენგან (Channel Manager თავად უკვე სერტიფიცირებულია Booking.com-თან) | ჩვეულებრივ წამები-წუთები (CM-ის საკუთარი tier-ზეა დამოკიდებული) |
+
+**მექანიზმის განსხვავება:** iCal არის **pull/polling** (ორივე მხარე
+პერიოდულად "ამოწმებს" ლინკს, push საერთოდ არ არსებობს — ამ
+ინტერვალში overselling-ის რეალური რისკია). Connectivity API/Channel
+Manager არის **push/webhook** (ჯავშნის მომენტში მყისიერად ეცნობება).
+
+### 6.2 კრიტიკული შეზღუდვა — iCal და multi-room room-type
+
+Booking.com-ის calendar-sync ფუნქცია **თითო room type-ზე მაქსიმუმ 1
+ერთეულს** უშვებს. ანუ:
+- თუ ოთახები ჯგუფურადაა დარეგისტრირებული (მაგ. "Standard Double" — 1
+  room type, 10 ერთეულით, საერთო inventory pool) — calendar-sync ამ
+  10 ოთახზე **ცალ-ცალკე ვერ იმუშავებს**, რადგან Booking.com კონკრეტულ
+  ოთახის ნომერს არც კი იცნობს (მხოლოდ pool-ის რაოდენობას იკლებს).
+- სამუშაოდ საჭირო იქნებოდა თითოეული ოთახის ცალკე room type-ად
+  რეგისტრირება Booking.com-ის მხარეს (30 ოთახი → 30 room type) — რაც
+  სტუმრისთვის საძიებო შედეგებში არეულობას და rate-მართვის 30-ჯერად
+  გამრავლებას იწვევს. **30-ოთახიან, რამდენიმე room-type-იან რეალურ
+  სასტუმროზე ეს პრაქტიკულად არ ჯდება.**
+- iCal რეალურად მუშაობს მხოლოდ იმ property-ებზე, სადაც ყოველი ოთახი
+  უკვე ისედაც უნიკალურია (ერთი ოთახი = ერთი room type, ხშირია პატარა
+  guesthouse-ებში).
+
+### 6.3 გადაწყვეტილება
+
+**iCal — deferred/not recommended** მრავალ-ოთახიანი, room-type-პულებზე
+დაფუძნებული სასტუმროსთვის (ჩვენი target-შემთხვევა), ზემოთხსენებული
+შეზღუდვის გამო.
+
+**Channel Manager — რეკომენდებული გზა STEP 4-ისთვის:** room-type +
+inventory count მოდელს სწორად უმკლავდება (Booking.com-ის ნამდვილი
+hotel-inventory API-ს იყენებს, არა iCal-ს), დამტკიცება/სერტიფიცირება
+ჩვენგან არ სჭირდება (Channel Manager უკვე სერტიფიცირებულია), ღირს
+subscription-ის სახით (კონკრეტული ვენდორი და ფასი — მომავალი
+გადაწყვეტილება, ბიზნეს-მხარეზეა დამოკიდებული).
+
+**Connectivity API პირდაპირ — deferred:** დამტკიცების ბარიერი
+(კვირები/თვეები, ზოგჯერ დახურული ახალი განაცხადებისთვის) ამ ეტაპზე
+არაპროპორციულია, სანამ Channel Manager-ის გზა არ იქნება ამოწურული.
+
+**STEP 4 იმპლემენტაციის ნაბიჯები (Channel Manager არჩევის შემდეგ):**
+1. **ვენდორის არჩევა** — კონკრეტული Channel Manager (SiteMinder/
+   RateGain/HotelRunner და ა.შ.), ფასი/ფუნქციონალის შედარებით
+   (ბიზნეს-გადაწყვეტილება, ცალკე კვლევის საგანი).
+2. **`bookings`-ზე ახალი ველები** — `external_source TEXT` (`'direct'`
+   | `'channel_manager'`), `external_reservation_id TEXT` (idempotent
+   upsert/dedupe-სთვის) + unique constraint
+   `(external_source, external_reservation_id)`.
+3. **`backend/src/routes/channelManagerWebhook.ts`** — ვენდორის
+   webhook-ის მიმღები endpoint (ახალი/შეცვლილი/გაუქმებული ჯავშნის
+   push-ის დამუშავება → `bookings` upsert).
+4. **PayFlow → Channel Manager push** — ჩვენი მხრიდან ახალი/გაუქმებული
+   ჯავშნის შემთხვევაში ვენდორის ARI/inventory API-ს გამოძახება
+   (room-type-ის ხელმისაწვდომობის განახლება).
+5. **Retry/idempotency** — webhook-ის ორმაგი მიღების დაცვა
+   (`external_reservation_id` unique constraint-ით, ზემოთ).
+
+---
+
 ## შემდეგი ნაბიჯი
 
-STEP 2-ის (Migration + routes + page) დაწყებამდე საჭიროა დამატებითი
-გადაწყვეტილებები (scope-ის ცხადად შემდეგ ეტაპზე): booking/calendar
-საჭიროა თუ არა STEP 2-ში, თუ მხოლოდ სტატუსის მართვა საკმარისია პირველ
-ეტაპზე (Tables.tsx-ის ანალოგიით, calendar-ის გარეშე).
+STEP 2 (Migration + routes + page — ოთახის სტატუსის მართვა, calendar/
+booking-ის გარეშე) რჩება პირველი, თვითკმარი ეტაპი. STEP 3 (booking/
+calendar) და STEP 4 (OTA sync, Channel Manager-ის ვენდორის არჩევით)
+ცალკე, მომდევნო ეტაპებია — STEP 2-ის დასრულების/დადასტურების შემდეგ
+დასაწყები.
