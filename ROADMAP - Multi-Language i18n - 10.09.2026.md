@@ -1,7 +1,7 @@
 # Multi-Language (i18n) — Roadmap
 
-**სტატუსი:** 🟢 გვერდების page-by-page rollout დასრულებულია — ინფრასტრუქტურა + 11 გვერდი დასრულებულია (Sales.tsx, Tables.tsx, OrderScreen.tsx, UsersManagement.tsx, Dashboard.tsx + ExecutiveDashboard.tsx, Products.tsx, Modifiers.tsx, KitchenDisplay.tsx, Ingredients.tsx, Register.tsx, Settings.tsx), დარჩენილი გვერდი აღარ არის. ცალკე ღიად რჩება მხოლოდ backend error-message-ების ფენა (იხ. ქვემოთ, "⏳ ცალკე ფენა").
-**თარიღი:** 11.09.2026 (განახლდა)
+**სტატუსი:** 🟢 გვერდების page-by-page rollout დასრულებულია — ინფრასტრუქტურა + 11 გვერდი დასრულებულია (Sales.tsx, Tables.tsx, OrderScreen.tsx, UsersManagement.tsx, Dashboard.tsx + ExecutiveDashboard.tsx, Products.tsx, Modifiers.tsx, KitchenDisplay.tsx, Ingredients.tsx, Register.tsx, Settings.tsx), დარჩენილი გვერდი აღარ არის. Backend error-message-ების ფენაზე 🟡 **pilot დასრულებულია** (Products.tsx + Ingredients.tsx, error-codes არქიტექტურით — იხ. სექცია 13); დარჩენილი ~13 route-ფაილის იმავე pattern-ით გაფართოება ჯერ არ დაწყებულა (იხ. ქვემოთ, "⏳ ცალკე ფენა").
+**თარიღი:** 20.09.2026 (განახლდა)
 **წყარო:** react-i18next-ზე გადასვლის ეტაპობრივი (page-by-page) rollout, დაწყებული Cowork session-ში.
 
 **კონტექსტი:** აპლიკაციას ემატება მრავალენოვნება — ქართული (default) და ინგლისური. ენა ინახება მომხმარებლის მიხედვით ბაზაში (`users.language` სავარაუდოდ, `PATCH /me/language`-ით მუშავდება). თარგმანი მიმდინარეობს ეტაპობრივად, ერთი გვერდი/კომპონენტი ერთ ჯერზე: ვთარგმნით → ვატესტებთ ლოკალურად (`localhost:3000`) ორივე ენაზე და ორივე თემაზე (light/dark) → commit მხოლოდ მომხმარებლის პირდაპირი დადასტურების შემდეგ → push ყოველთვის მომხმარებელი აკეთებს თავად.
@@ -123,6 +123,19 @@
 - ტესტირებულია მომხმარებლის მიერ ორივე ენაზე, ორივე თემაზე (light/dark) — Tip Distribution-ის ორივე ოფცია, save flow.
 - **ეს იყო roadmap-ის დარჩენილი-გვერდების სიის ბოლო item** — ამ commit-ით `frontend/src/pages/`-ის page-by-page i18n rollout დასრულებულია.
 
+### 13. Backend Error-Message i18n — STEP 1 (Pilot: Products.tsx + Ingredients.tsx)
+**Commit:** `9b1d862` — `feat(i18n): add backend error-code pilot (Products + Ingredients)`
+
+- **არქიტექტურა (გადაწყვეტილია, `AskUserQuestion`-ით):** backend-ის error-პასუხებს ემატება additive `code` ველი (მაგ. `PRODUCT_DUPLICATE_NAME`) — არსებული ჰარდკოდილი ქართული `error` ტექსტი უცვლელად რჩება (backward compatibility, ჯერ არარეფაქტორებული routes-ისთვის). ახალი `backend/src/constants/errorCodes.ts` — `ErrorCodes` კონსტანტა, `<ENTITY>_<REASON>` კონვენციით.
+- **Frontend:** ახალი გაზიარებული `frontend/src/lib/errorMessages.ts` → `resolveErrorMessage(error, fallbackKey)`. `code`-ს `errors.<code>` i18n key-ზე გადაასქემატებს (თუ თარგმანი არსებობს); სხვა ნებისმიერ შემთხვევაში (code არ მოსულა/უცნობია) — fallback-key-ის ზოგადი, თარგმნილი შეტყობინება. **არასდროს** აღარ აბრუნებს backend-ის დაუთარგმნელ raw ტექსტს პირდაპირ.
+- ახალი top-level `errors.*` namespace ორივე `ka.json`/`en.json`-ში: `PRODUCT_DUPLICATE_NAME`, `PRODUCT_DUPLICATE_BARCODE`, `INGREDIENT_DUPLICATE_NAME`, `INGREDIENT_IN_USE`.
+- **Products.tsx** — `handleSaveProduct`-ისა და `handleCreateScannedProduct`-ის catch-ბლოკებმა ახლა რეალურად წაიკითხეს backend-ის error (მანამდე section 134-142-ში დაფიქსირებული ბაგით, ყოველთვის ზოგადი `saveFailed`/`productAddFailed` იყო, backend-ის კონკრეტული მიზეზი იკარგებოდა).
+- **Ingredients.tsx** — ლოკალური `getErrorMessage` (`.error`-ის raw წაკითხვა, დაუთარგმნელად) მთლიანად ჩანაცვლდა გაზიარებული `resolveErrorMessage`-ით ყველა 4 catch-ბლოკში (load/save/delete/restock) — აქამდე section 134-142-ში დაფიქსირებული "specific-but-untranslated" ბაგი ამ გვერდზე მოგვარებულია.
+- **ტესტირებულია მომხმარებლის მიერ ორივე ენაზე** (live browser, ka + en): Products.tsx-ზე დუბლირებული ბარკოდი → `409 { code: PRODUCT_DUPLICATE_BARCODE }` → სწორად თარგმნილი, კონკრეტული toast; Ingredients.tsx-ზე დუბლირებული სახელი → `INGREDIENT_DUPLICATE_NAME`; Ingredients.tsx-ზე რეცეპტში გამოყენებული ინგრედიენტის წაშლის მცდელობა → `INGREDIENT_IN_USE` — სამივე შემთხვევა კონკრეტული და თარგმნილია ორივე ენაზე.
+- **Backward compatibility:** ორივე `products.ts`/`ingredients.ts`-ის დანარჩენი endpoint (404/400 ვალიდაცია და ა.შ.) და დანარჩენი ~13 route-ფაილი ჯერ `code`-ს არ აბრუნებს — მათზე `resolveErrorMessage` ავტომატურად fallback-key-ის ზოგად შეტყობინებაზე გადადის, ისე რომ არაფერი არ ტყდება.
+- **`npx tsc --noEmit` სუფთაა** ორივე `frontend/`-სა და `backend/`-ში.
+- **დარჩენილი (STEP 2, ჯერ არ დაწყებულა):** იგივე pattern-ის გავრცელება დანარჩენ ~13 backend route-ფაილზე/~86 frontend catch-ბლოკზე, ერთი route-ფაილი ერთ ჯერზე (page-by-page rollout-ის იგივე კონვენცია). ლოკალური `getErrorMessage`-ის დუბლიკატი ჯერ კიდევ დარჩენილია `Modifiers.tsx`-ში, `OrderScreen.tsx`-ში, `Settings.tsx`-ში და `SplitBillModal.tsx`-ის მითითებაში — თითოეული გადავა გაზიარებულ `resolveErrorMessage`-ზე, როცა შესაბამისი backend route-ფაილიც მიგრირდება `code`-ზე.
+
 ---
 
 ## ✅ გვერდების rollout დასრულებულია
@@ -133,13 +146,13 @@
 
 ## ⏳ ცალკე ფენა (out of scope ჯერჯერობით)
 
-- **Backend error-message-ების i18n** — ამჟამად API error-ები ინგლისურ/ქართულად ჰარდკოდილია backend-ში; frontend-ზე ნაჩვენებ toast/error ტექსტებთან შესათანხმებლად საჭირო იქნება ცალკე გადაწყვეტა (key-ების დაბრუნება ტექსტის მაგივრად + frontend-ზე თარგმნა, ან locale-aware error-messaging backend-ზე). არ დაწყებულა.
+- **Backend error-message-ების i18n** — 🟡 **STEP 1 (pilot) დასრულებულია** (იხ. სექცია 13, commit `9b1d862`) — `code`-based error-codes არქიტექტურა Products.tsx-ზე/Ingredients.tsx-ზე დამტკიცებული და მომხმარებლის მიერ ლაივ-ტესტირებით დადასტურებულია. **STEP 2 (დარჩენილი ~13 backend route-ფაილის/~86 frontend catch-ბლოკის გაფართოება) ჯერ არ დაწყებულა.**
 - Dev-only `console.error()` ზარები და კოდის კომენტარები **განზრახ რჩება** ნათარგმნი — out of scope (დადგენილია პროექტის დასაწყისშივე).
 - OrderScreen.tsx-ში ერთი backend-error substring-check (`message?.includes('ღია შეკვეთა')`) განზრახ დარჩა ჰარდკოდილი ქართულად — ეს backend-ის საპასუხო ტექსტს პარსავს (race-condition detection), არა UI-ს, ამიტომ frontend-ის ენას არ უნდა მისდევდეს backend i18n-ის დანერგვამდე.
-- **⚠️ Live-ტესტირებით დადასტურებული დაკვირვება (11.09.2026, Products.tsx):** გვერდებს შორის **ორი განსხვავებული, შეუთანხმებელი catch-error პატერნი** არსებობს:
-  - **Products.tsx** (`handleSaveProduct`, `performDelete` და დანარჩენი catch-ბლოკები) — `error.response.data.error`-ს საერთოდ არ კითხულობს, ყოველთვის generic `t('products.toasts.saveFailed')`-ს აჩვენებს. **ტესტით დადასტურდა:** duplicate barcode-ის დამატებისას backend-მა დააბრუნა კონკრეტული `409 { error: 'ეს სახელი ან ბარკოდი უკვე დაკავებულია!' }` (`backend/src/routes/products.ts:152`, postgres `23505` unique-violation), მაგრამ user-მა დაინახა მხოლოდ generic "Error saving data!" — კონკრეტული მიზეზი დაიკარგა. i18n-ის კუთხით ხარვეზი არ არის (fallback ტექსტი სწორად ითარგმნება), მაგრამ UX-ის კუთხით — კი.
-  - **Settings.tsx/Ingredients.tsx/KitchenDisplay.tsx და სხვები** (`getErrorMessage(error) || t('...')` პატერნი) — პირიქით, backend-ის კონკრეტულ ტექსტს პირდაპირ აჩვენებენ, მაგრამ სწორედ ეს backend-ტექსტი ვერ გადის frontend-ის i18n-ში (არ სვიჩდება user-ის ენაზე).
-  - **დასკვნა:** ორივე მიდგომის სისტემური გამოსწორება ერთი და იგივე გადაწყვეტას საჭიროებს — ზემოთ აღწერილი "Backend error-message-ების i18n" ცალკე ფენა (key-based error response + frontend თარგმანი). სანამ ეს არ დაინერგება, არჩევანია: ან specific-but-untranslated (Settings.tsx-ის ტიპის გვერდები), ან translated-but-generic (Products.tsx). არცერთი არ დაწყებულა გამოსწორება.
+- **⚠️ Live-ტესტირებით დადასტურებული დაკვირვება (11.09.2026, Products.tsx)** — გვერდებს შორის **ორი განსხვავებული, შეუთანხმებელი catch-error პატერნი** არსებობდა. **20.09.2026 განახლება: Products.tsx-ზე და Ingredients.tsx-ზე მოგვარებულია** (იხ. სექცია 13, STEP 1 pilot); დანარჩენ გვერდებზე ჯერ კვლავ ღიაა STEP 2-მდე:
+  - **Products.tsx** — 🟢 **მოგვარებულია.** `handleSaveProduct`/`handleCreateScannedProduct` აღარ ეყრდნობა მხოლოდ generic-ს — `resolveErrorMessage`-ით backend-ის `code`-ს (როცა route მიგრირებულია) თარგმნილ, კონკრეტულ ტექსტად აჩვენებს. (მანამდე: `error.response.data.error`-ს საერთოდ არ კითხულობდა — duplicate barcode-ზეც კი მხოლოდ generic "Error saving data!" ჩანდა.)
+  - **Ingredients.tsx** — 🟢 **მოგვარებულია.** ლოკალური `getErrorMessage` (raw, დაუთარგმნელი ტექსტი) ჩანაცვლდა `resolveErrorMessage`-ით.
+  - **Modifiers.tsx/OrderScreen.tsx/Settings.tsx/SplitBillModal.tsx** — ⏳ **ჯერ კვლავ ღიაა.** `getErrorMessage(error) || t('...')` პატერნი კვლავ backend-ის დაუთარგმნელ raw ტექსტს აჩვენებს პირდაპირ (არ სვიჩდება user-ის ენაზე) — მოგვარდება STEP 2-ის დროს, თითოეული გვერდი შესაბამისი backend route-ფაილის `code`-ზე მიგრაციასთან ერთად.
 
 ---
 
