@@ -810,5 +810,11 @@
       "loadFailed": "Failed to load settings",
       "saved": "Setting saved"
     }
+  },
+  "errors": {
+    "PRODUCT_DUPLICATE_NAME": "A product with this name already exists!",
+    "PRODUCT_DUPLICATE_BARCODE": "This name or barcode is already taken!",
+    "INGREDIENT_DUPLICATE_NAME": "An ingredient with this name already exists",
+    "INGREDIENT_IN_USE": "This ingredient is already used in a recipe — it cannot be deleted"
   }
 }

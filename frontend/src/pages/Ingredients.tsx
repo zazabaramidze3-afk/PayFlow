@@ -17,6 +17,11 @@ import ConfirmModal from '../components/ConfirmModal';
 import { Ingredient } from '../lib/horecaTypes';
 import { EditIcon, TrashIcon, CheckIcon, XIcon, RestockIcon } from '../components/Icons';
 import { useTranslation } from 'react-i18next';
+// 🌍 Backend Error-Message i18n STEP 1 (Roadmap "10.09.2026", pilot) —
+// ცვლის ამ გვერდის ლოკალურ getErrorMessage-ს (რომელიც backend-ის raw,
+// დაუთარგმნელ ტექსტს პირდაპირ აბრუნებდა — roadmap-ის "specific-but-
+// untranslated" ბაგი) გაზიარებულ, code-based, ყოველთვის-თარგმნილ helper-ით.
+import { resolveErrorMessage } from '../lib/errorMessages';
 
 type ToastType = 'success' | 'error' | 'info';
 interface ToastItem { id: number; message: string; type: ToastType; }
@@ -50,15 +55,12 @@ export default function Ingredients() {
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
   }, []);
 
-  const getErrorMessage = (error: unknown): string | undefined =>
-    axios.isAxiosError<{ error?: string }>(error) ? error.response?.data?.error : undefined;
-
   const fetchIngredients = useCallback(async () => {
     try {
       const response = await axios.get<Ingredient[]>('/api/ingredients');
       setIngredients(response.data);
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || t('ingredients.toasts.loadFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'ingredients.toasts.loadFailed'), 'error');
     } finally {
       setLoading(false);
     }
@@ -120,7 +122,7 @@ export default function Ingredients() {
       closeModal();
       fetchIngredients();
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || t('modifiers.toasts.saveFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'modifiers.toasts.saveFailed'), 'error');
     } finally {
       setSaving(false);
     }
@@ -138,7 +140,7 @@ export default function Ingredients() {
       showToast(t('ingredients.toasts.deleted'), 'success');
       fetchIngredients();
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || t('modifiers.toasts.deleteFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'modifiers.toasts.deleteFailed'), 'error');
     }
   };
 
@@ -181,7 +183,7 @@ export default function Ingredients() {
       closeRestock();
       fetchIngredients();
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || t('ingredients.toasts.stockUpdateFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'ingredients.toasts.stockUpdateFailed'), 'error');
     } finally {
       setRestockSaving(false);
     }

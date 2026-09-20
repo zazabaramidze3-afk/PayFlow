@@ -4,6 +4,10 @@ import { toast } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import styles from './Products.module.scss';
 import { ModifierGroupWithOptions, Ingredient, ProductRecipe } from '../lib/horecaTypes';
+// 🌍 Backend Error-Message i18n STEP 1 (Roadmap "10.09.2026", pilot) —
+// backend-ის `code`-ს თარგმნილ, კონკრეტულ ტექსტად გარდაქმნის (fallback-ით
+// ზოგად შეტყობინებაზე, თუ code არ მოსულა/უცნობია).
+import { resolveErrorMessage } from '../lib/errorMessages';
 import { EditIcon, TrashIcon, XIcon } from '../components/Icons';
 
 // 🍳 KDS routing (STEP 2, Roadmap "03.09.2026", migration 020) —
@@ -243,7 +247,7 @@ export default function Products({ businessType }: ProductsProps) {
       toast.success(t('products.toasts.productAdded'));
       closeScannerModal();
     } catch (error) {
-      toast.error(t('products.toasts.productAddFailed'));
+      toast.error(resolveErrorMessage(error, 'products.toasts.productAddFailed'));
     }
   };
 
@@ -295,7 +299,7 @@ export default function Products({ businessType }: ProductsProps) {
       }
       setBarcode(''); setName(''); setPrice(''); setStock(''); setStation(null);
     } catch (error) {
-      toast.error(t('products.toasts.saveFailed'));
+      toast.error(resolveErrorMessage(error, 'products.toasts.saveFailed'));
     }
   };
 

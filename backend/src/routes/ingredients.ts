@@ -17,6 +17,9 @@ import { requireAnyRole } from '../middleware/requireRole';
 import { requireBusinessType } from '../middleware/requireBusinessType';
 import { withOrgContext } from '../db';
 import { Ingredient, RecipeItemWithIngredient } from '../types';
+// 🌍 Backend Error-Message i18n STEP 1 (Roadmap "10.09.2026", pilot) —
+// additive `code` ველი, products.ts-ის იგივე pattern.
+import { ErrorCodes } from '../constants/errorCodes';
 
 const router = Router();
 
@@ -101,7 +104,7 @@ router.post(
       res.status(201).json(result.rows[0]);
     } catch (err: unknown) {
       if (isUniqueViolation(err)) {
-        return res.status(409).json({ error: 'ამ სახელით ინგრედიენტი უკვე არსებობს' });
+        return res.status(409).json({ error: 'ამ სახელით ინგრედიენტი უკვე არსებობს', code: ErrorCodes.INGREDIENT_DUPLICATE_NAME });
       }
       res.status(500).json({ error: getErrorMessage(err) });
     }
@@ -136,7 +139,7 @@ router.put(
       res.json(result.rows[0]);
     } catch (err: unknown) {
       if (isUniqueViolation(err)) {
-        return res.status(409).json({ error: 'ამ სახელით ინგრედიენტი უკვე არსებობს' });
+        return res.status(409).json({ error: 'ამ სახელით ინგრედიენტი უკვე არსებობს', code: ErrorCodes.INGREDIENT_DUPLICATE_NAME });
       }
       res.status(500).json({ error: getErrorMessage(err) });
     }
@@ -197,7 +200,7 @@ router.delete(
       res.status(204).send();
     } catch (err: unknown) {
       if (isForeignKeyViolation(err)) {
-        return res.status(409).json({ error: 'ეს ინგრედიენტი უკვე გამოყენებულია რომელიმე რეცეპტში — წაშლა შეუძლებელია' });
+        return res.status(409).json({ error: 'ეს ინგრედიენტი უკვე გამოყენებულია რომელიმე რეცეპტში — წაშლა შეუძლებელია', code: ErrorCodes.INGREDIENT_IN_USE });
       }
       res.status(500).json({ error: getErrorMessage(err) });
     }

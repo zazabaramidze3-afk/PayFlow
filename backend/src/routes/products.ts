@@ -13,6 +13,10 @@ import { db } from '../index';
 // უერთდება, route-level `WHERE/AND organization_id` scoping-ის დამატებით
 // შრედ.
 import { withOrgContext } from '../db';
+// 🌍 Backend Error-Message i18n STEP 1 (Roadmap "10.09.2026", pilot) —
+// additive `code` ველი dup-name/dup-barcode პასუხებზე, frontend-ის
+// resolveErrorMessage()-ის i18n-resolve-ისთვის.
+import { ErrorCodes } from '../constants/errorCodes';
 // 📥 Product Excel Import (PLAN - Product Excel Import & Dark Mode -
 // 02.09.2026.md) — parsing/ვალიდაციის წმინდა ფენა, DB-სგან
 // დამოუკიდებელი.
@@ -137,7 +141,7 @@ router.post('/products', authenticateToken, async (req: CustomRequest, res: Resp
       )
     );
     if (dupCheck.rows.length > 0) {
-      return res.status(409).json({ error: 'ამ სახელით პროდუქტი უკვე არსებობს!' });
+      return res.status(409).json({ error: 'ამ სახელით პროდუქტი უკვე არსებობს!', code: ErrorCodes.PRODUCT_DUPLICATE_NAME });
     }
 
     const result = await withOrgContext(req.user?.organizationId, (client) =>
@@ -150,7 +154,7 @@ router.post('/products', authenticateToken, async (req: CustomRequest, res: Resp
     res.status(201).json(result.rows[0]);
   } catch (err: any) {
     if (err.code === '23505') {
-      return res.status(409).json({ error: 'ეს სახელი ან ბარკოდი უკვე დაკავებულია!' });
+      return res.status(409).json({ error: 'ეს სახელი ან ბარკოდი უკვე დაკავებულია!', code: ErrorCodes.PRODUCT_DUPLICATE_BARCODE });
     }
     res.status(500).json({ error: err.message });
   }
@@ -206,7 +210,7 @@ router.put('/products/:id', authenticateToken, async (req: CustomRequest, res: R
         )
       );
       if (dupCheck.rows.length > 0) {
-        return res.status(409).json({ error: 'ამ სახელით სხვა პროდუქტი უკვე არსებობს!' });
+        return res.status(409).json({ error: 'ამ სახელით სხვა პროდუქტი უკვე არსებობს!', code: ErrorCodes.PRODUCT_DUPLICATE_NAME });
       }
     }
 
@@ -248,7 +252,7 @@ router.put('/products/:id', authenticateToken, async (req: CustomRequest, res: R
     res.json(result.rows[0]);
   } catch (err: any) {
     if (err.code === '23505') {
-      return res.status(409).json({ error: 'ეს სახელი ან ბარკოდი უკვე დაკავებულია!' });
+      return res.status(409).json({ error: 'ეს სახელი ან ბარკოდი უკვე დაკავებულია!', code: ErrorCodes.PRODUCT_DUPLICATE_BARCODE });
     }
     res.status(500).json({ error: err.message });
   }
