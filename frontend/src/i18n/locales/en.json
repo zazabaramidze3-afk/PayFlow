@@ -877,6 +877,20 @@
     "SPLIT_MIN_PARTS": "At least 2 parts are needed to split the bill",
     "SPLIT_SEAT_REQUIRED": "When splitting by seat, every part needs a seat number",
     "SPLIT_SEAT_DUPLICATE": "Two parts cannot share the same seat",
-    "SPLIT_SEATS_MISMATCH": "The parts’ seats do not match the seats in the order"
+    "SPLIT_SEATS_MISMATCH": "The parts’ seats do not match the seats in the order",
+    "SHIFT_ROLE_NOT_ALLOWED": "Only a cashier or waiter can open a shift",
+    "INVALID_AMOUNT": "Invalid amount",
+    "SHIFT_ALREADY_OPEN_ELSEWHERE": "You already have an open shift on another register",
+    "SHIFT_NOT_FOUND": "No active shift found",
+    "ACCESS_RESTRICTED": "Access restricted!",
+    "RECEIPT_NOT_FOUND": "Receipt not found",
+    "RECEIPT_ALREADY_VOIDED": "This receipt is already voided",
+    "VOID_NOT_ALLOWED": "You are not allowed to void receipts",
+    "MANAGER_AUTH_NOT_FOUND": "No valid manager authorization found",
+    "SESSION_OR_SHIFT_NOT_FOUND": "Session or active shift not found!",
+    "HISTORY_ACCESS_DISABLED": "Permission to view history is turned off!",
+    "TABLE_NAME_REQUIRED": "Table name is required",
+    "TABLE_NOT_FOUND": "Table not found",
+    "TABLE_HAS_ORDER_HISTORY": "This table has related order history — it cannot be deleted"
   }
 }

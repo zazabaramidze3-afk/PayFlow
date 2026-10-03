@@ -6,6 +6,8 @@
 // (და, migration 019-ის default-ის გამო, არც row-ები).
 
 import { Router, Response } from 'express';
+// 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — additive `code` ველი.
+import { ErrorCodes } from '../constants/errorCodes';
 import { authenticateToken, CustomRequest } from './auth';
 import { requireAnyRole } from '../middleware/requireRole';
 import { requireBusinessType } from '../middleware/requireBusinessType';
@@ -62,7 +64,7 @@ router.post(
     const { name, section, capacity } = req.body as { name?: unknown; section?: unknown; capacity?: unknown };
 
     if (typeof name !== 'string' || name.trim().length === 0) {
-      return res.status(400).json({ error: 'მაგიდის სახელი სავალდებულოა' });
+      return res.status(400).json({ error: 'მაგიდის სახელი სავალდებულოა', code: ErrorCodes.TABLE_NAME_REQUIRED });
     }
 
     const sectionValue = typeof section === 'string' && section.trim().length > 0 ? section.trim() : null;
@@ -71,7 +73,7 @@ router.post(
     if (capacity !== undefined && capacity !== null && capacity !== '') {
       const parsedCapacity = Number(capacity);
       if (!Number.isFinite(parsedCapacity) || parsedCapacity <= 0) {
-        return res.status(400).json({ error: 'capacity არავალიდურია' });
+        return res.status(400).json({ error: 'capacity არავალიდურია', code: ErrorCodes.INVALID_REQUEST });
       }
       capacityValue = Math.floor(parsedCapacity);
     }
@@ -104,7 +106,7 @@ router.put(
     const { name, section, capacity } = req.body as { name?: unknown; section?: unknown; capacity?: unknown };
 
     if (typeof name !== 'string' || name.trim().length === 0) {
-      return res.status(400).json({ error: 'მაგიდის სახელი სავალდებულოა' });
+      return res.status(400).json({ error: 'მაგიდის სახელი სავალდებულოა', code: ErrorCodes.TABLE_NAME_REQUIRED });
     }
 
     const sectionValue = typeof section === 'string' && section.trim().length > 0 ? section.trim() : null;
@@ -113,7 +115,7 @@ router.put(
     if (capacity !== undefined && capacity !== null && capacity !== '') {
       const parsedCapacity = Number(capacity);
       if (!Number.isFinite(parsedCapacity) || parsedCapacity <= 0) {
-        return res.status(400).json({ error: 'capacity არავალიდურია' });
+        return res.status(400).json({ error: 'capacity არავალიდურია', code: ErrorCodes.INVALID_REQUEST });
       }
       capacityValue = Math.floor(parsedCapacity);
     }
@@ -129,7 +131,7 @@ router.put(
       );
 
       if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'მაგიდა ვერ მოიძებნა' });
+        return res.status(404).json({ error: 'მაგიდა ვერ მოიძებნა', code: ErrorCodes.TABLE_NOT_FOUND });
       }
 
       res.json(result.rows[0]);
@@ -154,7 +156,7 @@ router.patch(
     const { status } = req.body as { status?: unknown };
 
     if (typeof status !== 'string' || !VALID_STATUSES.includes(status as TableStatus)) {
-      return res.status(400).json({ error: `status უნდა იყოს ერთ-ერთი: ${VALID_STATUSES.join(', ')}` });
+      return res.status(400).json({ error: `status უნდა იყოს ერთ-ერთი: ${VALID_STATUSES.join(', ')}`, code: ErrorCodes.INVALID_REQUEST });
     }
 
     try {
@@ -166,7 +168,7 @@ router.patch(
       );
 
       if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'მაგიდა ვერ მოიძებნა' });
+        return res.status(404).json({ error: 'მაგიდა ვერ მოიძებნა', code: ErrorCodes.TABLE_NOT_FOUND });
       }
 
       res.json(result.rows[0]);
@@ -198,14 +200,14 @@ router.delete(
       );
 
       if (result.rowCount === 0) {
-        return res.status(404).json({ error: 'მაგიდა ვერ მოიძებნა' });
+        return res.status(404).json({ error: 'მაგიდა ვერ მოიძებნა', code: ErrorCodes.TABLE_NOT_FOUND });
       }
 
       res.status(204).send();
     } catch (err: unknown) {
       const message = getErrorMessage(err);
       if (message.includes('foreign key') || message.includes('violates')) {
-        return res.status(409).json({ error: 'ამ მაგიდას აქვს დაკავშირებული შეკვეთების ისტორია — წაშლა შეუძლებელია' });
+        return res.status(409).json({ error: 'ამ მაგიდას აქვს დაკავშირებული შეკვეთების ისტორია — წაშლა შეუძლებელია', code: ErrorCodes.TABLE_HAS_ORDER_HISTORY });
       }
       res.status(500).json({ error: message });
     }

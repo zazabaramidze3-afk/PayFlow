@@ -134,12 +134,12 @@ router.post('/shifts/open', authenticateToken, requireRegister, async (req: Cust
   // POST /orders-საც checkActiveShift სჭირდება ორივესთვის). Retail-ზე
   // 'waiter' როლის user პრაქტიკულად არასდროს იქნება — ნულოვანი გავლენა.
   if (req.user?.role !== 'cashier' && req.user?.role !== 'waiter') {
-    return res.status(403).json({ message: "ცვლის გახსნა შეუძლია მხოლოდ მოლარეს ან მიმტანს" });
+    return res.status(403).json({ message: "ცვლის გახსნა შეუძლია მხოლოდ მოლარეს ან მიმტანს", code: ErrorCodes.SHIFT_ROLE_NOT_ALLOWED });
   }
 
   const { start_amount } = req.body;
   if (start_amount === undefined || start_amount < 0) {
-    return res.status(400).json({ message: "არავალიდური თანხა" });
+    return res.status(400).json({ message: "არავალიდური თანხა", code: ErrorCodes.INVALID_AMOUNT });
   }
 
   try {
@@ -168,7 +168,7 @@ router.post('/shifts/open', authenticateToken, requireRegister, async (req: Cust
       );
 
       if (cashierCheck.rows.length > 0) {
-        throw new HttpError(400, { message: "თქვენ უკვე გაქვთ გახსნილი ცვლა სხვა სალაროზე" });
+        throw new HttpError(400, { message: "თქვენ უკვე გაქვთ გახსნილი ცვლა სხვა სალაროზე", code: ErrorCodes.SHIFT_ALREADY_OPEN_ELSEWHERE });
       }
 
       // 🩹 FIX (16.08) — ადრე TO_CHAR(CURRENT_TIMESTAMP, ...) იყენებდა Postgres
@@ -253,7 +253,7 @@ router.put('/shifts/close', authenticateToken, async (req: CustomRequest, res: R
   const { end_amount_actual } = req.body;
 
   if (end_amount_actual === undefined || end_amount_actual === null || isNaN(Number(end_amount_actual))) {
-    return res.status(400).json({ message: "არავალიდური ფაქტობრივი თანხა" });
+    return res.status(400).json({ message: "არავალიდური ფაქტობრივი თანხა", code: ErrorCodes.INVALID_AMOUNT });
   }
 
   try {
@@ -264,7 +264,7 @@ router.put('/shifts/close', authenticateToken, async (req: CustomRequest, res: R
       );
 
       if (shiftResult.rows.length === 0) {
-        throw new HttpError(400, { message: "აქტიური ცვლა ვერ მოიძებნა" });
+        throw new HttpError(400, { message: "აქტიური ცვლა ვერ მოიძებნა", code: ErrorCodes.SHIFT_NOT_FOUND });
       }
 
       const shift = shiftResult.rows[0];
@@ -348,7 +348,7 @@ router.put('/shifts/close', authenticateToken, async (req: CustomRequest, res: R
 // 🔒 STEP 2.2 (RLS Pilot) — `withOrgContext`-ში გადატანილია.
 router.get('/shifts/history', authenticateToken, async (req: CustomRequest, res: Response) => {
   // 🍽 HoReCa STEP 4 — waiter იგივე staff-scope-შია, რაც cashier.
-  if (req.user?.role === 'cashier' || req.user?.role === 'waiter') return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
+  if (req.user?.role === 'cashier' || req.user?.role === 'waiter') return res.status(403).json({ error: 'წვდომა შეზღუდულია!', code: ErrorCodes.ACCESS_RESTRICTED });
 
   const query = `
     SELECT s.*, u.name AS cashier_name
@@ -1175,7 +1175,7 @@ const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[
 router.post('/payments/:id/void', authenticateToken, async (req: CustomRequest, res: Response) => {
   const paymentId = req.params.id;
   if (!UUID_V4_REGEX.test(paymentId)) {
-    return res.status(400).json({ error: 'ჩეკის ID არავალიდურია' });
+    return res.status(400).json({ error: 'ჩეკის ID არავალიდურია', code: ErrorCodes.INVALID_REQUEST });
   }
 
   try {
@@ -1193,11 +1193,11 @@ router.post('/payments/:id/void', authenticateToken, async (req: CustomRequest, 
       );
 
       if (paymentCheck.rows.length === 0) {
-        throw new HttpError(404, { error: 'ჩეკი ვერ მოიძებნა' });
+        throw new HttpError(404, { error: 'ჩეკი ვერ მოიძებნა', code: ErrorCodes.RECEIPT_NOT_FOUND });
       }
 
       if (paymentCheck.rows[0].is_voided === true) {
-        throw new HttpError(400, { error: 'ეს ჩეკი უკვე გაუქმებულია' });
+        throw new HttpError(400, { error: 'ეს ჩეკი უკვე გაუქმებულია', code: ErrorCodes.RECEIPT_ALREADY_VOIDED });
       }
 
       // 🔐 can_void_receipt-ის სერვერული შემოწმება + Manager PIN Override —
@@ -1217,7 +1217,7 @@ router.post('/payments/:id/void', authenticateToken, async (req: CustomRequest, 
       }
 
       if (!hasOwnPermission && !managerOverrideUsed) {
-        throw new HttpError(403, { error: 'თქვენ არ გაქვთ ჩეკის გაუქმების უფლება' });
+        throw new HttpError(403, { error: 'თქვენ არ გაქვთ ჩეკის გაუქმების უფლება', code: ErrorCodes.VOID_NOT_ALLOWED });
       }
 
       const itemsResult = await client.query(
@@ -1645,7 +1645,7 @@ router.post(
     const receiptsInput: unknown = req.body?.receipts;
 
     if (!Array.isArray(receiptsInput) || receiptsInput.length === 0) {
-      return res.status(400).json({ error: 'receipts მასივი სავალდებულოა და არ უნდა იყოს ცარიელი' });
+      return res.status(400).json({ error: 'receipts მასივი სავალდებულოა და არ უნდა იყოს ცარიელი', code: ErrorCodes.INVALID_REQUEST });
     }
 
     // 🔒 ზედაპირული shape-ვალიდაცია batch-ის დამუშავებამდე — "any"-ის
@@ -1666,7 +1666,7 @@ router.post(
     });
 
     if (!isValidShape) {
-      return res.status(400).json({ error: 'receipts მასივში არავალიდური ჩანაწერია' });
+      return res.status(400).json({ error: 'receipts მასივში არავალიდური ჩანაწერია', code: ErrorCodes.INVALID_REQUEST });
     }
 
     const payloads = receiptsInput as OfflineSyncReceiptPayload[];
@@ -1739,7 +1739,7 @@ router.post('/cart/confirm-override', authenticateToken, async (req: CustomReque
   const { action, detail } = req.body;
 
   if (!isCartOverrideAction(action)) {
-    return res.status(400).json({ error: 'action უნდა იყოს clear-cart-override ან remove-item-override' });
+    return res.status(400).json({ error: 'action უნდა იყოს clear-cart-override ან remove-item-override', code: ErrorCodes.INVALID_REQUEST });
   }
 
   const overrideToken = extractBearerToken(req.headers['x-manager-override']);
@@ -1747,7 +1747,7 @@ router.post('/cart/confirm-override', authenticateToken, async (req: CustomReque
   const managerOverrideUsed = overridePayload && overridePayload.cashierId === req.user?.id ? overridePayload : null;
 
   if (!managerOverrideUsed) {
-    return res.status(403).json({ error: 'მენეჯერის ვალიდური ავტორიზაცია ვერ მოიძებნა' });
+    return res.status(403).json({ error: 'მენეჯერის ვალიდური ავტორიზაცია ვერ მოიძებნა', code: ErrorCodes.MANAGER_AUTH_NOT_FOUND });
   }
 
   consumeOverrideToken(managerOverrideUsed.jti);
@@ -1884,7 +1884,7 @@ function buildPaymentsFilterQuery(baseSelect: string, query: any, organizationId
 // `withOrgContext`-შია, ისე რომ ერთი, კონსისტენტური snapshot-ი დაბრუნდეს.
 router.get('/payments', authenticateToken, async (req: CustomRequest, res: any) => {
   // 🍽 HoReCa STEP 4 — waiter იგივე staff-scope-შია, რაც cashier.
-  if (req.user?.role === 'cashier' || req.user?.role === 'waiter') return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
+  if (req.user?.role === 'cashier' || req.user?.role === 'waiter') return res.status(403).json({ error: 'წვდომა შეზღუდულია!', code: ErrorCodes.ACCESS_RESTRICTED });
 
   // 🧾 p.is_voided დამატებულია (Roadmap ეტაპი 4 fix) — Dashboard.tsx-ს სჭირდება
   // ვიცოდეთ, რომელი ჩეკია გაუქმებული, რომ (ა) ისტორიის ცხრილში ვიზუალურად მონიშნოს
@@ -1971,7 +1971,7 @@ router.get(
     const shiftId = req.activeShiftId;
 
     if (!cashierId || !shiftId) {
-      return res.status(401).json({ error: 'ავტორიზაცია ან აქტიური ცვლა ვერ მოიძებნა!' });
+      return res.status(401).json({ error: 'ავტორიზაცია ან აქტიური ცვლა ვერ მოიძებნა!', code: ErrorCodes.SESSION_OR_SHIFT_NOT_FOUND });
     }
 
     try {
@@ -1980,7 +1980,7 @@ router.get(
         // მიერ გამორთვა მომენტალურად ამოქმედდეს, მოლარეს ტოკენის განახლების გარეშეც.
         const permissionCheck = await client.query('SELECT can_view_history FROM users WHERE id = $1', [cashierId]);
         if (permissionCheck.rows.length === 0 || permissionCheck.rows[0].can_view_history === false) {
-          throw new HttpError(403, { error: 'ისტორიის ნახვის უფლება გამორთულია!' });
+          throw new HttpError(403, { error: 'ისტორიის ნახვის უფლება გამორთულია!', code: ErrorCodes.HISTORY_ACCESS_DISABLED });
         }
 
         // 🧾 p.is_voided დამატებულია Roadmap ეტაპი 4-ისთვის — POS ეკრანის "ჩემი
@@ -2075,7 +2075,7 @@ router.get('/payments/export/excel', async (req: any, res: any) => {
   const token = req.query.token as string;
   const secretKey = process.env.JWT_SECRET || 'super-secret-key';
 
-  if (!token) return res.status(401).json({ error: 'ტოკენი არ არსებობს!' });
+  if (!token) return res.status(401).json({ error: 'ტოკენი არ არსებობს!', code: ErrorCodes.AUTH_REQUIRED });
 
   try {
     // 🏢 STEP 2, ტიერი 5 — decoded payload-იც ვიღებთ (არა მხოლოდ
@@ -2099,7 +2099,7 @@ router.get('/payments/export/excel', async (req: any, res: any) => {
     // მოდის), ამიტომ role-იც decoded payload-იდან ცალსახად ვკითხულობთ.
     // 🍽 HoReCa STEP 4 — waiter იგივე staff-scope-შია, რაც cashier.
     if (decoded.role === 'cashier' || decoded.role === 'waiter') {
-      return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
+      return res.status(403).json({ error: 'წვდომა შეზღუდულია!', code: ErrorCodes.ACCESS_RESTRICTED });
     }
 
     // 🧾 p.is_voided დამატებულია (Roadmap ეტაპი 4 fix) — ბუღალტერმა Excel-შიც
@@ -2158,7 +2158,7 @@ router.get('/payments/export/pdf', async (req: any, res: any) => {
   const token = req.query.token as string;
   const secretKey = process.env.JWT_SECRET || 'super-secret-key';
 
-  if (!token) return res.status(401).json({ error: 'ტოკენი არ არსებობს!' });
+  if (!token) return res.status(401).json({ error: 'ტოკენი არ არსებობს!', code: ErrorCodes.AUTH_REQUIRED });
 
   try {
     // 🏢 STEP 2, ტიერი 5 — იგივე, რაც export/excel-ს (იხ. მისი კომენტარი).
@@ -2177,7 +2177,7 @@ router.get('/payments/export/pdf', async (req: any, res: any) => {
     // შეზღუდვა/მიზეზი.
     // 🍽 HoReCa STEP 4 — waiter იგივე staff-scope-შია, რაც cashier.
     if (decoded.role === 'cashier' || decoded.role === 'waiter') {
-      return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
+      return res.status(403).json({ error: 'წვდომა შეზღუდულია!', code: ErrorCodes.ACCESS_RESTRICTED });
     }
 
     // 🧾 p.is_voided დამატებულია (Roadmap ეტაპი 4 fix) — Grand Total-ს ქვემოთ

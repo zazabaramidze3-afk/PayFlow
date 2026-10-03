@@ -25,6 +25,9 @@ import OrderScreen from './OrderScreen';
 import ConfirmModal from '../components/ConfirmModal';
 import { RestaurantTable, TableStatus } from '../lib/horecaTypes';
 import { useTranslation } from 'react-i18next';
+// 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — tables.ts-ისა და
+// ცვლის (sales.ts) შეცდომები code-based, თარგმნილი helper-ით.
+import { resolveErrorMessage } from '../lib/errorMessages';
 import i18n from '../i18n';
 
 interface TablesProps {
@@ -124,8 +127,7 @@ export default function Tables({ canManage }: TablesProps) {
       const response = await axios.get<RestaurantTable[]>('/api/tables');
       setTables(response.data);
     } catch (error: unknown) {
-      const message = axios.isAxiosError<{ error?: string }>(error) ? error.response?.data?.error : undefined;
-      showToast(message || t('tables.toasts.loadFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'tables.toasts.loadFailed'), 'error');
     } finally {
       setLoading(false);
     }
@@ -166,8 +168,7 @@ export default function Tables({ canManage }: TablesProps) {
       await axios.patch(`/api/tables/${table.id}/status`, { status });
       setTables(prev => prev.map(t => (t.id === table.id ? { ...t, status } : t)));
     } catch (error: unknown) {
-      const message = axios.isAxiosError<{ error?: string }>(error) ? error.response?.data?.error : undefined;
-      showToast(message || t('tables.toasts.statusChangeFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'tables.toasts.statusChangeFailed'), 'error');
     }
   };
 
@@ -218,8 +219,7 @@ export default function Tables({ canManage }: TablesProps) {
       closeFormModal();
       fetchTables();
     } catch (error: unknown) {
-      const message = axios.isAxiosError<{ error?: string }>(error) ? error.response?.data?.error : undefined;
-      showToast(message || t('tables.toasts.saveFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'tables.toasts.saveFailed'), 'error');
     } finally {
       setFormSaving(false);
     }
@@ -239,8 +239,7 @@ export default function Tables({ canManage }: TablesProps) {
       showToast(t('tables.toasts.deleted'), 'success');
       fetchTables();
     } catch (error: unknown) {
-      const message = axios.isAxiosError<{ error?: string }>(error) ? error.response?.data?.error : undefined;
-      showToast(message || t('tables.toasts.deleteFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'tables.toasts.deleteFailed'), 'error');
     }
   };
 
@@ -273,10 +272,7 @@ export default function Tables({ canManage }: TablesProps) {
       setStartAmount('0');
       fetchShiftStatus();
     } catch (error: unknown) {
-      const message = axios.isAxiosError<{ error?: string; message?: string }>(error)
-        ? error.response?.data?.error ?? error.response?.data?.message
-        : undefined;
-      showToast(message || t('tables.toasts.openShiftFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'tables.toasts.openShiftFailed'), 'error');
     } finally {
       setOpeningShift(false);
     }
@@ -297,10 +293,7 @@ export default function Tables({ canManage }: TablesProps) {
       const response = await axios.put<ZReportData>('/api/shifts/close', { end_amount_actual: parsedEndAmount });
       setZReport(response.data);
     } catch (error: unknown) {
-      const message = axios.isAxiosError<{ error?: string; message?: string }>(error)
-        ? error.response?.data?.error ?? error.response?.data?.message
-        : undefined;
-      showToast(message || t('tables.toasts.closeShiftFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'tables.toasts.closeShiftFailed'), 'error');
     } finally {
       setClosingShift(false);
     }

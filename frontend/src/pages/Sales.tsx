@@ -1,6 +1,9 @@
 import styles from './Sales.module.scss';
 import { LockIcon, CashIcon, DashboardIcon } from '../components/Icons';
 import { useTranslation } from 'react-i18next';
+// 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — backend-ის raw
+// ქართული `error`/`message`-ის ნაცვლად code-based, თარგმნილი შეტყობინება.
+import { resolveErrorMessage } from '../lib/errorMessages';
 import i18n from '../i18n';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
@@ -397,8 +400,7 @@ export default function Sales() {
       showToast(t('sales.toasts.voidSuccess'), 'success');
       fetchMyHistory(); // სია განახლდეს — გაუქმებული ჩეკი ახლა is_voided: true-ით უნდა ჩანდეს
     } catch (error: unknown) {
-      const serverMessage = axios.isAxiosError<{ error?: string }>(error) ? error.response?.data?.error : undefined;
-      showToast(serverMessage || t('sales.toasts.voidFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'sales.toasts.voidFailed'), 'error');
     }
   };
 
@@ -479,9 +481,7 @@ export default function Sales() {
         closePinModal();
       }
     } catch (error: unknown) {
-      // "any"-ის ნაცვლად axios.isAxiosError ტიპის დამცველი — Clean Architecture წესი.
-      const serverMessage = axios.isAxiosError<{ error?: string }>(error) ? error.response?.data?.error : undefined;
-      setPinError(serverMessage || t('sales.toasts.pinVerifyFailed'));
+      setPinError(resolveErrorMessage(error, 'sales.toasts.pinVerifyFailed'));
       setPinValue('');
     } finally {
       setPinLoading(false);
@@ -608,8 +608,8 @@ export default function Sales() {
     try {
       await axios.post('/api/shifts/open', { start_amount: parseFloat(startAmount) });
       checkShiftStatus();
-    } catch (error: any) {
-      showToast(error.response?.data?.message || t('sales.toasts.genericError'), 'error');
+    } catch (error: unknown) {
+      showToast(resolveErrorMessage(error, 'sales.toasts.genericError'), 'error');
     }
   };
 
@@ -663,9 +663,9 @@ export default function Sales() {
       // 🖨 Roadmap ეტაპი 7 — დახურვის ზუსტი მომენტი, Z-Report-ის ბეჭდვისთვის.
       setShiftClosedAtDisplay(new Date().toLocaleString('ka-GE', { hour12: false }));
       // მნიშვნელოვანია: არ ვცვლით hasActiveShift-ს ხელით აქ, რათა ეკრანი არ დაიბლოკოს მოდალის გამოჩენამდე
-    } catch (error: any) {
-      console.error('ცვლის დახურვის შეცდომა:', error.response?.data || error.message);
-      showToast(error.response?.data?.message || error.response?.data?.error || t('sales.toasts.closeShiftError'), 'error');
+    } catch (error: unknown) {
+      console.error('ცვლის დახურვის შეცდომა:', axios.isAxiosError(error) ? error.response?.data ?? error.message : error);
+      showToast(resolveErrorMessage(error, 'sales.toasts.closeShiftError'), 'error');
     } finally {
       setClosingShift(false);
     }
@@ -717,8 +717,8 @@ export default function Sales() {
       setHistoryReceipts(response.data.receipts || []);
       setHistorySummary(response.data.summary || { totalReceipts: 0, totalSum: 0 });
       setHistoryPage(1); // ახალი ჩატვირთვის შემდეგ ყოველთვის პირველ გვერდზე ვბრუნდებით
-    } catch (error: any) {
-      if (error?.response?.status === 403) {
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 403) {
         setCanViewHistory(false); // ღილაკიც დაუყოვნებლივ დაიმალოს, თუ უფლება იმ წამს გამორთეს
         setShowHistoryModal(false);
         showToast(t('sales.toasts.historyPermissionOff'), 'error');
@@ -1021,7 +1021,7 @@ export default function Sales() {
       // მონიშნული (single-use), ამიტომ ხელახლა ვერც სცადებდა, თუნდაც დარჩენილიყო.
       setManagerOverrideToken(null);
       loadProducts();
-    } catch (error: any) {
+    } catch (error: unknown) {
       // 📴 Roadmap STEP 4.2 — `error.response`-ის არარსებობა ნიშნავს, რომ
       // მოთხოვნამ სერვერამდე საერთოდ ვერ მიაღწია (კავშირი წყდა, DNS/wifi
       // ჩავარდა და ა.შ.) — navigator.onLine ამ შემთხვევებში ხშირად მაინც
@@ -1030,11 +1030,12 @@ export default function Sales() {
       // ვინახავთ, ვიდრე მოლარეს "შეცდომის" ტოსტი ვაჩვენოთ ტყუილად. Manager
       // Override-იანი checkout კვლავ სუფთა შეცდომად ითვლება (იხ. ზემოთ
       // კომენტარი — override ისედაც ონლაინს საჭიროებს).
-      if (!error.response && !usedOverrideToken) {
+      const reachedServer = axios.isAxiosError(error) && Boolean(error.response);
+      if (!reachedServer && !usedOverrideToken) {
         await handleOfflineCheckout(payload);
         return;
       }
-      showToast(error.response?.data?.error || t('sales.toasts.saleFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'sales.toasts.saleFailed'), 'error');
     }
   };
 
