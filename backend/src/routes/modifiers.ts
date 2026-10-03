@@ -16,6 +16,9 @@ import { requireAnyRole } from '../middleware/requireRole';
 import { requireBusinessType } from '../middleware/requireBusinessType';
 import { withOrgContext } from '../db';
 import { ModifierGroup, ModifierOption, ModifierGroupWithOptions, ModifierSelectionType } from '../types';
+// 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") —
+// additive `code` ველი, products.ts/ingredients.ts-ის pilot-ის იგივე pattern.
+import { ErrorCodes } from '../constants/errorCodes';
 
 const router = Router();
 
@@ -105,7 +108,7 @@ router.post(
   async (req: CustomRequest, res: Response) => {
     const parsed = parseGroupInput(req.body as GroupInput);
     if (!parsed) {
-      return res.status(400).json({ error: 'name და selectionType (single/multiple) სავალდებულოა' });
+      return res.status(400).json({ error: 'name და selectionType (single/multiple) სავალდებულოა', code: ErrorCodes.MODIFIER_GROUP_INVALID_INPUT });
     }
 
     try {
@@ -134,7 +137,7 @@ router.put(
   async (req: CustomRequest, res: Response) => {
     const parsed = parseGroupInput(req.body as GroupInput);
     if (!parsed) {
-      return res.status(400).json({ error: 'name და selectionType (single/multiple) სავალდებულოა' });
+      return res.status(400).json({ error: 'name და selectionType (single/multiple) სავალდებულოა', code: ErrorCodes.MODIFIER_GROUP_INVALID_INPUT });
     }
 
     try {
@@ -146,7 +149,7 @@ router.put(
         )
       );
       if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'ჯგუფი ვერ მოიძებნა' });
+        return res.status(404).json({ error: 'ჯგუფი ვერ მოიძებნა', code: ErrorCodes.MODIFIER_GROUP_NOT_FOUND });
       }
       res.json(result.rows[0]);
     } catch (err: unknown) {
@@ -172,12 +175,12 @@ router.delete(
         ])
       );
       if (result.rowCount === 0) {
-        return res.status(404).json({ error: 'ჯგუფი ვერ მოიძებნა' });
+        return res.status(404).json({ error: 'ჯგუფი ვერ მოიძებნა', code: ErrorCodes.MODIFIER_GROUP_NOT_FOUND });
       }
       res.status(204).send();
     } catch (err: unknown) {
       if (isForeignKeyViolation(err)) {
-        return res.status(409).json({ error: 'ეს ჯგუფი უკვე გამოყენებულია არსებულ შეკვეთებში — წაშლა შეუძლებელია' });
+        return res.status(409).json({ error: 'ეს ჯგუფი უკვე გამოყენებულია არსებულ შეკვეთებში — წაშლა შეუძლებელია', code: ErrorCodes.MODIFIER_GROUP_IN_USE });
       }
       res.status(500).json({ error: getErrorMessage(err) });
     }
@@ -196,7 +199,7 @@ router.post(
     const { name, priceDelta } = req.body as { name?: unknown; priceDelta?: unknown };
     const nameValue = typeof name === 'string' ? name.trim() : '';
     if (!nameValue) {
-      return res.status(400).json({ error: 'name სავალდებულოა' });
+      return res.status(400).json({ error: 'name სავალდებულოა', code: ErrorCodes.MODIFIER_OPTION_NAME_REQUIRED });
     }
     // 🩹 FIX (05.09.2026, production QA-ზე აღმოჩენილი) — price_delta
     // შეგნებულად შემოვსაზღვრეთ არაუარყოფითად: მოდიფაიერი ("+ ყველი",
@@ -206,7 +209,7 @@ router.post(
     // აგვაცილებს "ნეგატიური მოდიფაიერით" შემთხვევით ფასის ჩამოწევას.
     const priceDeltaValue = priceDelta === undefined || priceDelta === null || priceDelta === '' ? 0 : Number(priceDelta);
     if (!Number.isFinite(priceDeltaValue) || priceDeltaValue < 0) {
-      return res.status(400).json({ error: 'priceDelta არ შეიძლება იყოს უარყოფითი' });
+      return res.status(400).json({ error: 'priceDelta არ შეიძლება იყოს უარყოფითი', code: ErrorCodes.MODIFIER_OPTION_NEGATIVE_PRICE });
     }
 
     try {
@@ -233,7 +236,7 @@ router.post(
       res.status(201).json(option);
     } catch (err: unknown) {
       if (err instanceof Error && err.message === 'GROUP_NOT_FOUND') {
-        return res.status(404).json({ error: 'ჯგუფი ვერ მოიძებნა' });
+        return res.status(404).json({ error: 'ჯგუფი ვერ მოიძებნა', code: ErrorCodes.MODIFIER_GROUP_NOT_FOUND });
       }
       res.status(500).json({ error: getErrorMessage(err) });
     }
@@ -252,12 +255,12 @@ router.put(
     const { name, priceDelta } = req.body as { name?: unknown; priceDelta?: unknown };
     const nameValue = typeof name === 'string' ? name.trim() : '';
     if (!nameValue) {
-      return res.status(400).json({ error: 'name სავალდებულოა' });
+      return res.status(400).json({ error: 'name სავალდებულოა', code: ErrorCodes.MODIFIER_OPTION_NAME_REQUIRED });
     }
     // 🩹 FIX (05.09.2026) — POST-ის იგივე არაუარყოფითობის წესი (ზემოთ).
     const priceDeltaValue = priceDelta === undefined || priceDelta === null || priceDelta === '' ? 0 : Number(priceDelta);
     if (!Number.isFinite(priceDeltaValue) || priceDeltaValue < 0) {
-      return res.status(400).json({ error: 'priceDelta არ შეიძლება იყოს უარყოფითი' });
+      return res.status(400).json({ error: 'priceDelta არ შეიძლება იყოს უარყოფითი', code: ErrorCodes.MODIFIER_OPTION_NEGATIVE_PRICE });
     }
 
     try {
@@ -271,7 +274,7 @@ router.put(
         )
       );
       if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'ოფცია ვერ მოიძებნა' });
+        return res.status(404).json({ error: 'ოფცია ვერ მოიძებნა', code: ErrorCodes.MODIFIER_OPTION_NOT_FOUND });
       }
       res.json(result.rows[0]);
     } catch (err: unknown) {
@@ -300,12 +303,12 @@ router.delete(
         )
       );
       if (result.rowCount === 0) {
-        return res.status(404).json({ error: 'ოფცია ვერ მოიძებნა' });
+        return res.status(404).json({ error: 'ოფცია ვერ მოიძებნა', code: ErrorCodes.MODIFIER_OPTION_NOT_FOUND });
       }
       res.status(204).send();
     } catch (err: unknown) {
       if (isForeignKeyViolation(err)) {
-        return res.status(409).json({ error: 'ეს ოფცია უკვე გამოყენებულია არსებულ შეკვეთებში — წაშლა შეუძლებელია' });
+        return res.status(409).json({ error: 'ეს ოფცია უკვე გამოყენებულია არსებულ შეკვეთებში — წაშლა შეუძლებელია', code: ErrorCodes.MODIFIER_OPTION_IN_USE });
       }
       res.status(500).json({ error: getErrorMessage(err) });
     }
@@ -324,7 +327,7 @@ router.get(
   async (req: CustomRequest, res: Response) => {
     const productId = Number(req.params.productId);
     if (!Number.isInteger(productId) || productId <= 0) {
-      return res.status(400).json({ error: 'productId არავალიდურია' });
+      return res.status(400).json({ error: 'productId არავალიდურია', code: ErrorCodes.PRODUCT_INVALID_ID });
     }
 
     try {
@@ -369,7 +372,7 @@ router.get(
       res.json(groups);
     } catch (err: unknown) {
       if (err instanceof Error && err.message === 'PRODUCT_NOT_FOUND') {
-        return res.status(404).json({ error: 'პროდუქტი ვერ მოიძებნა' });
+        return res.status(404).json({ error: 'პროდუქტი ვერ მოიძებნა', code: ErrorCodes.PRODUCT_NOT_FOUND });
       }
       res.status(500).json({ error: getErrorMessage(err) });
     }
@@ -390,12 +393,12 @@ router.put(
   async (req: CustomRequest, res: Response) => {
     const productId = Number(req.params.productId);
     if (!Number.isInteger(productId) || productId <= 0) {
-      return res.status(400).json({ error: 'productId არავალიდურია' });
+      return res.status(400).json({ error: 'productId არავალიდურია', code: ErrorCodes.PRODUCT_INVALID_ID });
     }
 
     const { modifierGroupIds } = req.body as { modifierGroupIds?: unknown };
     if (!Array.isArray(modifierGroupIds) || modifierGroupIds.some((id) => typeof id !== 'string')) {
-      return res.status(400).json({ error: 'modifierGroupIds უნდა იყოს string[] (შეიძლება ცარიელი)' });
+      return res.status(400).json({ error: 'modifierGroupIds უნდა იყოს string[] (შეიძლება ცარიელი)', code: ErrorCodes.MODIFIER_GROUP_IDS_INVALID });
     }
     const groupIds = modifierGroupIds as string[];
 
@@ -433,10 +436,10 @@ router.put(
       res.json({ success: true });
     } catch (err: unknown) {
       if (err instanceof Error && err.message === 'PRODUCT_NOT_FOUND') {
-        return res.status(404).json({ error: 'პროდუქტი ვერ მოიძებნა' });
+        return res.status(404).json({ error: 'პროდუქტი ვერ მოიძებნა', code: ErrorCodes.PRODUCT_NOT_FOUND });
       }
       if (err instanceof Error && err.message === 'INVALID_GROUP') {
-        return res.status(400).json({ error: 'ერთ-ერთი ჯგუფი არავალიდურია' });
+        return res.status(400).json({ error: 'ერთ-ერთი ჯგუფი არავალიდურია', code: ErrorCodes.MODIFIER_GROUP_IDS_INVALID });
       }
       res.status(500).json({ error: getErrorMessage(err) });
     }

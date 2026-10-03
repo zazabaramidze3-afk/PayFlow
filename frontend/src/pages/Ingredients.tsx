@@ -11,6 +11,7 @@
 // Modifiers.tsx-ის მიბმის იგივე პრინციპით.
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import styles from './Ingredients.module.scss';
 import ConfirmModal from '../components/ConfirmModal';
@@ -302,8 +303,11 @@ export default function Ingredients() {
         </div>
       )}
 
-      {toasts.length > 0 && (
-        <div style={{ position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {/* 🩹 createPortal → document.body: გვერდის `.container`-ის `fadeInUp ... both`
+          ანიმაცია transform-ს ტოვებს, რაც position: fixed-ს viewport-ის ნაცვლად
+          container-ზე აბამს და z-index-ს მობილურის header-ის ქვეშ იჭერს. */}
+      {toasts.length > 0 && createPortal(
+        <div style={{ position: 'fixed', top: 'max(16px, env(safe-area-inset-top))', left: 16, right: 16, zIndex: 10100, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', pointerEvents: 'none' }}>
           {toasts.map(t => (
             <div
               key={t.id}
@@ -314,13 +318,17 @@ export default function Ingredients() {
                 fontSize: '14px',
                 fontWeight: 600,
                 background: t.type === 'success' ? '#16a34a' : t.type === 'error' ? '#dc2626' : '#334155',
+                maxWidth: '480px',
+                textAlign: 'center',
+                overflowWrap: 'anywhere',
                 boxShadow: '0 6px 16px rgba(0,0,0,0.15)',
               }}
             >
               {t.message}
             </div>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
 
       <ConfirmModal

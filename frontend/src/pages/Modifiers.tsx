@@ -15,12 +15,17 @@
 // უკვე არსებობს პროდუქტის რედაქტირების კონტექსტი.
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import styles from './Modifiers.module.scss';
 import ConfirmModal from '../components/ConfirmModal';
 import { ModifierGroupWithOptions, ModifierOption, ModifierSelectionType } from '../lib/horecaTypes';
 import { EditIcon, TrashIcon, CheckIcon, XIcon } from '../components/Icons';
 import { useTranslation } from 'react-i18next';
+// 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — ლოკალური
+// getErrorMessage (backend-ის raw, დაუთარგმნელი ტექსტი) ჩანაცვლდა
+// გაზიარებული, code-based helper-ით (Ingredients.tsx-ის pilot-ის იგივე).
+import { resolveErrorMessage } from '../lib/errorMessages';
 
 type ToastType = 'success' | 'error' | 'info';
 interface ToastItem { id: number; message: string; type: ToastType; }
@@ -64,15 +69,12 @@ export default function Modifiers() {
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
   }, []);
 
-  const getErrorMessage = (error: unknown): string | undefined =>
-    axios.isAxiosError<{ error?: string }>(error) ? error.response?.data?.error : undefined;
-
   const fetchGroups = useCallback(async () => {
     try {
       const response = await axios.get<ModifierGroupWithOptions[]>('/api/modifiers/groups');
       setGroups(response.data);
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || t('modifiers.toasts.loadGroupsFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'modifiers.toasts.loadGroupsFailed'), 'error');
     } finally {
       setLoading(false);
     }
@@ -131,7 +133,7 @@ export default function Modifiers() {
       closeGroupModal();
       fetchGroups();
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || t('modifiers.toasts.saveFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'modifiers.toasts.saveFailed'), 'error');
     } finally {
       setGroupSaving(false);
     }
@@ -150,7 +152,7 @@ export default function Modifiers() {
       showToast(t('modifiers.toasts.groupDeleted'), 'success');
       fetchGroups();
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || t('modifiers.toasts.deleteFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'modifiers.toasts.deleteFailed'), 'error');
     }
   };
 
@@ -206,7 +208,7 @@ export default function Modifiers() {
       closeAddOption();
       fetchGroups();
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || t('modifiers.toasts.addFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'modifiers.toasts.addFailed'), 'error');
     } finally {
       setOptionSaving(false);
     }
@@ -249,7 +251,7 @@ export default function Modifiers() {
       cancelEditOption();
       fetchGroups();
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || t('modifiers.toasts.updateFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'modifiers.toasts.updateFailed'), 'error');
     } finally {
       setOptionSaving(false);
     }
@@ -261,7 +263,7 @@ export default function Modifiers() {
       showToast(t('modifiers.toasts.optionDeleted'), 'success');
       fetchGroups();
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || t('modifiers.toasts.deleteFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'modifiers.toasts.deleteFailed'), 'error');
     }
   };
 
@@ -438,8 +440,11 @@ export default function Modifiers() {
         </div>
       )}
 
-      {toasts.length > 0 && (
-        <div style={{ position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {/* 🩹 createPortal → document.body: გვერდის `.container`-ის `fadeInUp ... both`
+          ანიმაცია transform-ს ტოვებს, რაც position: fixed-ს viewport-ის ნაცვლად
+          container-ზე აბამს და z-index-ს მობილურის header-ის ქვეშ იჭერს. */}
+      {toasts.length > 0 && createPortal(
+        <div style={{ position: 'fixed', top: 'max(16px, env(safe-area-inset-top))', left: 16, right: 16, zIndex: 10100, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', pointerEvents: 'none' }}>
           {toasts.map(t => (
             <div
               key={t.id}
@@ -450,13 +455,17 @@ export default function Modifiers() {
                 fontSize: '14px',
                 fontWeight: 600,
                 background: t.type === 'success' ? '#16a34a' : t.type === 'error' ? '#dc2626' : '#334155',
+                maxWidth: '480px',
+                textAlign: 'center',
+                overflowWrap: 'anywhere',
                 boxShadow: '0 6px 16px rgba(0,0,0,0.15)',
               }}
             >
               {t.message}
             </div>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
 
       <ConfirmModal

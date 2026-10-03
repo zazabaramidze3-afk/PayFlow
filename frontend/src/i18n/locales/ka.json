@@ -815,6 +815,16 @@
     "PRODUCT_DUPLICATE_NAME": "ამ სახელით პროდუქტი უკვე არსებობს!",
     "PRODUCT_DUPLICATE_BARCODE": "ეს სახელი ან ბარკოდი უკვე დაკავებულია!",
     "INGREDIENT_DUPLICATE_NAME": "ამ სახელით ინგრედიენტი უკვე არსებობს",
-    "INGREDIENT_IN_USE": "ეს ინგრედიენტი უკვე გამოყენებულია რომელიმე რეცეპტში — წაშლა შეუძლებელია"
+    "INGREDIENT_IN_USE": "ეს ინგრედიენტი უკვე გამოყენებულია რომელიმე რეცეპტში — წაშლა შეუძლებელია",
+    "MODIFIER_GROUP_INVALID_INPUT": "ჯგუფის სახელი და არჩევის ტიპი სავალდებულოა",
+    "MODIFIER_GROUP_NOT_FOUND": "ჯგუფი ვერ მოიძებნა",
+    "MODIFIER_GROUP_IN_USE": "ეს ჯგუფი უკვე გამოყენებულია არსებულ შეკვეთებში — წაშლა შეუძლებელია",
+    "MODIFIER_GROUP_IDS_INVALID": "ერთ-ერთი ჯგუფი არავალიდურია",
+    "MODIFIER_OPTION_NAME_REQUIRED": "ოფციის სახელი სავალდებულოა",
+    "MODIFIER_OPTION_NEGATIVE_PRICE": "ფასის ცვლილება არ შეიძლება იყოს უარყოფითი",
+    "MODIFIER_OPTION_NOT_FOUND": "ოფცია ვერ მოიძებნა",
+    "MODIFIER_OPTION_IN_USE": "ეს ოფცია უკვე გამოყენებულია არსებულ შეკვეთებში — წაშლა შეუძლებელია",
+    "PRODUCT_INVALID_ID": "პროდუქტის იდენტიფიკატორი არავალიდურია",
+    "PRODUCT_NOT_FOUND": "პროდუქტი ვერ მოიძებნა"
   }
 }

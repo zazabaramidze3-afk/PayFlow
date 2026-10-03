@@ -815,6 +815,16 @@
     "PRODUCT_DUPLICATE_NAME": "A product with this name already exists!",
     "PRODUCT_DUPLICATE_BARCODE": "This name or barcode is already taken!",
     "INGREDIENT_DUPLICATE_NAME": "An ingredient with this name already exists",
-    "INGREDIENT_IN_USE": "This ingredient is already used in a recipe — it cannot be deleted"
+    "INGREDIENT_IN_USE": "This ingredient is already used in a recipe — it cannot be deleted",
+    "MODIFIER_GROUP_INVALID_INPUT": "Group name and selection type are required",
+    "MODIFIER_GROUP_NOT_FOUND": "Group not found",
+    "MODIFIER_GROUP_IN_USE": "This group is already used in existing orders — it cannot be deleted",
+    "MODIFIER_GROUP_IDS_INVALID": "One of the groups is invalid",
+    "MODIFIER_OPTION_NAME_REQUIRED": "Option name is required",
+    "MODIFIER_OPTION_NEGATIVE_PRICE": "Price change cannot be negative",
+    "MODIFIER_OPTION_NOT_FOUND": "Option not found",
+    "MODIFIER_OPTION_IN_USE": "This option is already used in existing orders — it cannot be deleted",
+    "PRODUCT_INVALID_ID": "Invalid product ID",
+    "PRODUCT_NOT_FOUND": "Product not found"
   }
 }
