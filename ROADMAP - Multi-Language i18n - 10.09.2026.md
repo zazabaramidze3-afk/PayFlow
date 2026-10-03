@@ -147,8 +147,8 @@
   - Toast ექვს გვერდზე (Modifiers, Ingredients, Tables, Settings, OrderScreen, KitchenDisplay) მობილურზე ვიწროდ/header-ის ქვეშ ჩანდა: გვერდის `fadeInUp ... both` ანიმაცია transform-ს ტოვებდა, რაც `position: fixed`-ს container-ზე აბამდა. გასწორდა `createPortal`-ით `document.body`-ში (+ სრული სიგანე, max 480px).
   - არასწორი მენეჯერის PIN (401) global axios interceptor-ს "სესია ამოიწურა"-დ ესმოდა და login-ზე აგდებდა (OrderScreen-ზეც და Sales-ზეც). interceptor ახლა `PIN_INCORRECT` კოდზე logout-ს არ აკეთებს.
   - HoReCa ჩეკის დახურვისას "არ არის საკმარისი მარაგი პროდუქტზე" შეტყობინებაში ID ჩანდა სახელის ნაცვლად — ახლა სახელი იკითხება.
-- **ტესტირებულია მომხმარებლის მიერ (ka + en, მობილური 412px):** დახურული ცვლა, არასწორი PIN (OrderScreen), ნულოვანი ინგრედიენტის მარაგი, მაგიდის წაშლა ისტორიით (409), Retail POS-ის "არ არის საკმარისი მარაგი", Login-ის არასწორი პაროლი, Users-ის დუბლირებული username, Products import-ის ცარიელი ფაილი. `npx tsc --noEmit` სუფთაა ორივე მხარეს.
-- **ჯერ არ არის ბრაუზერში გატესტილი (მხოლოდ tsc):** Register-ის დაკავებული subdomain/email, Sales.tsx-ის (Retail) ფასდაკლების PIN.
+- **ტესტირებულია მომხმარებლის მიერ (ka + en, მობილური 412px):** დახურული ცვლა, არასწორი PIN (OrderScreen), ნულოვანი ინგრედიენტის მარაგი, მაგიდის წაშლა ისტორიით (409), Retail POS-ის "არ არის საკმარისი მარაგი", Login-ის არასწორი პაროლი, Users-ის დუბლირებული username, Register-ის დაკავებული subdomain, Products import-ის ცარიელი ფაილი. `npx tsc --noEmit` სუფთაა ორივე მხარეს.
+- **ჯერ არ არის ბრაუზერში გატესტილი (მხოლოდ tsc):** Register-ის დაკავებული email, Sales.tsx-ის (Retail) ფასდაკლების PIN.
 
 
 ---
