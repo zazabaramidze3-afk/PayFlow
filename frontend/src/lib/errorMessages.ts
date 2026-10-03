@@ -32,6 +32,18 @@ interface BackendErrorPayload {
   error?: string;
   message?: string;
   code?: string;
+  // STEP 2 — არასავალდებულო interpolation-პარამეტრები (მაგ. RATE_LIMITED-ის
+  // `seconds`), რომლებიც `errors.<code>` თარგმანს გადაეცემა.
+  params?: Record<string, string | number>;
+}
+
+/**
+ * Backend-ის error-პასუხის `code` (თუ მოვიდა) — ლოგიკური შემოწმებებისთვის
+ * (მაგ. OrderScreen.tsx-ის race-condition detection), ტექსტის substring-ის
+ * პარსვის ნაცვლად.
+ */
+export function getErrorCode(error: unknown): string | undefined {
+  return axios.isAxiosError<BackendErrorPayload>(error) ? error.response?.data?.code : undefined;
 }
 
 /**
@@ -43,10 +55,11 @@ interface BackendErrorPayload {
 export function resolveErrorMessage(error: unknown, fallbackKey: string): string {
   if (axios.isAxiosError<BackendErrorPayload>(error)) {
     const code = error.response?.data?.code;
+    const params = error.response?.data?.params;
     if (code) {
       const translationKey = `errors.${code}`;
       if (i18n.exists(translationKey)) {
-        return i18n.t(translationKey);
+        return i18n.t(translationKey, params);
       }
     }
   }

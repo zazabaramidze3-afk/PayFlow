@@ -21,6 +21,9 @@ import axios from 'axios';
 import styles from './Settings.module.scss';
 import { SettingsIcon } from '../components/Icons';
 import { useTranslation } from 'react-i18next';
+// 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — ლოკალური
+// getErrorMessage ჩანაცვლდა გაზიარებული, code-based helper-ით.
+import { resolveErrorMessage } from '../lib/errorMessages';
 
 type TipDistributionMode = 'individual' | 'pooled';
 type ToastType = 'success' | 'error';
@@ -46,16 +49,13 @@ export default function Settings() {
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
   }, []);
 
-  const getErrorMessage = (error: unknown): string | undefined =>
-    axios.isAxiosError<{ error?: string }>(error) ? error.response?.data?.error : undefined;
-
   const fetchSettings = useCallback(async () => {
     try {
       const response = await axios.get<OrganizationMeResponse>('/api/organizations/me');
       setTipDistributionMode(response.data.tipDistributionMode);
       setSavedMode(response.data.tipDistributionMode);
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || t('settings.toasts.loadFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'settings.toasts.loadFailed'), 'error');
     } finally {
       setLoading(false);
     }
@@ -78,7 +78,7 @@ export default function Settings() {
       setSavedMode(response.data.tipDistributionMode);
       showToast(t('settings.toasts.saved'), 'success');
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || t('modifiers.toasts.saveFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'modifiers.toasts.saveFailed'), 'error');
     } finally {
       setSaving(false);
     }

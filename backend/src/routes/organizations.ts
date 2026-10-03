@@ -17,6 +17,9 @@ import { withOrgContext } from '../db';
 import { authenticateToken, CustomRequest } from './auth';
 import { requireAnyRole } from '../middleware/requireRole';
 import { BusinessType, TipDistributionMode } from '../types';
+// 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — additive
+// `code` ველი (+ `params` interpolation-ისთვის, მაგ. rate-limit-ის წამები).
+import { ErrorCodes } from '../constants/errorCodes';
 
 const VALID_TIP_DISTRIBUTION_MODES: readonly TipDistributionMode[] = ['individual', 'pooled'];
 import {
@@ -64,6 +67,8 @@ router.post('/organizations/register', async (req: Request, res: Response) => {
   if (rateLimit.limited) {
     return res.status(429).json({
       error: `ძალიან ბევრი მცდელობა — გთხოვთ სცადოთ ${rateLimit.retryAfterSeconds} წამში.`,
+      code: ErrorCodes.RATE_LIMITED,
+      params: { seconds: rateLimit.retryAfterSeconds },
     });
   }
   registerRegistrationAttempt(rateLimitKey);
@@ -72,7 +77,7 @@ router.post('/organizations/register', async (req: Request, res: Response) => {
 
   // 1. ვალიდაცია
   if (!companyName || !slugInput || !adminName || !email || !password) {
-    return res.status(400).json({ error: 'ყველა ველი სავალდებულოა!' });
+    return res.status(400).json({ error: 'ყველა ველი სავალდებულოა!', code: ErrorCodes.ORG_REGISTER_MISSING_FIELDS });
   }
 
   // 🍽️ HoReCa Module STEP 1 (Roadmap "03.09.2026") — თვითრეგისტრაციაზეც
@@ -83,24 +88,25 @@ router.post('/organizations/register', async (req: Request, res: Response) => {
 
   const trimmedCompanyName = String(companyName).trim();
   if (trimmedCompanyName.length < 2) {
-    return res.status(400).json({ error: 'კომპანიის სახელი ძალიან მოკლეა!' });
+    return res.status(400).json({ error: 'კომპანიის სახელი ძალიან მოკლეა!', code: ErrorCodes.ORG_COMPANY_NAME_TOO_SHORT });
   }
 
   const slug = slugify(String(slugInput));
   if (!SLUG_REGEX.test(slug)) {
     return res.status(400).json({
       error: 'subdomain არავალიდურია — მხოლოდ პატარა ლათინური ასოები, ციფრები და დეფისი (3-40 სიმბოლო)',
+      code: ErrorCodes.ORG_SLUG_INVALID,
     });
   }
 
   const trimmedAdminName = String(adminName).trim();
   if (trimmedAdminName.length < 2) {
-    return res.status(400).json({ error: 'ადმინის სახელი ძალიან მოკლეა!' });
+    return res.status(400).json({ error: 'ადმინის სახელი ძალიან მოკლეა!', code: ErrorCodes.ORG_ADMIN_NAME_TOO_SHORT });
   }
 
   const trimmedEmail = String(email).trim().toLowerCase();
   if (!EMAIL_REGEX.test(trimmedEmail)) {
-    return res.status(400).json({ error: 'Email არავალიდურია!' });
+    return res.status(400).json({ error: 'Email არავალიდურია!', code: ErrorCodes.ORG_EMAIL_INVALID });
   }
 
   // 🔐 საჯარო self-service registration-ისთვის internal POST /users-ის
@@ -108,7 +114,7 @@ router.post('/organizations/register', async (req: Request, res: Response) => {
   // ანგარიში ინტერნეტიდან ნებისმიერისთვის მისაწვდომია, არა მხოლოდ
   // უკვე ავტორიზებული ადმინის მიერ დამატებული internal staff-ისთვის.
   if (String(password).length < 8) {
-    return res.status(400).json({ error: 'პაროლი უნდა შედგებოდეს მინიმუმ 8 სიმბოლოსგან!' });
+    return res.status(400).json({ error: 'პაროლი უნდა შედგებოდეს მინიმუმ 8 სიმბოლოსგან!', code: ErrorCodes.ORG_PASSWORD_TOO_SHORT });
   }
 
   const client = await db.connect();
@@ -118,12 +124,12 @@ router.post('/organizations/register', async (req: Request, res: Response) => {
     // race-condition-ის fallback-ად.
     const slugCheck = await client.query('SELECT id FROM organizations WHERE slug = $1', [slug]);
     if (slugCheck.rows.length > 0) {
-      return res.status(409).json({ error: 'ეს subdomain უკვე დაკავებულია!' });
+      return res.status(409).json({ error: 'ეს subdomain უკვე დაკავებულია!', code: ErrorCodes.ORG_SLUG_TAKEN });
     }
 
     const emailCheck = await client.query('SELECT id FROM users WHERE LOWER(email) = $1', [trimmedEmail]);
     if (emailCheck.rows.length > 0) {
-      return res.status(409).json({ error: 'ამ email-ით ანგარიში უკვე არსებობს!' });
+      return res.status(409).json({ error: 'ამ email-ით ანგარიში უკვე არსებობს!', code: ErrorCodes.ORG_EMAIL_TAKEN });
     }
 
     // 🏢 Roadmap "24.08.2026" — username-ის წინასწარი უნიკალურობის
@@ -188,16 +194,16 @@ router.post('/organizations/register', async (req: Request, res: Response) => {
     const pgErr = err as { code?: string; constraint?: string };
     if (pgErr.code === '23505') {
       if (pgErr.constraint === 'uq_organizations_slug') {
-        return res.status(409).json({ error: 'ეს subdomain უკვე დაკავებულია!' });
+        return res.status(409).json({ error: 'ეს subdomain უკვე დაკავებულია!', code: ErrorCodes.ORG_SLUG_TAKEN });
       }
       if (pgErr.constraint === 'uq_users_email') {
-        return res.status(409).json({ error: 'ამ email-ით ანგარიში უკვე არსებობს!' });
+        return res.status(409).json({ error: 'ამ email-ით ანგარიში უკვე არსებობს!', code: ErrorCodes.ORG_EMAIL_TAKEN });
       }
       // ⚠️ `uq_users_org_name` (migration 016) ამ flow-ში სტრუქტურულად
       // ვერასდროს დაეჯახება — ახალი org ამ ტრანზაქციაშივე იქმნება
       // ცარიელი, ანუ username-კონფლიქტი მასში მათემატიკურად შეუძლებელია.
       // fallback branch (ქვემოთ) მაინც საკმარისია, თუ რამე მოულოდნელი მოხდა.
-      return res.status(409).json({ error: 'ეს მონაცემი უკვე დაკავებულია!' });
+      return res.status(409).json({ error: 'ეს მონაცემი უკვე დაკავებულია!', code: ErrorCodes.ORG_DATA_TAKEN });
     }
 
     res.status(500).json({ error: 'სერვერის შეცდომა: ' + getErrorMessage(err) });
@@ -223,13 +229,15 @@ router.get('/organizations/resolve/:slug', async (req: Request, res: Response) =
   if (rateLimit.limited) {
     return res.status(429).json({
       error: `ძალიან ბევრი მცდელობა — გთხოვთ სცადოთ ${rateLimit.retryAfterSeconds} წამში.`,
+      code: ErrorCodes.RATE_LIMITED,
+      params: { seconds: rateLimit.retryAfterSeconds },
     });
   }
   registerOrgResolveAttempt(rateLimitKey);
 
   const slug = slugify(String(req.params.slug ?? ''));
   if (!SLUG_REGEX.test(slug)) {
-    return res.status(400).json({ error: 'subdomain არავალიდურია!' });
+    return res.status(400).json({ error: 'subdomain არავალიდურია!', code: ErrorCodes.ORG_SLUG_INVALID });
   }
 
   try {
@@ -238,7 +246,7 @@ router.get('/organizations/resolve/:slug', async (req: Request, res: Response) =
       [slug]
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'კომპანია ვერ მოიძებნა!' });
+      return res.status(404).json({ error: 'კომპანია ვერ მოიძებნა!', code: ErrorCodes.ORG_NOT_FOUND });
     }
     res.json(result.rows[0]);
   } catch (err: unknown) {
@@ -259,7 +267,7 @@ router.get('/organizations/resolve/:slug', async (req: Request, res: Response) =
 router.get('/organizations/me', authenticateToken, async (req: CustomRequest, res: Response) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    return res.status(401).json({ error: 'ავტორიზაცია აუცილებელია' });
+    return res.status(401).json({ error: 'ავტორიზაცია აუცილებელია', code: ErrorCodes.AUTH_REQUIRED });
   }
 
   try {
@@ -274,7 +282,7 @@ router.get('/organizations/me', authenticateToken, async (req: CustomRequest, re
     });
 
     if (!orgRow) {
-      return res.status(404).json({ error: 'ორგანიზაცია ვერ მოიძებნა' });
+      return res.status(404).json({ error: 'ორგანიზაცია ვერ მოიძებნა', code: ErrorCodes.ORG_NOT_FOUND });
     }
 
     res.json({ businessType: orgRow.business_type, tipDistributionMode: orgRow.tip_distribution_mode });
@@ -306,7 +314,7 @@ router.patch(
   async (req: CustomRequest, res: Response) => {
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
-      return res.status(401).json({ error: 'ავტორიზაცია აუცილებელია' });
+      return res.status(401).json({ error: 'ავტორიზაცია აუცილებელია', code: ErrorCodes.AUTH_REQUIRED });
     }
 
     const { tipDistributionMode } = req.body as { tipDistributionMode?: unknown };
@@ -314,6 +322,7 @@ router.patch(
     if (typeof tipDistributionMode !== 'string' || !VALID_TIP_DISTRIBUTION_MODES.includes(tipDistributionMode as TipDistributionMode)) {
       return res.status(400).json({
         error: `tipDistributionMode უნდა იყოს ერთ-ერთი: ${VALID_TIP_DISTRIBUTION_MODES.join(', ')}`,
+        code: ErrorCodes.ORG_TIP_MODE_INVALID,
       });
     }
 
@@ -327,7 +336,7 @@ router.patch(
       });
 
       if (!updated) {
-        return res.status(404).json({ error: 'ორგანიზაცია ვერ მოიძებნა' });
+        return res.status(404).json({ error: 'ორგანიზაცია ვერ მოიძებნა', code: ErrorCodes.ORG_NOT_FOUND });
       }
 
       res.json({ success: true, tipDistributionMode: updated.tip_distribution_mode });

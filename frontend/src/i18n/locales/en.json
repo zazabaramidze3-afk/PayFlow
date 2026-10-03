@@ -825,6 +825,19 @@
     "MODIFIER_OPTION_NOT_FOUND": "Option not found",
     "MODIFIER_OPTION_IN_USE": "This option is already used in existing orders — it cannot be deleted",
     "PRODUCT_INVALID_ID": "Invalid product ID",
-    "PRODUCT_NOT_FOUND": "Product not found"
+    "PRODUCT_NOT_FOUND": "Product not found",
+    "RATE_LIMITED": "Too many attempts — please try again in {{seconds}} seconds.",
+    "AUTH_REQUIRED": "Authentication required",
+    "ORG_REGISTER_MISSING_FIELDS": "All fields are required!",
+    "ORG_COMPANY_NAME_TOO_SHORT": "Company name is too short!",
+    "ORG_ADMIN_NAME_TOO_SHORT": "Admin name is too short!",
+    "ORG_EMAIL_INVALID": "Invalid email!",
+    "ORG_PASSWORD_TOO_SHORT": "Password must be at least 8 characters!",
+    "ORG_SLUG_INVALID": "Invalid subdomain — only lowercase Latin letters, digits, and hyphens (3-40 characters)",
+    "ORG_SLUG_TAKEN": "This subdomain is already taken!",
+    "ORG_EMAIL_TAKEN": "An account with this email already exists!",
+    "ORG_DATA_TAKEN": "This data is already taken!",
+    "ORG_NOT_FOUND": "Company not found!",
+    "ORG_TIP_MODE_INVALID": "Invalid tip distribution mode"
   }
 }

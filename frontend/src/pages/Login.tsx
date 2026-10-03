@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import gsap from 'gsap';
 import { useTranslation } from 'react-i18next';
+// 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — slug-resolve
+// შეცდომა (organizations.ts) code-based, თარგმნილი helper-ით.
+import { resolveErrorMessage } from '../lib/errorMessages';
 import styles from './Login.module.scss';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 
@@ -141,8 +144,8 @@ export default function Login({ onLoginAttempt, onPasswordResetComplete, onNavig
         // 🛟 localStorage მიუწვდომელია — non-critical, ვაგრძელებთ მის გარეშე.
       }
       setStep('credentials');
-    } catch (err: any) {
-      setSlugError(err.response?.data?.error || t('login.companyNotFound'));
+    } catch (err: unknown) {
+      setSlugError(resolveErrorMessage(err, 'login.companyNotFound'));
     } finally {
       setSlugLoading(false);
     }

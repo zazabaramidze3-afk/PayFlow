@@ -3,6 +3,9 @@ import axios from 'axios';
 import gsap from 'gsap';
 import styles from './Register.module.scss';
 import { useTranslation } from 'react-i18next';
+// 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — backend-ის
+// raw ქართული `error`-ის ნაცვლად code-based, თარგმნილი შეტყობინება.
+import { resolveErrorMessage } from '../lib/errorMessages';
 
 // 🏢 Multi-Tenant SaaS STEP 3 (Roadmap "23.08.2026") — კომპანიის
 // self-service რეგისტრაციის გვერდი. ბექენდის შესაბამისი endpoint-ია
@@ -149,8 +152,8 @@ export default function Register({ onRegisterSuccess, onNavigateToLogin }: Regis
       });
       const { token, user } = response.data;
       onRegisterSuccess(token, user);
-    } catch (err: any) {
-      setError(err.response?.data?.error || t('register.errors.registrationFailed'));
+    } catch (err: unknown) {
+      setError(resolveErrorMessage(err, 'register.errors.registrationFailed'));
     } finally {
       setLoading(false);
     }

@@ -825,6 +825,19 @@
     "MODIFIER_OPTION_NOT_FOUND": "ოფცია ვერ მოიძებნა",
     "MODIFIER_OPTION_IN_USE": "ეს ოფცია უკვე გამოყენებულია არსებულ შეკვეთებში — წაშლა შეუძლებელია",
     "PRODUCT_INVALID_ID": "პროდუქტის იდენტიფიკატორი არავალიდურია",
-    "PRODUCT_NOT_FOUND": "პროდუქტი ვერ მოიძებნა"
+    "PRODUCT_NOT_FOUND": "პროდუქტი ვერ მოიძებნა",
+    "RATE_LIMITED": "ძალიან ბევრი მცდელობა — გთხოვთ სცადოთ {{seconds}} წამში.",
+    "AUTH_REQUIRED": "ავტორიზაცია აუცილებელია",
+    "ORG_REGISTER_MISSING_FIELDS": "ყველა ველი სავალდებულოა!",
+    "ORG_COMPANY_NAME_TOO_SHORT": "კომპანიის სახელი ძალიან მოკლეა!",
+    "ORG_ADMIN_NAME_TOO_SHORT": "ადმინის სახელი ძალიან მოკლეა!",
+    "ORG_EMAIL_INVALID": "Email არავალიდურია!",
+    "ORG_PASSWORD_TOO_SHORT": "პაროლი უნდა შედგებოდეს მინიმუმ 8 სიმბოლოსგან!",
+    "ORG_SLUG_INVALID": "subdomain არავალიდურია — მხოლოდ პატარა ლათინური ასოები, ციფრები და დეფისი (3-40 სიმბოლო)",
+    "ORG_SLUG_TAKEN": "ეს subdomain უკვე დაკავებულია!",
+    "ORG_EMAIL_TAKEN": "ამ email-ით ანგარიში უკვე არსებობს!",
+    "ORG_DATA_TAKEN": "ეს მონაცემი უკვე დაკავებულია!",
+    "ORG_NOT_FOUND": "კომპანია ვერ მოიძებნა!",
+    "ORG_TIP_MODE_INVALID": "თიფების განაწილების რეჟიმი არავალიდურია"
   }
 }
