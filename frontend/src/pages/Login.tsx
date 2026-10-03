@@ -207,8 +207,8 @@ export default function Login({ onLoginAttempt, onPasswordResetComplete, onNavig
       });
       const { token, user } = response.data;
       onPasswordResetComplete(token, user);
-    } catch (err: any) {
-      setResetError(err.response?.data?.error || t('login.resetFailed'));
+    } catch (err: unknown) {
+      setResetError(resolveErrorMessage(err, 'login.resetFailed'));
     } finally {
       setResetLoading(false);
     }

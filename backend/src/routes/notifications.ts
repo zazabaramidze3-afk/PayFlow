@@ -1,4 +1,6 @@
 import { Router, Response } from 'express';
+// 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — additive `code` ველი.
+import { ErrorCodes } from '../constants/errorCodes';
 // შემოგვაქვს მზა PostgreSQL პული ძირითადი ფაილიდან
 import { db } from '../index';
 // 🔒 Roadmap STEP 2.2 (RLS Full Rollout, "28.08.2026") — notifications.ts,
@@ -87,7 +89,7 @@ router.put(
       );
 
       if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'ნოტიფიკაცია ვერ მოიძებნა ან უკვე განხილულია' });
+        return res.status(404).json({ error: 'ნოტიფიკაცია ვერ მოიძებნა ან უკვე განხილულია', code: ErrorCodes.NOTIFICATION_NOT_FOUND });
       }
 
       await writeAuditLog(req.user?.id, undefined, 'stock-deficit-resolved', `notification:${req.params.id}`, req.user?.organizationId);
@@ -167,7 +169,7 @@ router.put(
       );
 
       if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'ნოტიფიკაცია ვერ მოიძებნა ან უკვე განხილულია' });
+        return res.status(404).json({ error: 'ნოტიფიკაცია ვერ მოიძებნა ან უკვე განხილულია', code: ErrorCodes.NOTIFICATION_NOT_FOUND });
       }
 
       await writeAuditLog(req.user?.id, undefined, 'shift-amendment-resolved', `shift:${req.params.id}`, req.user?.organizationId);

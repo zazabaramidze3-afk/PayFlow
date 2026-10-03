@@ -1,4 +1,6 @@
 import { Router, Request, Response } from 'express';
+// 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — additive `code` ველი.
+import { ErrorCodes } from '../constants/errorCodes';
 import crypto from 'crypto';
 // შემოგვაქვს მზა PostgreSQL პული ძირითადი ფაილიდან
 import { db } from '../index';
@@ -76,7 +78,7 @@ router.post('/registers/generate-code', async (_req: Request, res: Response) => 
     }
 
     if (!inserted) {
-      return res.status(503).json({ error: 'კოდის გენერირება ვერ მოხერხდა — სცადეთ ხელახლა' });
+      return res.status(503).json({ error: 'კოდის გენერირება ვერ მოხერხდა — სცადეთ ხელახლა', code: ErrorCodes.PAIRING_CODE_GENERATION_FAILED });
     }
 
     res.status(201).json({
@@ -98,7 +100,7 @@ router.post('/registers/generate-code', async (_req: Request, res: Response) => 
 router.get('/registers/pairing-status/:code', async (req: Request, res: Response) => {
   const { code } = req.params;
   if (!/^\d{6}$/.test(code)) {
-    return res.status(400).json({ error: 'კოდი უნდა შედგებოდეს ზუსტად 6 ციფრისგან!' });
+    return res.status(400).json({ error: 'კოდი უნდა შედგებოდეს ზუსტად 6 ციფრისგან!', code: ErrorCodes.PAIRING_CODE_FORMAT_INVALID });
   }
 
   try {
@@ -110,7 +112,7 @@ router.get('/registers/pairing-status/:code', async (req: Request, res: Response
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'კოდი ვერ მოიძებნა — დააგენერირეთ ახალი' });
+      return res.status(404).json({ error: 'კოდი ვერ მოიძებნა — დააგენერირეთ ახალი', code: ErrorCodes.PAIRING_CODE_NOT_FOUND });
     }
 
     const row = result.rows[0];
@@ -150,7 +152,7 @@ router.post(
     const { code, registerId, newRegisterName } = req.body;
 
     if (typeof code !== 'string' || !/^\d{6}$/.test(code)) {
-      return res.status(400).json({ error: 'კოდი უნდა შედგებოდეს ზუსტად 6 ციფრისგან!' });
+      return res.status(400).json({ error: 'კოდი უნდა შედგებოდეს ზუსტად 6 ციფრისგან!', code: ErrorCodes.PAIRING_CODE_FORMAT_INVALID });
     }
 
     const hasExistingRegisterId = typeof registerId === 'string' && registerId.trim().length > 0;
@@ -159,6 +161,7 @@ router.post(
     if (!hasExistingRegisterId && !hasNewRegisterName) {
       return res.status(400).json({
         error: 'აირჩიეთ არსებული სალარო (registerId) ან მიუთითეთ ახალი სალაროს სახელი (newRegisterName)!',
+        code: ErrorCodes.INVALID_REQUEST,
       });
     }
 
@@ -177,20 +180,20 @@ router.post(
       );
 
       if (codeResult.rows.length === 0) {
-        return res.status(404).json({ error: 'კოდი ვერ მოიძებნა' });
+        return res.status(404).json({ error: 'კოდი ვერ მოიძებნა', code: ErrorCodes.PAIRING_CODE_NOT_FOUND });
       }
 
       const activation = codeResult.rows[0];
 
       if (activation.status !== 'pending') {
-        return res.status(400).json({ error: 'ეს კოდი უკვე დადასტურებულია ან ვადაგასულია' });
+        return res.status(400).json({ error: 'ეს კოდი უკვე დადასტურებულია ან ვადაგასულია', code: ErrorCodes.PAIRING_CODE_USED_OR_EXPIRED });
       }
 
       if (new Date(activation.expires_at).getTime() < Date.now()) {
         await withOrgContext(req.user?.organizationId, (client) =>
           client.query(`UPDATE activation_codes SET status = 'expired' WHERE id = $1`, [activation.id])
         );
-        return res.status(400).json({ error: 'კოდის ვადა ამოიწურა — მოლარემ ახალი კოდი უნდა დააგენერიროს' });
+        return res.status(400).json({ error: 'კოდის ვადა ამოიწურა — მოლარემ ახალი კოდი უნდა დააგენერიროს', code: ErrorCodes.PAIRING_CODE_EXPIRED });
       }
 
       let finalRegisterId: string;
@@ -214,10 +217,10 @@ router.post(
           )
         );
         if (regResult.rows.length === 0) {
-          return res.status(404).json({ error: 'სალარო ვერ მოიძებნა' });
+          return res.status(404).json({ error: 'სალარო ვერ მოიძებნა', code: ErrorCodes.REGISTER_NOT_FOUND });
         }
         if (regResult.rows[0].is_active !== true) {
-          return res.status(400).json({ error: 'ეს სალარო დეაქტივირებულია' });
+          return res.status(400).json({ error: 'ეს სალარო დეაქტივირებულია', code: ErrorCodes.REGISTER_DEACTIVATED });
         }
         finalRegisterId = regResult.rows[0].id;
       } else {

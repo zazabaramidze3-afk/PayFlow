@@ -14,6 +14,8 @@
 // შეკვეთის item-ების kitchen_status-ს.
 
 import { Router, Response } from 'express';
+// 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — additive `code` ველი.
+import { ErrorCodes } from '../constants/errorCodes';
 import { authenticateToken } from './auth';
 import { CustomRequest } from './checkShift';
 import { requireBusinessType } from '../middleware/requireBusinessType';
@@ -54,7 +56,7 @@ router.get(
     const stationParam = req.query.station;
 
     if (typeof stationParam !== 'string' || !VALID_STATIONS.includes(stationParam as Station)) {
-      return res.status(400).json({ error: `station query-პარამეტრი უნდა იყოს: ${VALID_STATIONS.join(', ')}` });
+      return res.status(400).json({ error: `station query-პარამეტრი უნდა იყოს: ${VALID_STATIONS.join(', ')}`, code: ErrorCodes.INVALID_REQUEST });
     }
 
     try {
@@ -122,7 +124,7 @@ router.patch(
     const { status } = req.body as { status?: unknown };
 
     if (typeof status !== 'string' || !PATCHABLE_STATUSES.includes(status as KitchenStatus)) {
-      return res.status(400).json({ error: `status უნდა იყოს ერთ-ერთი: ${PATCHABLE_STATUSES.join(', ')}` });
+      return res.status(400).json({ error: `status უნდა იყოს ერთ-ერთი: ${PATCHABLE_STATUSES.join(', ')}`, code: ErrorCodes.INVALID_REQUEST });
     }
     const nextStatus = status as KitchenStatus;
 
@@ -166,11 +168,11 @@ router.patch(
       if (err instanceof Error) {
         switch (err.message) {
           case 'NOT_FOUND':
-            return res.status(404).json({ error: 'ტიკეტი ვერ მოიძებნა' });
+            return res.status(404).json({ error: 'ტიკეტი ვერ მოიძებნა', code: ErrorCodes.KITCHEN_TICKET_NOT_FOUND });
           case 'ORDER_CLOSED':
-            return res.status(400).json({ error: 'შეკვეთა უკვე დახურულია' });
+            return res.status(400).json({ error: 'შეკვეთა უკვე დახურულია', code: ErrorCodes.ORDER_ALREADY_CLOSED });
           case 'INVALID_TRANSITION':
-            return res.status(400).json({ error: 'ამ სტატუსზე გადასვლა ამ მომენტში დაუშვებელია' });
+            return res.status(400).json({ error: 'ამ სტატუსზე გადასვლა ამ მომენტში დაუშვებელია', code: ErrorCodes.KITCHEN_STATUS_TRANSITION_INVALID });
         }
       }
       res.status(500).json({ error: getErrorMessage(err) });

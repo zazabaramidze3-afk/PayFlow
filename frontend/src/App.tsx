@@ -9,6 +9,7 @@ import Register from './pages/Register';
 // currentPage === 'sales' branch-თან).
 import RegisterGuard from './components/RegisterGuard';
 import axios from 'axios';
+import { resolveErrorMessage } from './lib/errorMessages';
 
 // 1. შემოგვაქვს ტოსტერის კონტეინერი
 import { Toaster } from 'react-hot-toast';
@@ -370,9 +371,10 @@ function App() {
       applyUserLanguage(user.language);
       setCurrentPage(getDefaultPageForRole(user.role));
       callback({});
-    } catch (error: any) {
-      if (error.response && error.response.data.error) {
-        callback({ error: error.response.data.error });
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response) {
+        // 🌍 Backend Error-Message i18n STEP 2 — code-based, თარგმნილი შეტყობინება.
+        callback({ error: resolveErrorMessage(error, 'login.loginFailed') });
       } else {
         // 🌍 Multi-language support STEP 1 — i18n.t() იმპერატიულად (არა
         // useTranslation() hook), რადგან App.tsx-ს ჯერ არაფერი აქვს reactively

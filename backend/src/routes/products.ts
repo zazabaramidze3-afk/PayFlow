@@ -392,7 +392,7 @@ router.post(
   handleXlsxUpload,
   async (req: CustomRequest, res: Response) => {
     if (!req.file) {
-      return res.status(400).json({ error: '.xlsx ფაილი სავალდებულოა' });
+      return res.status(400).json({ error: '.xlsx ფაილი სავალდებულოა', code: ErrorCodes.PRODUCT_IMPORT_FILE_REQUIRED });
     }
 
     let parsed;
@@ -400,19 +400,21 @@ router.post(
       parsed = await parseProductImportWorkbook(req.file.buffer);
     } catch (err) {
       if (err instanceof ProductImportStructureError) {
-        return res.status(400).json({ error: err.message });
+        return res.status(400).json({ error: err.message, code: ErrorCodes.PRODUCT_IMPORT_INVALID_FILE });
       }
-      return res.status(400).json({ error: 'ფაილის დამუშავება ვერ მოხერხდა' });
+      return res.status(400).json({ error: 'ფაილის დამუშავება ვერ მოხერხდა', code: ErrorCodes.PRODUCT_IMPORT_INVALID_FILE });
     }
 
     if (parsed.candidates.length === 0 && parsed.skipped.length === 0) {
-      return res.status(400).json({ error: 'ფაილი ცარიელია — პროდუქტები ვერ მოიძებნა' });
+      return res.status(400).json({ error: 'ფაილი ცარიელია — პროდუქტები ვერ მოიძებნა', code: ErrorCodes.PRODUCT_IMPORT_EMPTY });
     }
 
     const totalRows = parsed.candidates.length + parsed.skipped.length;
     if (totalRows > PRODUCT_IMPORT_MAX_ROWS) {
       return res.status(400).json({
         error: `ერთ ფაილში მაქსიმუმ ${PRODUCT_IMPORT_MAX_ROWS} პროდუქტის ატვირთვაა დაშვებული (ეს ფაილი შეიცავს ${totalRows}-ს)`,
+        code: ErrorCodes.PRODUCT_IMPORT_TOO_MANY_ROWS,
+        params: { max: PRODUCT_IMPORT_MAX_ROWS, count: totalRows },
       });
     }
 

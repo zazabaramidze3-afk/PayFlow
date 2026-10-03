@@ -25,6 +25,9 @@ import { KitchenTicket, KitchenStatus, OrderStation } from '../lib/horecaTypes';
 // header-კომენტარი).
 import { getSocket } from '../lib/socket';
 import { useTranslation } from 'react-i18next';
+// 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — backend-ის raw
+// ქართული `error`-ის ნაცვლად code-based, თარგმნილი შეტყობინება.
+import { resolveErrorMessage } from '../lib/errorMessages';
 
 type ToastType = 'success' | 'error' | 'info';
 interface ToastItem { id: number; message: string; type: ToastType; }
@@ -97,8 +100,7 @@ export default function KitchenDisplay() {
       const response = await axios.get<KitchenTicket[]>('/api/kitchen/tickets', { params: { station: stationValue } });
       setTickets(response.data);
     } catch (error: unknown) {
-      const message = axios.isAxiosError<{ error?: string }>(error) ? error.response?.data?.error : undefined;
-      showToast(message || t('kitchenDisplay.toasts.loadFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'kitchenDisplay.toasts.loadFailed'), 'error');
     } finally {
       setLoading(false);
     }
@@ -167,8 +169,7 @@ export default function KitchenDisplay() {
         setTickets(prev => prev.map(t => (t.id === ticket.id ? { ...t, kitchen_status: action.next } : t)));
       }
     } catch (error: unknown) {
-      const message = axios.isAxiosError<{ error?: string }>(error) ? error.response?.data?.error : undefined;
-      showToast(message || t('kitchenDisplay.toasts.updateStatusFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'kitchenDisplay.toasts.updateStatusFailed'), 'error');
     } finally {
       setUpdatingId(null);
     }

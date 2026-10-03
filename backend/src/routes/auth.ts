@@ -41,11 +41,11 @@ export const authenticateToken = (req: CustomRequest, res: Response, next: NextF
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
-  if (!token) return res.status(401).json({ error: 'წვდომა უარყოფილია, ტოკენი არ არსებობს!' });
+  if (!token) return res.status(401).json({ error: 'წვდომა უარყოფილია, ტოკენი არ არსებობს!', code: ErrorCodes.AUTH_REQUIRED });
 
   const secretKey = process.env.JWT_SECRET || 'super-secret-key';
   jwt.verify(token, secretKey, (err: any, user: any) => {
-    if (err) return res.status(403).json({ error: 'ტოკენი არავალიდურია!' });
+    if (err) return res.status(403).json({ error: 'ტოკენი არავალიდურია!', code: ErrorCodes.TOKEN_INVALID });
     // 🆔 UUID მიგრაცია — id ახლა UUID string-ია (login-ზე jwt.sign-ში
     // ჩაწერილი users.id უკვე UUID-ია, იხ. POST /login ქვემოთ).
     req.user = user as { id: string; role: string; username: string; organizationId: string };
@@ -67,7 +67,7 @@ router.post('/login', async (req: Request, res: Response) => {
   const { slug, username, password } = req.body;
 
   if (!slug || typeof slug !== 'string') {
-    return res.status(400).json({ error: 'კომპანიის slug სავალდებულოა!' });
+    return res.status(400).json({ error: 'კომპანიის slug სავალდებულოა!', code: ErrorCodes.INVALID_REQUEST });
   }
 
   try {
@@ -91,7 +91,7 @@ router.post('/login', async (req: Request, res: Response) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა!' });
+      return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა!', code: ErrorCodes.USER_NOT_FOUND });
     }
 
     const user = result.rows[0];
@@ -103,16 +103,18 @@ router.post('/login', async (req: Request, res: Response) => {
     if (user.organization_status === 'suspended' || user.organization_status === 'cancelled') {
       return res.status(403).json({
         error: `თქვენი ორგანიზაცია ("${user.organization_name}") დაბლოკილია — მიმართეთ მხარდაჭერას!`,
+        code: ErrorCodes.ORG_SUSPENDED,
+        params: { name: user.organization_name },
       });
     }
 
     if (user.status === 'inactive' || user.status === 'დაბლოკილი') {
-      return res.status(403).json({ error: 'მომხმარებელი აქტიური არ არის!' });
+      return res.status(403).json({ error: 'მომხმარებელი აქტიური არ არის!', code: ErrorCodes.USER_INACTIVE });
     }
 
     const isPasswordCorrect = await bcrypt.compare(password, user.password_hash);
     if (!isPasswordCorrect) {
-      return res.status(401).json({ error: 'არასწორი პაროლი!' });
+      return res.status(401).json({ error: 'არასწორი პაროლი!', code: ErrorCodes.PASSWORD_INCORRECT });
     }
 
     const token = jwt.sign(
@@ -162,11 +164,11 @@ router.post('/auth/reset-password-initial', async (req: Request, res: Response) 
   const { userId, newPassword } = req.body;
 
   if (!userId || !newPassword) {
-    return res.status(400).json({ error: 'userId და newPassword სავალდებულოა!' });
+    return res.status(400).json({ error: 'userId და newPassword სავალდებულოა!', code: ErrorCodes.INVALID_REQUEST });
   }
 
   if (typeof newPassword !== 'string' || newPassword.trim().length < 4) {
-    return res.status(400).json({ error: 'პაროლი უნდა იყოს მინიმუმ 4 სიმბოლო!' });
+    return res.status(400).json({ error: 'პაროლი უნდა იყოს მინიმუმ 4 სიმბოლო!', code: ErrorCodes.PASSWORD_TOO_SHORT });
   }
 
   try {
@@ -176,11 +178,11 @@ router.post('/auth/reset-password-initial', async (req: Request, res: Response) 
     );
 
     if (userCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა!' });
+      return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა!', code: ErrorCodes.USER_NOT_FOUND });
     }
 
     if (userCheck.rows[0].requires_password_reset !== true) {
-      return res.status(403).json({ error: 'ამ მომხმარებლისთვის პაროლის სავალდებულო შეცვლა საჭირო აღარ არის!' });
+      return res.status(403).json({ error: 'ამ მომხმარებლისთვის პაროლის სავალდებულო შეცვლა საჭირო აღარ არის!', code: ErrorCodes.PASSWORD_RESET_NOT_REQUIRED });
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
@@ -228,7 +230,7 @@ router.get('/me', authenticateToken, async (req: CustomRequest, res: Response) =
       [req.user?.id]
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა!' });
+      return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა!', code: ErrorCodes.USER_NOT_FOUND });
     }
     res.json(result.rows[0]);
   } catch (err: any) {
@@ -246,7 +248,7 @@ router.patch('/me/language', authenticateToken, async (req: CustomRequest, res: 
   const { language } = req.body;
 
   if (language !== 'ka' && language !== 'en') {
-    return res.status(400).json({ error: "language უნდა იყოს 'ka' ან 'en'!" });
+    return res.status(400).json({ error: "language უნდა იყოს 'ka' ან 'en'!", code: ErrorCodes.INVALID_REQUEST });
   }
 
   try {
@@ -380,27 +382,27 @@ router.post('/users', authenticateToken, async (req: CustomRequest, res) => {
   //    არჩევს). ეს ესკალაციის თავიდან აცილებაა: manager-მა არ უნდა შეძლოს
   //    საკუთარი თავის ან სხვისი admin/manager ანგარიშის შექმნა.
   if (req.user?.role !== 'admin' && req.user?.role !== 'manager') {
-    return res.status(403).json({ error: 'მხოლოდ ადმინისტრატორს ან მენეჯერს აქვს წვდომა!' });
+    return res.status(403).json({ error: 'მხოლოდ ადმინისტრატორს ან მენეჯერს აქვს წვდომა!', code: ErrorCodes.ADMIN_OR_MANAGER_ONLY });
   }
 
   // 2. ვალიდაცია
   if (!username || !password || !role) {
-    return res.status(400).json({ error: 'ყველა ველი სავალდებულოა!' });
+    return res.status(400).json({ error: 'ყველა ველი სავალდებულოა!', code: ErrorCodes.ALL_FIELDS_REQUIRED });
   }
 
   if (!CREATABLE_ROLES.includes(role)) {
-    return res.status(400).json({ error: 'როლი არასწორია!' });
+    return res.status(400).json({ error: 'როლი არასწორია!', code: ErrorCodes.INVALID_ROLE });
   }
 
   // 🍽 HoReCa STEP 4 (Roadmap "03.09.2026", migration 023) — 'waiter'
   // როლიც იმავე დონეზეა, რაც 'cashier' (staff-level, არა admin/manager
   // ესკალაცია), ამიტომ manager-ს ამის შექმნაც შეუძლია.
   if (req.user?.role === 'manager' && role !== 'cashier' && role !== 'waiter') {
-    return res.status(403).json({ error: 'მენეჯერს მხოლოდ CASHIER ან WAITER როლის მომხმარებლის დამატება შეუძლია!' });
+    return res.status(403).json({ error: 'მენეჯერს მხოლოდ CASHIER ან WAITER როლის მომხმარებლის დამატება შეუძლია!', code: ErrorCodes.MANAGER_ROLE_LIMIT });
   }
 
   if (password.trim().length < 4) {
-    return res.status(400).json({ error: 'პაროლი უნდა იყოს მინიმუმ 4 სიმბოლო!' });
+    return res.status(400).json({ error: 'პაროლი უნდა იყოს მინიმუმ 4 სიმბოლო!', code: ErrorCodes.PASSWORD_TOO_SHORT });
   }
 
   try {
@@ -449,7 +451,7 @@ router.post('/users', authenticateToken, async (req: CustomRequest, res) => {
 
   } catch (err: any) {
     if (err.message && err.message.includes('unique')) {
-      return res.status(400).json({ error: 'ეს მომხმარებლის სახელი უკვე დაკავებულია!' });
+      return res.status(400).json({ error: 'ეს მომხმარებლის სახელი უკვე დაკავებულია!', code: ErrorCodes.USERNAME_TAKEN });
     }
     res.status(500).json({ error: 'ბაზის შეცდომა: ' + err.message });
   }
@@ -486,7 +488,7 @@ router.get('/users', authenticateToken, async (req: CustomRequest, res) => {
 
 // როლის/სტატუსის შეცვლა
 router.put('/users/:id', authenticateToken, async (req: CustomRequest, res) => {
-  if (req.user?.role !== 'admin') return res.status(403).json({ error: 'მხოლოდ ადმინისთვის!' });
+  if (req.user?.role !== 'admin') return res.status(403).json({ error: 'მხოლოდ ადმინისთვის!', code: ErrorCodes.ADMIN_ONLY });
   // can_view_history არასავალდებულოა — თუ UI ჯერ არ აგზავნის მას, COALESCE
   // ინარჩუნებს ბაზაში უკვე არსებულ მნიშვნელობას (ძველი ფრონტენდის შემთხვევაშიც არაფერი გატყდება).
   const { role, status, can_view_history } = req.body;
@@ -504,7 +506,7 @@ router.put('/users/:id', authenticateToken, async (req: CustomRequest, res) => {
         [role, status, can_view_history, req.params.id, req.user?.organizationId]
       )
     );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა' });
+    if (result.rows.length === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა', code: ErrorCodes.USER_NOT_FOUND });
     res.json({ success: true, user: result.rows[0] });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -558,10 +560,10 @@ export const writeAuditLog = async (
 
 // 🔐 მხოლოდ can_view_history-ის სწრაფი გადართვა (checkbox toggle ადმინ პანელში)
 router.put('/users/:id/history-access', authenticateToken, async (req: CustomRequest, res) => {
-  if (req.user?.role !== 'admin') return res.status(403).json({ error: 'მხოლოდ ადმინისთვის!' });
+  if (req.user?.role !== 'admin') return res.status(403).json({ error: 'მხოლოდ ადმინისთვის!', code: ErrorCodes.ADMIN_ONLY });
   const { can_view_history } = req.body;
   if (typeof can_view_history !== 'boolean') {
-    return res.status(400).json({ error: 'can_view_history უნდა იყოს true ან false' });
+    return res.status(400).json({ error: 'can_view_history უნდა იყოს true ან false', code: ErrorCodes.INVALID_REQUEST });
   }
 
   try {
@@ -573,7 +575,7 @@ router.put('/users/:id/history-access', authenticateToken, async (req: CustomReq
         [can_view_history, req.params.id, req.user?.organizationId]
       )
     );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა' });
+    if (result.rows.length === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა', code: ErrorCodes.USER_NOT_FOUND });
 
     // 🕵️ აუდიტის ლოგი: ვინ (actor) ვის (target) შეუცვალა ისტორიის ნახვის უფლება.
     await writeAuditLog(req.user?.id, req.params.id, 'history-access', can_view_history, req.user?.organizationId);
@@ -589,11 +591,11 @@ router.put('/users/:id/history-access', authenticateToken, async (req: CustomReq
 // manager-საც შეუძლია მოლარეებისთვის ფასდაკლების უფლების ჩართვა/გამორთვა.
 router.put('/users/:id/discount-access', authenticateToken, async (req: CustomRequest, res) => {
   if (req.user?.role !== 'admin' && req.user?.role !== 'manager') {
-    return res.status(403).json({ error: 'მხოლოდ ადმინისთვის ან მენეჯერისთვის!' });
+    return res.status(403).json({ error: 'მხოლოდ ადმინისთვის ან მენეჯერისთვის!', code: ErrorCodes.ADMIN_OR_MANAGER_ONLY });
   }
   const { can_use_discount } = req.body;
   if (typeof can_use_discount !== 'boolean') {
-    return res.status(400).json({ error: 'can_use_discount უნდა იყოს true ან false' });
+    return res.status(400).json({ error: 'can_use_discount უნდა იყოს true ან false', code: ErrorCodes.INVALID_REQUEST });
   }
 
   try {
@@ -605,7 +607,7 @@ router.put('/users/:id/discount-access', authenticateToken, async (req: CustomRe
         [can_use_discount, req.params.id, req.user?.organizationId]
       )
     );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა' });
+    if (result.rows.length === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა', code: ErrorCodes.USER_NOT_FOUND });
 
     // 🕵️ აუდიტის ლოგი: ვინ (actor) ვის (target) რა უფლება შეუცვალა.
     await writeAuditLog(req.user?.id, req.params.id, 'discount-access', can_use_discount, req.user?.organizationId);
@@ -620,11 +622,11 @@ router.put('/users/:id/discount-access', authenticateToken, async (req: CustomRe
 // discount-access-ის ზუსტი ანალოგიით — admin-ის გარდა manager-საც შეუძლია.
 router.put('/users/:id/void-access', authenticateToken, async (req: CustomRequest, res) => {
   if (req.user?.role !== 'admin' && req.user?.role !== 'manager') {
-    return res.status(403).json({ error: 'მხოლოდ ადმინისთვის ან მენეჯერისთვის!' });
+    return res.status(403).json({ error: 'მხოლოდ ადმინისთვის ან მენეჯერისთვის!', code: ErrorCodes.ADMIN_OR_MANAGER_ONLY });
   }
   const { can_void_receipt } = req.body;
   if (typeof can_void_receipt !== 'boolean') {
-    return res.status(400).json({ error: 'can_void_receipt უნდა იყოს true ან false' });
+    return res.status(400).json({ error: 'can_void_receipt უნდა იყოს true ან false', code: ErrorCodes.INVALID_REQUEST });
   }
 
   try {
@@ -636,7 +638,7 @@ router.put('/users/:id/void-access', authenticateToken, async (req: CustomReques
         [can_void_receipt, req.params.id, req.user?.organizationId]
       )
     );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა' });
+    if (result.rows.length === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა', code: ErrorCodes.USER_NOT_FOUND });
 
     // 🕵️ აუდიტის ლოგი: ვინ (actor) ვის (target) შეუცვალა ჩეკის გაუქმების უფლება.
     await writeAuditLog(req.user?.id, req.params.id, 'void-access', can_void_receipt, req.user?.organizationId);
@@ -651,11 +653,11 @@ router.put('/users/:id/void-access', authenticateToken, async (req: CustomReques
 // იგივე პატერნი, რაც void-access/discount-access-ს.
 router.put('/users/:id/clear-cart-access', authenticateToken, async (req: CustomRequest, res) => {
   if (req.user?.role !== 'admin' && req.user?.role !== 'manager') {
-    return res.status(403).json({ error: 'მხოლოდ ადმინისთვის ან მენეჯერისთვის!' });
+    return res.status(403).json({ error: 'მხოლოდ ადმინისთვის ან მენეჯერისთვის!', code: ErrorCodes.ADMIN_OR_MANAGER_ONLY });
   }
   const { can_clear_cart } = req.body;
   if (typeof can_clear_cart !== 'boolean') {
-    return res.status(400).json({ error: 'can_clear_cart უნდა იყოს true ან false' });
+    return res.status(400).json({ error: 'can_clear_cart უნდა იყოს true ან false', code: ErrorCodes.INVALID_REQUEST });
   }
 
   try {
@@ -667,7 +669,7 @@ router.put('/users/:id/clear-cart-access', authenticateToken, async (req: Custom
         [can_clear_cart, req.params.id, req.user?.organizationId]
       )
     );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა' });
+    if (result.rows.length === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა', code: ErrorCodes.USER_NOT_FOUND });
 
     // 🕵️ აუდიტის ლოგი: ვინ (actor) ვის (target) შეუცვალა კალათის გასუფთავების უფლება.
     await writeAuditLog(req.user?.id, req.params.id, 'clear-cart-access', can_clear_cart, req.user?.organizationId);
@@ -693,7 +695,7 @@ router.put('/users/:id/clear-cart-access', authenticateToken, async (req: Custom
 // ცალკე მიგრაცია `audit_logs`-ზეც RLS policy-ს არ დაამატებს.
 router.get('/audit-logs', authenticateToken, async (req: CustomRequest, res: Response) => {
   if (req.user?.role !== 'admin' && req.user?.role !== 'manager') {
-    return res.status(403).json({ error: 'მხოლოდ ადმინისთვის ან მენეჯერისთვის!' });
+    return res.status(403).json({ error: 'მხოლოდ ადმინისთვის ან მენეჯერისთვის!', code: ErrorCodes.ADMIN_OR_MANAGER_ONLY });
   }
   try {
     // al.actor_id საჭიროა frontend-ისთვის — Manager PIN Override ლოგებში
@@ -741,7 +743,7 @@ router.get('/audit-logs', authenticateToken, async (req: CustomRequest, res: Res
 // მოკლებული იქნებოდა.
 router.delete('/audit-logs', authenticateToken, async (req: CustomRequest, res: Response) => {
   if (req.user?.role !== 'admin') {
-    return res.status(403).json({ error: 'მხოლოდ ადმინისტრატორს აქვს ისტორიის გასუფთავების უფლება!' });
+    return res.status(403).json({ error: 'მხოლოდ ადმინისტრატორს აქვს ისტორიის გასუფთავების უფლება!', code: ErrorCodes.AUDIT_CLEAR_ADMIN_ONLY });
   }
 
   try {
@@ -754,9 +756,9 @@ router.delete('/audit-logs', authenticateToken, async (req: CustomRequest, res: 
 
 // პაროლის შეცვლა
 router.put('/users/:id/password', authenticateToken, async (req: CustomRequest, res) => {
-  if (req.user?.role !== 'admin') return res.status(403).json({ error: 'მხოლოდ ადმინისთვის!' });
+  if (req.user?.role !== 'admin') return res.status(403).json({ error: 'მხოლოდ ადმინისთვის!', code: ErrorCodes.ADMIN_ONLY });
   const { newPassword } = req.body;
-  if (!newPassword || newPassword.trim().length < 4) return res.status(400).json({ error: 'მინიმუმ 4 სიმბოლო!' });
+  if (!newPassword || newPassword.trim().length < 4) return res.status(400).json({ error: 'მინიმუმ 4 სიმბოლო!', code: ErrorCodes.PASSWORD_TOO_SHORT });
 
   try {
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
@@ -772,7 +774,7 @@ router.put('/users/:id/password', authenticateToken, async (req: CustomRequest, 
         [hashedNewPassword, req.params.id, req.user?.organizationId]
       )
     );
-    if (result.rowCount === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა' });
+    if (result.rowCount === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა', code: ErrorCodes.USER_NOT_FOUND });
     res.json({ success: true, message: 'პაროლი შეიცვალა!' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -784,12 +786,12 @@ router.put('/users/:id/password', authenticateToken, async (req: CustomRequest, 
 // MANAGER როლისთვის — cashier/admin-ს ეს ველი არ სჭირდება.
 router.put('/users/:id/pin', authenticateToken, async (req: CustomRequest, res: Response) => {
   if (req.user?.role !== 'admin') {
-    return res.status(403).json({ error: 'მხოლოდ ადმინისტრატორს შეუძლია PIN-კოდის მართვა!' });
+    return res.status(403).json({ error: 'მხოლოდ ადმინისტრატორს შეუძლია PIN-კოდის მართვა!', code: ErrorCodes.PIN_ADMIN_ONLY });
   }
 
   const { pin } = req.body;
   if (typeof pin !== 'string' || !/^\d{4}$/.test(pin)) {
-    return res.status(400).json({ error: 'PIN-კოდი უნდა შედგებოდეს ზუსტად 4 ციფრისგან!' });
+    return res.status(400).json({ error: 'PIN-კოდი უნდა შედგებოდეს ზუსტად 4 ციფრისგან!', code: ErrorCodes.PIN_FORMAT_INVALID });
   }
 
   try {
@@ -803,11 +805,11 @@ router.put('/users/:id/pin', authenticateToken, async (req: CustomRequest, res: 
     );
 
     if (targetCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა!' });
+      return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა!', code: ErrorCodes.USER_NOT_FOUND });
     }
 
     if (targetCheck.rows[0].role !== 'manager') {
-      return res.status(400).json({ error: 'PIN-კოდის დაყენება შესაძლებელია მხოლოდ MANAGER როლის მომხმარებლისთვის!' });
+      return res.status(400).json({ error: 'PIN-კოდის დაყენება შესაძლებელია მხოლოდ MANAGER როლის მომხმარებლისთვის!', code: ErrorCodes.PIN_MANAGER_ONLY });
     }
 
     // 🔐 PIN არასდროს ინახება plain text-ად — იგივე bcrypt + 10 salt
@@ -839,11 +841,11 @@ router.put('/users/:id/pin', authenticateToken, async (req: CustomRequest, res: 
 
 // წაშლა (Soft Delete)
 router.delete('/users/:id', authenticateToken, async (req: CustomRequest, res) => {
-  if (req.user?.role !== 'admin') return res.status(403).json({ error: 'მხოლოდ ადმინისთვის!' });
+  if (req.user?.role !== 'admin') return res.status(403).json({ error: 'მხოლოდ ადმინისთვის!', code: ErrorCodes.ADMIN_ONLY });
   // 🆔 UUID მიგრაციის შემდეგ id-ები string-ებია — Number() შედარება
   // ყოველთვის false-ს დააბრუნებდა (NaN === NaN), ამიტომ პირდაპირი
   // string შედარება საკმარისია და სწორია.
-  if (req.params.id === req.user?.id) return res.status(400).json({ error: 'საკუთარ თავს ვერ წაშლით!' });
+  if (req.params.id === req.user?.id) return res.status(400).json({ error: 'საკუთარ თავს ვერ წაშლით!', code: ErrorCodes.CANNOT_DELETE_SELF });
 
   try {
     // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 3 (Roadmap "23.08.2026", IDOR fix)
@@ -856,7 +858,7 @@ router.delete('/users/:id', authenticateToken, async (req: CustomRequest, res) =
         [req.params.id, req.user?.organizationId]
       )
     );
-    if (result.rowCount === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა' });
+    if (result.rowCount === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა', code: ErrorCodes.USER_NOT_FOUND });
     res.json({ success: true, message: 'მომხმარებელი გახდა პასიური!' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

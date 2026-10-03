@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
+// 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — backend-ის raw
+// ქართული `error`-ის ნაცვლად code-based, თარგმნილი შეტყობინება.
+import { resolveErrorMessage } from '../lib/errorMessages';
 import gsap from 'gsap';
 import {
   LineChart,
@@ -202,9 +205,7 @@ export default function ExecutiveDashboard() {
       const response = await axios.get<DashboardStats>('/api/dashboard/stats');
       setStats(response.data);
     } catch (err: unknown) {
-      // "any"-ის ნაცვლად axios.isAxiosError ტიპის დამცველი — Clean Architecture წესი.
-      const serverMessage = axios.isAxiosError<{ error?: string }>(err) ? err.response?.data?.error : undefined;
-      setError(serverMessage || t('dashboard.analytics.loadError'));
+      setError(resolveErrorMessage(err, 'dashboard.analytics.loadError'));
     } finally {
       setLoading(false);
     }
@@ -228,9 +229,10 @@ export default function ExecutiveDashboard() {
         '/api/notifications/stock-deficits'
       );
       setDeficits(response.data);
-    } catch {
+    } catch (err: unknown) {
       // 🔕 ეს პანელი დამატებითი (secondary) ინფორმაციაა — ჩავარდნისას მთელ
       // Dashboard-ს არ ვბლოკავთ error-ეკრანით, უბრალოდ პანელი ცარიელი რჩება.
+      console.error(err);
     } finally {
       setDeficitsLoading(false);
     }
@@ -245,9 +247,10 @@ export default function ExecutiveDashboard() {
     try {
       await axios.put(`/api/notifications/stock-deficits/${id}/resolve`);
       setDeficits((prev) => prev.filter((d) => d.id !== id));
-    } catch {
+    } catch (err: unknown) {
       // 🔕 წარუმატებლობისას ჩანაწერი პანელში უბრალოდ რჩება — მენეჯერს
       // შეუძლია ისევ სცადოს.
+      console.error(err);
     } finally {
       setResolvingId(null);
     }
@@ -272,9 +275,10 @@ export default function ExecutiveDashboard() {
         '/api/notifications/shift-amendments'
       );
       setAmendments(response.data);
-    } catch {
+    } catch (err: unknown) {
       // 🔕 ეს პანელიც დამატებითი (secondary) ინფორმაციაა — deficits-ის
       // იგივე პრინციპი.
+      console.error(err);
     } finally {
       setAmendmentsLoading(false);
     }
@@ -289,8 +293,9 @@ export default function ExecutiveDashboard() {
     try {
       await axios.put(`/api/notifications/shift-amendments/${id}/resolve`);
       setAmendments((prev) => prev.filter((a) => a.id !== id));
-    } catch {
+    } catch (err: unknown) {
       // 🔕 წარუმატებლობისას ჩანაწერი პანელში უბრალოდ რჩება.
+      console.error(err);
     } finally {
       setResolvingAmendmentId(null);
     }

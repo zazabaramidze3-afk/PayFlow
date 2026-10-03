@@ -464,9 +464,8 @@ export default function Products({ businessType }: ProductsProps) {
       } else if (response.data.skippedCount > 0) {
         toast.error(t('products.toasts.importAllSkipped'));
       }
-    } catch (error: any) {
-      const message = error?.response?.data?.error || t('products.toasts.importFailedFallback');
-      toast.error(message);
+    } catch (error: unknown) {
+      toast.error(resolveErrorMessage(error, 'products.toasts.importFailedFallback'));
     } finally {
       setImporting(false);
     }

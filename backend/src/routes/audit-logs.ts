@@ -1,4 +1,6 @@
 import { Router, Response } from 'express';
+// 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — additive `code` ველი.
+import { ErrorCodes } from '../constants/errorCodes';
 // შემოგვაქვს მზა PostgreSQL პული ძირითადი ფაილიდან
 import { db } from '../index';
 import { authenticateToken, CustomRequest } from './auth';
@@ -13,7 +15,7 @@ const router = Router();
 // მოთხოვნისამებრ.
 router.get('/audit-logs/export', authenticateToken, async (req: CustomRequest, res: Response) => {
   if (req.user?.role !== 'admin') {
-    return res.status(403).json({ error: 'მხოლოდ ადმინისტრატორს აქვს ისტორიის ექსპორტის უფლება!' });
+    return res.status(403).json({ error: 'მხოლოდ ადმინისტრატორს აქვს ისტორიის ექსპორტის უფლება!', code: ErrorCodes.AUDIT_EXPORT_ADMIN_ONLY });
   }
 
   try {

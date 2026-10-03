@@ -28,7 +28,8 @@
     "sessionExpired": "Session expired — please sign in again.",
     "updatePasswordAndSignIn": "Update password and sign in",
     "resetFailed": "Password update failed",
-    "connectionFailed": "Could not connect to the server!"
+    "connectionFailed": "Could not connect to the server!",
+    "loginFailed": "Login failed!"
   },
   "language": {
     "label": "Select language",
@@ -891,6 +892,36 @@
     "HISTORY_ACCESS_DISABLED": "Permission to view history is turned off!",
     "TABLE_NAME_REQUIRED": "Table name is required",
     "TABLE_NOT_FOUND": "Table not found",
-    "TABLE_HAS_ORDER_HISTORY": "This table has related order history — it cannot be deleted"
+    "TABLE_HAS_ORDER_HISTORY": "This table has related order history — it cannot be deleted",
+    "TOKEN_INVALID": "Invalid token!",
+    "USER_NOT_FOUND": "User not found!",
+    "ORG_SUSPENDED": "Your organization (\"{{name}}\") is suspended — please contact support!",
+    "USER_INACTIVE": "This user is not active!",
+    "PASSWORD_INCORRECT": "Incorrect password",
+    "PASSWORD_TOO_SHORT": "Password must be at least 4 characters!",
+    "PASSWORD_RESET_NOT_REQUIRED": "A password change is no longer required for this user!",
+    "ADMIN_ONLY": "Admins only!",
+    "ADMIN_OR_MANAGER_ONLY": "Admins or managers only!",
+    "ALL_FIELDS_REQUIRED": "All fields are required!",
+    "INVALID_ROLE": "Invalid role!",
+    "MANAGER_ROLE_LIMIT": "A manager can only add cashier or waiter users!",
+    "USERNAME_TAKEN": "This username is already taken!",
+    "AUDIT_CLEAR_ADMIN_ONLY": "Only an administrator can clear the history!",
+    "AUDIT_EXPORT_ADMIN_ONLY": "Only an administrator can export the history!",
+    "PIN_ADMIN_ONLY": "Only an administrator can manage PIN codes!",
+    "PIN_MANAGER_ONLY": "A PIN can only be set for a manager!",
+    "CANNOT_DELETE_SELF": "You cannot delete yourself!",
+    "PAIRING_CODE_GENERATION_FAILED": "Could not generate a code — please try again",
+    "PAIRING_CODE_FORMAT_INVALID": "The code must be exactly 6 digits!",
+    "PAIRING_CODE_NOT_FOUND": "Code not found — generate a new one",
+    "PAIRING_CODE_USED_OR_EXPIRED": "This code has already been confirmed or has expired",
+    "PAIRING_CODE_EXPIRED": "The code has expired — the cashier needs to generate a new one",
+    "KITCHEN_TICKET_NOT_FOUND": "Ticket not found",
+    "KITCHEN_STATUS_TRANSITION_INVALID": "This status change is not allowed right now",
+    "NOTIFICATION_NOT_FOUND": "Notification not found or already resolved",
+    "PRODUCT_IMPORT_FILE_REQUIRED": "An .xlsx file is required",
+    "PRODUCT_IMPORT_INVALID_FILE": "Could not process the file – please use the template",
+    "PRODUCT_IMPORT_EMPTY": "The file is empty – no products found",
+    "PRODUCT_IMPORT_TOO_MANY_ROWS": "A file can contain at most {{max}} products (this file has {{count}})"
   }
 }

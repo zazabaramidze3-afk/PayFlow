@@ -2,6 +2,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
+// 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — backend-ის raw
+// ქართული `error`-ის ნაცვლად code-based, თარგმნილი შეტყობინება.
+import { resolveErrorMessage } from '../lib/errorMessages';
 import i18n from '../i18n';
 import styles from './UsersManagement.module.scss';
 import { KeyIcon, TrashIcon, LockIcon, UnlockIcon, PinIcon } from '../components/Icons';
@@ -289,8 +292,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
       showToast(t('usersManagement.toasts.pairSuccess'), 'success');
       closePairModal();
     } catch (error: unknown) {
-      const serverMessage = axios.isAxiosError<{ error?: string }>(error) ? error.response?.data?.error : undefined;
-      setPairError(serverMessage || t('usersManagement.pairModal.errors.pairFailed'));
+      setPairError(resolveErrorMessage(error, 'usersManagement.pairModal.errors.pairFailed'));
     } finally {
       setPairLoading(false);
     }
@@ -314,8 +316,8 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
       setIsModalOpen(false);
       loadUsers();
       showToast(t('usersManagement.toasts.createUserSuccess'), 'success');
-    } catch (error: any) {
-      showToast(error.response?.data?.error || t('usersManagement.toasts.createUserFailed'), 'error');
+    } catch (error: unknown) {
+      showToast(resolveErrorMessage(error, 'usersManagement.toasts.createUserFailed'), 'error');
     }
   };
 
@@ -324,8 +326,8 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
       await axios.put(`/api/users/${id}`, { role: newRole, status: currentStatus });
       setUsers(users.map(user => user.id === id ? { ...user, role: newRole } : user));
       showToast(t('usersManagement.toasts.roleUpdated'), 'success');
-    } catch (error) {
-      showToast(t('usersManagement.toasts.saveFailed'), 'error');
+    } catch (error: unknown) {
+      showToast(resolveErrorMessage(error, 'usersManagement.toasts.saveFailed'), 'error');
     }
   };
 
@@ -339,8 +341,8 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
       await axios.put(`/api/users/${user.id}`, { role: user.role, status: nextStatus });
       setUsers(users.map(u => u.id === user.id ? { ...u, status: nextStatus } : u));
       showToast(t('usersManagement.toasts.statusChanged', { status: nextStatusLabel }), 'success');
-    } catch (error) {
-      showToast(t('usersManagement.toasts.statusChangeFailed'), 'error');
+    } catch (error: unknown) {
+      showToast(resolveErrorMessage(error, 'usersManagement.toasts.statusChangeFailed'), 'error');
     }
   };
 
@@ -349,9 +351,9 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
     try {
       const response = await axios.get('/api/audit-logs');
       setHistoryLogs(response.data);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(error);
-      showToast(t('usersManagement.toasts.historyLoadFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'usersManagement.toasts.historyLoadFailed'), 'error');
     } finally {
       setHistoryLoading(false);
     }
@@ -383,9 +385,9 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
 
       setHasExportedHistory(true);
       showToast(t('usersManagement.toasts.exportSuccess'), 'success');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(error);
-      showToast(t('usersManagement.toasts.exportFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'usersManagement.toasts.exportFailed'), 'error');
     }
   };
 
@@ -396,8 +398,8 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
       const response = await axios.delete('/api/audit-logs');
       setHistoryLogs([]);
       showToast(response.data.message || t('usersManagement.toasts.historyClearedDefault'), 'success');
-    } catch (error: any) {
-      showToast(error.response?.data?.error || t('usersManagement.toasts.historyClearFailed'), 'error');
+    } catch (error: unknown) {
+      showToast(resolveErrorMessage(error, 'usersManagement.toasts.historyClearFailed'), 'error');
     }
   };
 
@@ -424,7 +426,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
       if (showHistory) loadAuditLogs();
     } catch (error) {
       console.error(error);
-      showToast(t('usersManagement.toasts.accessChangeFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'usersManagement.toasts.accessChangeFailed'), 'error');
     }
   };
 
@@ -439,7 +441,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
       if (showHistory) loadAuditLogs();
     } catch (error) {
       console.error(error);
-      showToast(t('usersManagement.toasts.accessChangeFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'usersManagement.toasts.accessChangeFailed'), 'error');
     }
   };
 
@@ -455,7 +457,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
       if (showHistory) loadAuditLogs();
     } catch (error) {
       console.error(error);
-      showToast(t('usersManagement.toasts.accessChangeFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'usersManagement.toasts.accessChangeFailed'), 'error');
     }
   };
 
@@ -471,7 +473,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
       if (showHistory) loadAuditLogs();
     } catch (error) {
       console.error(error);
-      showToast(t('usersManagement.toasts.accessChangeFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'usersManagement.toasts.accessChangeFailed'), 'error');
     }
   };
 
@@ -490,8 +492,8 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
       const response = await axios.put(`/api/users/${userId}/password`, { newPassword: value });
       showToast(response.data.message || t('usersManagement.toasts.passwordChangedDefault', { username }), 'success');
       setPasswordModal({ show: false, userId: null, username: '', value: '' });
-    } catch (error: any) {
-      showToast(error.response?.data?.error || t('usersManagement.toasts.passwordChangeFailed'), 'error');
+    } catch (error: unknown) {
+      showToast(resolveErrorMessage(error, 'usersManagement.toasts.passwordChangeFailed'), 'error');
     }
   };
 
@@ -517,9 +519,7 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
       closePinModal();
       loadUsers(); // has_manager_pin ცხრილში განახლდეს (Set → Change ღილაკის ტექსტი)
     } catch (error: unknown) {
-      // "any"-ის ნაცვლად axios.isAxiosError ტიპის დამცველი — Clean Architecture წესი.
-      const serverMessage = axios.isAxiosError<{ error?: string }>(error) ? error.response?.data?.error : undefined;
-      setPinModal(prev => ({ ...prev, error: serverMessage || t('usersManagement.toasts.pinSaveFailed') }));
+      setPinModal(prev => ({ ...prev, error: resolveErrorMessage(error, 'usersManagement.toasts.pinSaveFailed') }));
     }
   };
 
@@ -528,8 +528,8 @@ export default function UsersManagement({ currentUserRole, businessType }: Users
       const response = await axios.delete(`/api/users/${id}`);
       setUsers(users.filter(user => user.id !== id));
       showToast(response.data.message || t('usersManagement.toasts.deleteUserDefault', { username }), 'success');
-    } catch (error: any) {
-      showToast(error.response?.data?.error || t('usersManagement.toasts.deleteUserFailed'), 'error');
+    } catch (error: unknown) {
+      showToast(resolveErrorMessage(error, 'usersManagement.toasts.deleteUserFailed'), 'error');
     }
   };
 
