@@ -1,7 +1,7 @@
 # Multi-Language (i18n) — Roadmap
 
-**სტატუსი:** 🟢 გვერდების page-by-page rollout დასრულებულია — ინფრასტრუქტურა + 11 გვერდი დასრულებულია (Sales.tsx, Tables.tsx, OrderScreen.tsx, UsersManagement.tsx, Dashboard.tsx + ExecutiveDashboard.tsx, Products.tsx, Modifiers.tsx, KitchenDisplay.tsx, Ingredients.tsx, Register.tsx, Settings.tsx), დარჩენილი გვერდი აღარ არის. Backend error-message-ების ფენაზე 🟡 **pilot დასრულებულია** (Products.tsx + Ingredients.tsx, error-codes არქიტექტურით — იხ. სექცია 13); დარჩენილი ~13 route-ფაილის იმავე pattern-ით გაფართოება ჯერ არ დაწყებულა (იხ. ქვემოთ, "⏳ ცალკე ფენა").
-**თარიღი:** 20.09.2026 (განახლდა)
+**სტატუსი:** 🟢 გვერდების page-by-page rollout დასრულებულია (11 გვერდი) და Backend error-message i18n (error-codes არქიტექტურა) გავრცელებულია ძირითად route-ებზე/გვერდებზე (STEP 1 pilot + STEP 2 — იხ. სექციები 13-14). დარჩენილი მცირე ღია საკითხები — იხ. "⏳ ცალკე ფენა".
+**თარიღი:** 03.10.2026 (განახლდა)
 **წყარო:** react-i18next-ზე გადასვლის ეტაპობრივი (page-by-page) rollout, დაწყებული Cowork session-ში.
 
 **კონტექსტი:** აპლიკაციას ემატება მრავალენოვნება — ქართული (default) და ინგლისური. ენა ინახება მომხმარებლის მიხედვით ბაზაში (`users.language` სავარაუდოდ, `PATCH /me/language`-ით მუშავდება). თარგმანი მიმდინარეობს ეტაპობრივად, ერთი გვერდი/კომპონენტი ერთ ჯერზე: ვთარგმნით → ვატესტებთ ლოკალურად (`localhost:3000`) ორივე ენაზე და ორივე თემაზე (light/dark) → commit მხოლოდ მომხმარებლის პირდაპირი დადასტურების შემდეგ → push ყოველთვის მომხმარებელი აკეთებს თავად.
@@ -134,7 +134,22 @@
 - **ტესტირებულია მომხმარებლის მიერ ორივე ენაზე** (live browser, ka + en): Products.tsx-ზე დუბლირებული ბარკოდი → `409 { code: PRODUCT_DUPLICATE_BARCODE }` → სწორად თარგმნილი, კონკრეტული toast; Ingredients.tsx-ზე დუბლირებული სახელი → `INGREDIENT_DUPLICATE_NAME`; Ingredients.tsx-ზე რეცეპტში გამოყენებული ინგრედიენტის წაშლის მცდელობა → `INGREDIENT_IN_USE` — სამივე შემთხვევა კონკრეტული და თარგმნილია ორივე ენაზე.
 - **Backward compatibility:** ორივე `products.ts`/`ingredients.ts`-ის დანარჩენი endpoint (404/400 ვალიდაცია და ა.შ.) და დანარჩენი ~13 route-ფაილი ჯერ `code`-ს არ აბრუნებს — მათზე `resolveErrorMessage` ავტომატურად fallback-key-ის ზოგად შეტყობინებაზე გადადის, ისე რომ არაფერი არ ტყდება.
 - **`npx tsc --noEmit` სუფთაა** ორივე `frontend/`-სა და `backend/`-ში.
-- **დარჩენილი (STEP 2, ჯერ არ დაწყებულა):** იგივე pattern-ის გავრცელება დანარჩენ ~13 backend route-ფაილზე/~86 frontend catch-ბლოკზე, ერთი route-ფაილი ერთ ჯერზე (page-by-page rollout-ის იგივე კონვენცია). ლოკალური `getErrorMessage`-ის დუბლიკატი ჯერ კიდევ დარჩენილია `Modifiers.tsx`-ში, `OrderScreen.tsx`-ში, `Settings.tsx`-ში და `SplitBillModal.tsx`-ის მითითებაში — თითოეული გადავა გაზიარებულ `resolveErrorMessage`-ზე, როცა შესაბამისი backend route-ფაილიც მიგრირდება `code`-ზე.
+- **STEP 2** (დანარჩენი route-ებისა და გვერდების გავრცელება) შესრულდა 03.10.2026 — იხ. სექცია 14.
+
+---
+
+### 14. Backend Error-Message i18n — STEP 2 (გავრცელება დანარჩენ route-ებზე/გვერდებზე)
+**ბრენჩი:** `feature/validation-fixes-cloud` (ლოკალური, push არ გაკეთებულა). Commit-ები: `8a6bd40`, `2346c39`, `29571d6`, `eed6ce9`, `04fe04e`, `1627c37`, `569dc00`.
+
+- **Backend:** იგივე additive `code` (+ საჭიროებისას `params` interpolation-ისთვის, მაგ. `{ name }`, `{ seconds }`, `{ paid, total }`) დაემატა: `modifiers.ts`, `organizations.ts`, `orders.ts`, `tables.ts`, `sales.ts` (POST /payments + /payments/split, ცვლები, void, ისტორია, override-ები, export-ები), `auth.ts` (login, მომხმარებლები, PIN, პაროლი), `registers.ts`, `kitchen.ts`, `notifications.ts`, `audit-logs.ts`, Products Excel import-ის ზედა დონის შეცდომები, და გაზიარებული middleware-ები (`checkShift`, `registerAuth`, `requireBusinessType`, `requireRole`). ქართული `error`/`message` ტექსტი ყველგან უცვლელია.
+- **Frontend:** `resolveErrorMessage()` ახლა `params`-საც გადასცემს თარგმანს; ახალი `getErrorCode()` helper ლოგიკური შემოწმებებისთვის (OrderScreen-ის "მაგიდაზე უკვე არის ღია შეკვეთა" race-detection ქართული ტექსტის substring-ის ნაცვლად `ORDER_TABLE_HAS_OPEN_ORDER` კოდზე მუშაობს). გადავიდნენ: Modifiers, Settings, Register, Login (slug-ის ძებნა, შესვლა, პაროლის შეცვლა), OrderScreen, SplitBillModal, Sales, Tables (ცვლის widget-ის ჩათვლით), UsersManagement, KitchenDisplay, ExecutiveDashboard, Products import. ლოკალური `getErrorMessage` დუბლიკატები გაქრა. `errors.*` namespace ორივე `ka.json`/`en.json`-ში (~120 კოდი).
+- **გვერდითი ბაგ-ფიქსები, ტესტირებისას აღმოჩენილი:**
+  - Toast ექვს გვერდზე (Modifiers, Ingredients, Tables, Settings, OrderScreen, KitchenDisplay) მობილურზე ვიწროდ/header-ის ქვეშ ჩანდა: გვერდის `fadeInUp ... both` ანიმაცია transform-ს ტოვებდა, რაც `position: fixed`-ს container-ზე აბამდა. გასწორდა `createPortal`-ით `document.body`-ში (+ სრული სიგანე, max 480px).
+  - არასწორი მენეჯერის PIN (401) global axios interceptor-ს "სესია ამოიწურა"-დ ესმოდა და login-ზე აგდებდა (OrderScreen-ზეც და Sales-ზეც). interceptor ახლა `PIN_INCORRECT` კოდზე logout-ს არ აკეთებს.
+  - HoReCa ჩეკის დახურვისას "არ არის საკმარისი მარაგი პროდუქტზე" შეტყობინებაში ID ჩანდა სახელის ნაცვლად — ახლა სახელი იკითხება.
+- **ტესტირებულია მომხმარებლის მიერ (ka + en, მობილური 412px):** დახურული ცვლა, არასწორი PIN (OrderScreen), ნულოვანი ინგრედიენტის მარაგი, მაგიდის წაშლა ისტორიით (409), Retail POS-ის "არ არის საკმარისი მარაგი", Login-ის არასწორი პაროლი, Products import-ის ცარიელი ფაილი. `npx tsc --noEmit` სუფთაა ორივე მხარეს.
+- **ჯერ არ არის ბრაუზერში გატესტილი (მხოლოდ tsc):** Users-ის დუბლირებული username, Register-ის დაკავებული subdomain/email, Sales.tsx-ის (Retail) ფასდაკლების PIN.
+
 
 ---
 
@@ -146,13 +161,13 @@
 
 ## ⏳ ცალკე ფენა (out of scope ჯერჯერობით)
 
-- **Backend error-message-ების i18n** — 🟡 **STEP 1 (pilot) დასრულებულია** (იხ. სექცია 13, commit `9b1d862`) — `code`-based error-codes არქიტექტურა Products.tsx-ზე/Ingredients.tsx-ზე დამტკიცებული და მომხმარებლის მიერ ლაივ-ტესტირებით დადასტურებულია. **STEP 2 (დარჩენილი ~13 backend route-ფაილის/~86 frontend catch-ბლოკის გაფართოება) ჯერ არ დაწყებულა.**
+- **Backend error-message-ების i18n** — 🟢 **STEP 1 + STEP 2 დასრულებულია** (სექციები 13-14). დარჩენილი, განზრახ ამ scope-ს გარეთ: (1) Products import-ის შედეგის მოდალში გამოტოვებული სტრიქონების მიზეზები (`productImportService.ts`-ის `reason`) ისევ ქართულად მოდის — ეს error-პასუხი კი არა, შედეგის მონაცემია, ცალკე მიდგომა სჭირდება; (2) `RegisterGuard.tsx` (სალაროს დაწყვილების ეკრანი) და Platform Admin გვერდები საერთოდ არ არის i18n-ზე გადაყვანილი; (3) `code`-ის გარეშე დარჩა: `platformAdmin.ts` + `platformAdminAuth.ts` (სრულად), `ingredients.ts`-ისა და `products.ts`-ის დანარჩენი 404/400 ვალიდაციები (pilot-მა მხოლოდ დუბლიკატების/"გამოყენებულია" შეცდომები დაფარა), `auth.ts`/`registers.ts`/`organizations.ts`-ის გენერიკული 500 შეცდომები (`"სერვერის შეცდომა: " + err.message`) და login-ის რამდენიმე წარმატების `message`; (4) `App.tsx`-ის interceptor-ი ტოკენის/სალაროს ვადაგასვლას ჯერ ქართული ტექსტის substring-ით ამოიცნობს (`message.includes('ტოკენი')`) — უმჯობესია `TOKEN_INVALID`/`REGISTER_*` კოდებზე გადაყვანა.
 - Dev-only `console.error()` ზარები და კოდის კომენტარები **განზრახ რჩება** ნათარგმნი — out of scope (დადგენილია პროექტის დასაწყისშივე).
 - OrderScreen.tsx-ში ერთი backend-error substring-check (`message?.includes('ღია შეკვეთა')`) განზრახ დარჩა ჰარდკოდილი ქართულად — ეს backend-ის საპასუხო ტექსტს პარსავს (race-condition detection), არა UI-ს, ამიტომ frontend-ის ენას არ უნდა მისდევდეს backend i18n-ის დანერგვამდე.
 - **⚠️ Live-ტესტირებით დადასტურებული დაკვირვება (11.09.2026, Products.tsx)** — გვერდებს შორის **ორი განსხვავებული, შეუთანხმებელი catch-error პატერნი** არსებობდა. **20.09.2026 განახლება: Products.tsx-ზე და Ingredients.tsx-ზე მოგვარებულია** (იხ. სექცია 13, STEP 1 pilot); დანარჩენ გვერდებზე ჯერ კვლავ ღიაა STEP 2-მდე:
   - **Products.tsx** — 🟢 **მოგვარებულია.** `handleSaveProduct`/`handleCreateScannedProduct` აღარ ეყრდნობა მხოლოდ generic-ს — `resolveErrorMessage`-ით backend-ის `code`-ს (როცა route მიგრირებულია) თარგმნილ, კონკრეტულ ტექსტად აჩვენებს. (მანამდე: `error.response.data.error`-ს საერთოდ არ კითხულობდა — duplicate barcode-ზეც კი მხოლოდ generic "Error saving data!" ჩანდა.)
   - **Ingredients.tsx** — 🟢 **მოგვარებულია.** ლოკალური `getErrorMessage` (raw, დაუთარგმნელი ტექსტი) ჩანაცვლდა `resolveErrorMessage`-ით.
-  - **Modifiers.tsx/OrderScreen.tsx/Settings.tsx/SplitBillModal.tsx** — ⏳ **ჯერ კვლავ ღიაა.** `getErrorMessage(error) || t('...')` პატერნი კვლავ backend-ის დაუთარგმნელ raw ტექსტს აჩვენებს პირდაპირ (არ სვიჩდება user-ის ენაზე) — მოგვარდება STEP 2-ის დროს, თითოეული გვერდი შესაბამისი backend route-ფაილის `code`-ზე მიგრაციასთან ერთად.
+  - **Modifiers.tsx/OrderScreen.tsx/Settings.tsx/SplitBillModal.tsx** — 🟢 **მოგვარებულია** (STEP 2, 03.10.2026): ყველა გადავიდა გაზიარებულ `resolveErrorMessage`-ზე.
 
 ---
 
