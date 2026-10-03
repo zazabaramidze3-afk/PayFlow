@@ -120,6 +120,8 @@ axios.interceptors.response.use(
   (error) => {
     const status = error.response?.status;
     const message: string = error.response?.data?.error || '';
+    // 🌍 Backend Error-Message i18n STEP 2 — სტაბილური error code (თუ მოვიდა).
+    const code: string | undefined = error.response?.data?.code;
     // 🔧 FIX (02.09.2026, Render migration — JWT_SECRET rotation-ის შემდეგ
     // აღმოჩენილი ხარვეზი) — "სალაროს ტოკენი" (register-pairing token,
     // registerAuth.ts-ის requireRegister) ცალკე უნდა დამუშავდეს user-ის
@@ -154,7 +156,14 @@ axios.interceptors.response.use(
       localStorage.removeItem('payflow_register_id');
       localStorage.removeItem('payflow_register_token');
       window.dispatchEvent(new Event('register:pairing-required'));
-    } else if (status === 401 || (status === 403 && message.includes('ტოკენი'))) {
+    } else if (
+      // 🩹 FIX (03.10.2026) — მენეჯერის არასწორი PIN-იც 401-ს აბრუნებს
+      // (POST /auth/verify-manager-pin), მაგრამ ეს user-ის session-ის
+      // ვადაგასვლა არ არის — logout აქ არ უნდა მოხდეს, შეცდომას PIN-მოდალი
+      // თავად აჩვენებს.
+      (status === 401 && code !== 'PIN_INCORRECT') ||
+      (status === 403 && message.includes('ტოკენი'))
+    ) {
       localStorage.removeItem('token');
       window.dispatchEvent(new Event('auth:session-expired'));
     }
