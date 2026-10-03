@@ -1,4 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
+// 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — additive `code` ველი.
+import { ErrorCodes } from '../constants/errorCodes';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 // შემოგვაქვს მზა PostgreSQL პული ძირითადი ფაილიდან
@@ -273,7 +275,7 @@ router.post('/auth/verify-manager-pin', authenticateToken, async (req: CustomReq
   // ველისთვის) საჭიროა ცალსახა, non-optional number.
   const cashierId = req.user?.id;
   if (!cashierId) {
-    return res.status(401).json({ error: 'ავტორიზაცია საჭიროა!' });
+    return res.status(401).json({ error: 'ავტორიზაცია საჭიროა!', code: ErrorCodes.AUTH_REQUIRED });
   }
 
   const rateLimitKey = getRateLimitKey(req, cashierId);
@@ -283,12 +285,14 @@ router.post('/auth/verify-manager-pin', authenticateToken, async (req: CustomReq
     const retryAfterMinutes = Math.ceil(retryAfterSeconds / 60);
     return res.status(429).json({
       error: `ძალიან ბევრი მცდელობა. სცადეთ ${retryAfterMinutes} წუთში ხელახლა.`,
+      code: ErrorCodes.PIN_RATE_LIMITED,
+      params: { minutes: retryAfterMinutes },
     });
   }
 
   const { pin } = req.body;
   if (typeof pin !== 'string' || !/^\d{4}$/.test(pin)) {
-    return res.status(400).json({ error: 'PIN-კოდი უნდა შედგებოდეს ზუსტად 4 ციფრისგან!' });
+    return res.status(400).json({ error: 'PIN-კოდი უნდა შედგებოდეს ზუსტად 4 ციფრისგან!', code: ErrorCodes.PIN_FORMAT_INVALID });
   }
 
   try {
@@ -328,7 +332,7 @@ router.post('/auth/verify-manager-pin', authenticateToken, async (req: CustomReq
 
     if (!matchedManager) {
       registerFailedAttempt(rateLimitKey);
-      return res.status(401).json({ error: 'PIN-კოდი არასწორია!' });
+      return res.status(401).json({ error: 'PIN-კოდი არასწორია!', code: ErrorCodes.PIN_INCORRECT });
     }
 
     // ✅ წარმატებული ავტორიზაციის შემდეგ ამ სესიის ჩათვლადი განულდება.

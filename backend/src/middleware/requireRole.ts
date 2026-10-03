@@ -1,4 +1,6 @@
 import { Response, NextFunction } from 'express';
+// 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — additive `code` ველი.
+import { ErrorCodes } from '../constants/errorCodes';
 import { CustomRequest } from '../routes/auth';
 
 // ==========================================
@@ -17,7 +19,7 @@ export function requireAnyRole(...allowedRoles: string[]) {
   return (req: CustomRequest, res: Response, next: NextFunction) => {
     const role = req.user?.role;
     if (!role || !allowedRoles.includes(role)) {
-      return res.status(403).json({ error: 'ამ რესურსზე წვდომა არ გაქვთ!' });
+      return res.status(403).json({ error: 'ამ რესურსზე წვდომა არ გაქვთ!', code: ErrorCodes.FORBIDDEN });
     }
     next();
   };

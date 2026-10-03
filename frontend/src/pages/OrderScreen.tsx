@@ -21,6 +21,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
+// 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — ლოკალური
+// getErrorMessage (`error ?? message`, raw ქართული) ჩანაცვლდა გაზიარებული,
+// code-based helper-ით; checkShift.ts-ის `{ message, code }` shape-იც იფარება.
+import { resolveErrorMessage, getErrorCode } from '../lib/errorMessages';
 import axios from 'axios';
 import styles from './OrderScreen.module.scss';
 import PrintableReceipt, { PrintableReceiptData, PrintableSplitReceipts } from '../components/PrintableReceipt';
@@ -126,19 +130,6 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
   }, []);
 
-  // 🩹 FIX (04.09.2026) — ზოგიერთი გაზიარებული/ძველი middleware
-  // (მაგ. checkShift.ts-ის checkActiveShift, Sales.tsx-ის Retail POS-იც
-  // მას იყენებს) 400/500 შეცდომას აბრუნებს `{ message: "..." }` ფორმით,
-  // ჩვენი ახალი orders.ts/tables.ts-ის `{ error: "..." }" კონვენციის
-  // ნაცვლად. აქამდე getErrorMessage მხოლოდ `.error`-ს კითხულობდა,
-  // ამიტომ checkActiveShift-ის სასარგებლო ტექსტი ("ცვლის გახსნა
-  // აუცილებელია") toast-ში საერთოდ არ ჩანდა — მომხმარებელი მხოლოდ
-  // ზოგად "შეკვეთის გახსნა ვერ მოხერხდა"-ს ხედავდა.
-  const getErrorMessage = (error: unknown): string | undefined => {
-    if (!axios.isAxiosError<{ error?: string; message?: string }>(error)) return undefined;
-    return error.response?.data?.error ?? error.response?.data?.message;
-  };
-
   const fetchPermissions = useCallback(async () => {
     try {
       const response = await axios.get('/api/me');
@@ -155,7 +146,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
       const response = await axios.get<Product[]>('/api/products');
       setProducts(response.data);
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || t('orderScreen.toasts.loadProductsFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'orderScreen.toasts.loadProductsFailed'), 'error');
     }
   }, [showToast]);
 
@@ -173,7 +164,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
       const detail = await axios.get<OrderWithItems>(`/api/orders/${match.id}`);
       setOrder(detail.data);
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || t('orderScreen.toasts.loadOrderFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'orderScreen.toasts.loadOrderFailed'), 'error');
     } finally {
       setLoadingOrder(false);
     }
@@ -249,13 +240,14 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
       setOrder({ ...response.data, items: [] });
       onOrderChanged();
     } catch (error: unknown) {
-      const message = getErrorMessage(error);
-      if (message?.includes('ღია შეკვეთა')) {
+      // STEP 2 — race-condition detection backend-ის `code`-ით (ადრე
+      // ქართული ტექსტის substring-ით: `includes('ღია შეკვეთა')`).
+      if (getErrorCode(error) === 'ORDER_TABLE_HAS_OPEN_ORDER') {
         // 🏁 რასის პირობა — სხვა ტერმინალმა ჩვენზე ადრე გახსნა იმავე
         // მაგიდაზე. უბრალოდ ვცდით არსებულის ჩატვირთვას.
         fetchOrderForTable();
       } else {
-        showToast(message || t('orderScreen.toasts.openOrderFailed'), 'error');
+        showToast(resolveErrorMessage(error, 'orderScreen.toasts.openOrderFailed'), 'error');
       }
     } finally {
       setOpeningOrder(false);
@@ -308,7 +300,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
       setSelectedModifierOptionIds([]);
       await fetchOrderForTable();
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || t('orderScreen.toasts.addItemFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'orderScreen.toasts.addItemFailed'), 'error');
     } finally {
       setAddingItem(false);
     }
@@ -335,7 +327,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
       showToast(t('orderScreen.toasts.itemVoided', { name: itemName }), 'success');
       await fetchOrderForTable();
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || t('orderScreen.toasts.voidFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'orderScreen.toasts.voidFailed'), 'error');
     }
   };
 
@@ -374,7 +366,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
       onOrderChanged();
       onBack();
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || t('orderScreen.toasts.voidFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'orderScreen.toasts.voidFailed'), 'error');
     }
   };
 
@@ -494,7 +486,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
         }
       }
     } catch (error: unknown) {
-      setPinError(getErrorMessage(error) || t('sales.toasts.pinVerifyFailed'));
+      setPinError(resolveErrorMessage(error, 'sales.toasts.pinVerifyFailed'));
       setPinValue('');
     } finally {
       setPinLoading(false);
@@ -585,7 +577,7 @@ export default function OrderScreen({ table, canManage, onBack, onOrderChanged }
       setTipAmountInput('');
       onOrderChanged();
     } catch (error: unknown) {
-      showToast(getErrorMessage(error) || t('orderScreen.toasts.paymentFailed'), 'error');
+      showToast(resolveErrorMessage(error, 'orderScreen.toasts.paymentFailed'), 'error');
     } finally {
       setCheckingOut(false);
     }

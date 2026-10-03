@@ -1,4 +1,6 @@
 import { Response, NextFunction, Request } from 'express';
+// 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — additive `code` ველი.
+import { ErrorCodes } from '../constants/errorCodes';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import pool from '../db';
 // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 5 (Roadmap "23.08.2026") — CustomRequest
@@ -90,12 +92,12 @@ export async function requireRegister(req: RegisterAwareRequest & CustomRequest,
   const registerToken = typeof registerTokenHeader === 'string' ? registerTokenHeader : undefined;
 
   if (!registerId || !registerToken) {
-    return res.status(401).json({ error: 'სალაროს იდენტიფიკაცია ვერ მოიძებნა — საჭიროა მოწყობილობის დაწყვილება (Device Pairing)!' });
+    return res.status(401).json({ error: 'სალაროს იდენტიფიკაცია ვერ მოიძებნა — საჭიროა მოწყობილობის დაწყვილება (Device Pairing)!', code: ErrorCodes.REGISTER_NOT_PAIRED });
   }
 
   const payload = verifyRegisterToken(registerToken);
   if (!payload || payload.registerId !== registerId) {
-    return res.status(403).json({ error: 'სალაროს ტოკენი არავალიდურია!' });
+    return res.status(403).json({ error: 'სალაროს ტოკენი არავალიდურია!', code: ErrorCodes.REGISTER_TOKEN_INVALID });
   }
 
   try {
@@ -111,15 +113,15 @@ export async function requireRegister(req: RegisterAwareRequest & CustomRequest,
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'ეს სალარო აღარ არსებობს ბაზაში!' });
+      return res.status(404).json({ error: 'ეს სალარო აღარ არსებობს ბაზაში!', code: ErrorCodes.REGISTER_NOT_FOUND });
     }
 
     if (result.rows[0].is_active !== true) {
-      return res.status(403).json({ error: 'ეს სალარო დეაქტივირებულია — მიმართეთ ადმინისტრატორს!' });
+      return res.status(403).json({ error: 'ეს სალარო დეაქტივირებულია — მიმართეთ ადმინისტრატორს!', code: ErrorCodes.REGISTER_DEACTIVATED });
     }
 
     if (req.user?.organizationId !== undefined && result.rows[0].organization_id !== req.user.organizationId) {
-      return res.status(403).json({ error: 'ეს სალარო თქვენს ორგანიზაციას არ ეკუთვნის!' });
+      return res.status(403).json({ error: 'ეს სალარო თქვენს ორგანიზაციას არ ეკუთვნის!', code: ErrorCodes.REGISTER_WRONG_ORG });
     }
 
     req.registerId = registerId;

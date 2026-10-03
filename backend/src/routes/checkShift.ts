@@ -1,4 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
+// 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — additive `code` ველი.
+import { ErrorCodes } from '../constants/errorCodes';
 import pool from '../db';
 
 export interface CustomRequest extends Request {
@@ -22,7 +24,7 @@ export async function checkActiveShift(req: CustomRequest, res: Response, next: 
     const cashierId = req.user?.id; 
 
     if (!cashierId) {
-        return res.status(401).json({ message: "ავტორიზაცია აუცილებელია" });
+        return res.status(401).json({ message: "ავტორიზაცია აუცილებელია", code: ErrorCodes.AUTH_REQUIRED });
     }
 
     try {
@@ -35,7 +37,7 @@ export async function checkActiveShift(req: CustomRequest, res: Response, next: 
 
         // Postgres-ში შედეგები ყოველთვის ინახება result.rows მასივში
         if (result.rows.length === 0) {
-            return res.status(400).json({ message: "გაყიდვის შესასრულებლად აუცილებელია ცვლის გახსნა!" });
+            return res.status(400).json({ message: "გაყიდვის შესასრულებლად აუცილებელია ცვლის გახსნა!", code: ErrorCodes.SHIFT_NOT_OPEN });
         }
 
         // მასივის პირველი ელემენტიდან ვიღებთ id-ს

@@ -1,4 +1,6 @@
 import { Response, NextFunction } from 'express';
+// 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — additive `code` ველი.
+import { ErrorCodes } from '../constants/errorCodes';
 import { CustomRequest } from '../routes/auth';
 import { withOrgContext } from '../db';
 import { BusinessType } from '../types';
@@ -21,7 +23,7 @@ export function requireBusinessType(...allowed: BusinessType[]) {
   return async (req: CustomRequest, res: Response, next: NextFunction) => {
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
-      return res.status(401).json({ error: 'ავტორიზაცია აუცილებელია' });
+      return res.status(401).json({ error: 'ავტორიზაცია აუცილებელია', code: ErrorCodes.AUTH_REQUIRED });
     }
 
     try {
@@ -34,7 +36,7 @@ export function requireBusinessType(...allowed: BusinessType[]) {
       });
 
       if (!businessType || !allowed.includes(businessType)) {
-        return res.status(403).json({ error: 'ეს ფუნქცია თქვენი ორგანიზაციის ტიპისთვის ხელმისაწვდომი არ არის' });
+        return res.status(403).json({ error: 'ეს ფუნქცია თქვენი ორგანიზაციის ტიპისთვის ხელმისაწვდომი არ არის', code: ErrorCodes.FEATURE_NOT_AVAILABLE });
       }
 
       next();

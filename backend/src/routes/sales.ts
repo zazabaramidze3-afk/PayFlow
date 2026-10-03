@@ -1,4 +1,6 @@
 import { Router, Response } from 'express';
+// 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — additive `code` ველი.
+import { ErrorCodes } from '../constants/errorCodes';
 // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 5 (Roadmap "23.08.2026") — `JwtPayload`
 // დაემატა named import-ად: export/excel და export/pdf ორივე ხელით
 // (authenticateToken-ის გარეშე) ამოწმებს ტოკენს query param-იდან, ამიტომ
@@ -382,10 +384,10 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
   // ნულოვან გავლენას ახდენს — ქვემოთ, ტრანზაქციის ბოლოს, მხოლოდ მაშინ
   // მოქმედებს, თუ ცხადადაა გადმოცემული.
   const { items, discount, paymentMethod: paymentMethodInput, splits, cashReceived, createdAt, orderId, tipAmount } = req.body;
-  if (!items || items.length === 0) return res.status(400).json({ error: 'კალათა ცარიელია!' });
+  if (!items || items.length === 0) return res.status(400).json({ error: 'კალათა ცარიელია!', code: ErrorCodes.CART_EMPTY });
 
   if (orderId !== undefined && orderId !== null && typeof orderId !== 'string') {
-    return res.status(400).json({ error: 'orderId არავალიდურია' });
+    return res.status(400).json({ error: 'orderId არავალიდურია', code: ErrorCodes.INVALID_REQUEST });
   }
 
   // 🍽 HoReCa STEP 4 (Roadmap "03.09.2026", migration 023) — tipAmount
@@ -398,7 +400,7 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
   if (tipAmount !== undefined && tipAmount !== null) {
     const parsedTip = Number(tipAmount);
     if (!Number.isFinite(parsedTip) || parsedTip < 0) {
-      return res.status(400).json({ error: 'tipAmount არავალიდურია' });
+      return res.status(400).json({ error: 'tipAmount არავალიდურია', code: ErrorCodes.INVALID_REQUEST });
     }
     tipAmountToStore = Number(parsedTip.toFixed(2));
   }
@@ -415,7 +417,7 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
   if (createdAt !== undefined && createdAt !== null && createdAt !== '') {
     const parsedCreatedAt = new Date(createdAt);
     if (isNaN(parsedCreatedAt.getTime())) {
-      return res.status(400).json({ error: 'createdAt არავალიდურია (მოსალოდნელია ISO 8601 თარიღი)' });
+      return res.status(400).json({ error: 'createdAt არავალიდურია (მოსალოდნელია ISO 8601 თარიღი)', code: ErrorCodes.INVALID_REQUEST });
     }
     createdAtToStore = formatDbTimestamp(parsedCreatedAt);
   } else {
@@ -441,13 +443,13 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
     const rawCard = Number(splits?.card);
 
     if (!Number.isFinite(rawCash) || !Number.isFinite(rawCard) || rawCash <= 0 || rawCard <= 0) {
-      return res.status(400).json({ error: 'შერეული გადახდისთვის საჭიროა ორივე დადებითი თანხა (ნაღდი და ბარათი)' });
+      return res.status(400).json({ error: 'შერეული გადახდისთვის საჭიროა ორივე დადებითი თანხა (ნაღდი და ბარათი)', code: ErrorCodes.SPLIT_AMOUNTS_REQUIRED });
     }
 
     splitCash = Number(rawCash.toFixed(2));
     splitCard = Number(rawCard.toFixed(2));
   } else if (splits !== undefined && splits !== null) {
-    return res.status(400).json({ error: 'splits დასაშვებია მხოლოდ "split" გადახდის მეთოდისთვის' });
+    return res.status(400).json({ error: 'splits დასაშვებია მხოლოდ "split" გადახდის მეთოდისთვის', code: ErrorCodes.INVALID_REQUEST });
   }
 
   // ==========================================
@@ -458,16 +460,16 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
 
   if (discount !== undefined && discount !== null) {
     if (discount.type !== 'percent' && discount.type !== 'fixed') {
-      return res.status(400).json({ error: 'discount.type უნდა იყოს "percent" ან "fixed"' });
+      return res.status(400).json({ error: 'discount.type უნდა იყოს "percent" ან "fixed"', code: ErrorCodes.INVALID_REQUEST });
     }
 
     const rawValue = Number(discount.value);
     if (isNaN(rawValue) || rawValue < 0) {
-      return res.status(400).json({ error: 'ფასდაკლების მნიშვნელობა არავალიდურია' });
+      return res.status(400).json({ error: 'ფასდაკლების მნიშვნელობა არავალიდურია', code: ErrorCodes.DISCOUNT_INVALID_VALUE });
     }
 
     if (discount.type === 'percent' && rawValue > 100) {
-      return res.status(400).json({ error: 'პროცენტული ფასდაკლება არ შეიძლება 100%-ზე მეტი იყოს' });
+      return res.status(400).json({ error: 'პროცენტული ფასდაკლება არ შეიძლება 100%-ზე მეტი იყოს', code: ErrorCodes.DISCOUNT_PERCENT_TOO_HIGH });
     }
 
     if (rawValue > 0) {
@@ -511,7 +513,7 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
       }
 
       if (!hasOwnPermission && !managerOverrideUsed) {
-        return res.status(403).json({ error: 'თქვენ არ გაქვთ ფასდაკლების გამოყენების უფლება' });
+        return res.status(403).json({ error: 'თქვენ არ გაქვთ ფასდაკლების გამოყენების უფლება', code: ErrorCodes.DISCOUNT_NOT_ALLOWED });
       }
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
@@ -528,7 +530,7 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
   }
 
   if (discountAmount > subtotalAmount) {
-    return res.status(400).json({ error: 'ფასდაკლება არ შეიძლება აჭარბებდეს ჯამურ თანხას' });
+    return res.status(400).json({ error: 'ფასდაკლება არ შეიძლება აჭარბებდეს ჯამურ თანხას', code: ErrorCodes.DISCOUNT_EXCEEDS_TOTAL });
   }
 
   const totalAmount = Number((subtotalAmount - discountAmount).toFixed(2));
@@ -543,6 +545,8 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
     if (Math.abs(splitSum - totalAmount) > 0.01) {
       return res.status(400).json({
         error: `გადახდების ჯამი (${splitSum.toFixed(2)} ₾) არ ემთხვევა ჩეკის თანხას (${totalAmount.toFixed(2)} ₾)`,
+        code: ErrorCodes.SPLIT_SUM_MISMATCH,
+        params: { paid: splitSum.toFixed(2), total: totalAmount.toFixed(2) },
       });
     }
   }
@@ -557,13 +561,13 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
   if (cashReceived !== undefined && cashReceived !== null && cashReceived !== '') {
     const received = Number(cashReceived);
     if (!Number.isFinite(received) || received < 0) {
-      return res.status(400).json({ error: 'cashReceived არავალიდურია' });
+      return res.status(400).json({ error: 'cashReceived არავალიდურია', code: ErrorCodes.INVALID_REQUEST });
     }
 
     const cashDue = paymentMethod === 'cash' ? totalAmount : paymentMethod === 'split' ? splitCash : 0;
 
     if (cashDue > 0 && received < cashDue) {
-      return res.status(400).json({ error: 'მიღებული ნაღდი ფული ნაკლებია გადასახდელ თანხაზე' });
+      return res.status(400).json({ error: 'მიღებული ნაღდი ფული ნაკლებია გადასახდელ თანხაზე', code: ErrorCodes.CASH_INSUFFICIENT });
     }
 
     cashReceivedToStore = Number(received.toFixed(2));
@@ -649,7 +653,11 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
               [needed, ri.ingredient_id]
             );
             if (updateIngredientResult.rowCount === 0) {
-              throw new Error(`არ არის საკმარისი მარაგი ინგრედიენტზე: ${ri.name}`);
+              throw new HttpError(400, {
+                error: `არ არის საკმარისი მარაგი ინგრედიენტზე: ${ri.name}`,
+                code: ErrorCodes.INSUFFICIENT_STOCK_INGREDIENT,
+                params: { name: ri.name },
+              });
             }
           }
         } else {
@@ -659,7 +667,11 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
           );
 
           if (updateStockResult.rowCount === 0) {
-            throw new Error(`არ არის საკმარისი მარაგი პროდუქტზე ID: ${pId}`);
+            throw new HttpError(400, {
+              error: `არ არის საკმარისი მარაგი პროდუქტზე ID: ${pId}`,
+              code: ErrorCodes.INSUFFICIENT_STOCK_PRODUCT,
+              params: { name: String(pId) },
+            });
           }
         }
       }
@@ -687,7 +699,10 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
         );
 
         if (orderCloseResult.rowCount === 0) {
-          throw new Error('მითითებული შეკვეთა ვერ მოიძებნა ან უკვე დახურილია');
+          throw new HttpError(400, {
+            error: 'მითითებული შეკვეთა ვერ მოიძებნა ან უკვე დახურილია',
+            code: ErrorCodes.ORDER_NOT_FOUND_OR_CLOSED,
+          });
         }
 
         const closedTableId = orderCloseResult.rows[0].table_id;
@@ -738,6 +753,8 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
     });
 
   } catch (err: any) {
+    // STEP 2 — HttpError-ს თავისი `code`/`params` მიაქვს (მარაგი/შეკვეთა).
+    if (err instanceof HttpError) return res.status(err.statusCode).json(err.body);
     res.status(400).json({ error: err.message });
   }
 });
@@ -815,13 +832,13 @@ router.post(
     };
 
     if (typeof orderId !== 'string' || orderId.trim().length === 0) {
-      return res.status(400).json({ error: 'orderId სავალდებულოა' });
+      return res.status(400).json({ error: 'orderId სავალდებულოა', code: ErrorCodes.INVALID_REQUEST });
     }
     if (splitMode !== 'equal' && splitMode !== 'byItem') {
-      return res.status(400).json({ error: "splitMode უნდა იყოს 'equal' ან 'byItem'" });
+      return res.status(400).json({ error: "splitMode უნდა იყოს 'equal' ან 'byItem'", code: ErrorCodes.INVALID_REQUEST });
     }
     if (!Array.isArray(parts) || parts.length < 2) {
-      return res.status(400).json({ error: 'გასაყოფად საჭიროა მინიმუმ 2 ნაწილი (parts)' });
+      return res.status(400).json({ error: 'გასაყოფად საჭიროა მინიმუმ 2 ნაწილი (parts)', code: ErrorCodes.SPLIT_MIN_PARTS });
     }
 
     const rawParts = parts as SplitPartInput[];
@@ -834,14 +851,14 @@ router.post(
 
     for (const part of rawParts) {
       if (part.paymentMethod !== 'cash' && part.paymentMethod !== 'card') {
-        return res.status(400).json({ error: "ყოველი ნაწილის paymentMethod უნდა იყოს 'cash' ან 'card'" });
+        return res.status(400).json({ error: "ყოველი ნაწილის paymentMethod უნდა იყოს 'cash' ან 'card'", code: ErrorCodes.INVALID_REQUEST });
       }
 
       let tipAmountValue = 0;
       if (part.tipAmount !== undefined && part.tipAmount !== null) {
         const parsedTip = Number(part.tipAmount);
         if (!Number.isFinite(parsedTip) || parsedTip < 0) {
-          return res.status(400).json({ error: 'tipAmount არავალიდურია' });
+          return res.status(400).json({ error: 'tipAmount არავალიდურია', code: ErrorCodes.INVALID_REQUEST });
         }
         tipAmountValue = Number(parsedTip.toFixed(2));
       }
@@ -850,7 +867,7 @@ router.post(
       if (splitMode === 'byItem') {
         const parsedSeat = Number(part.seatNumber);
         if (!Number.isInteger(parsedSeat) || parsedSeat <= 0) {
-          return res.status(400).json({ error: "'byItem' რეჟიმში ყოველ ნაწილს სჭირდება დადებითი seatNumber" });
+          return res.status(400).json({ error: "'byItem' რეჟიმში ყოველ ნაწილს სჭირდება დადებითი seatNumber", code: ErrorCodes.SPLIT_SEAT_REQUIRED });
         }
         seatNumberValue = parsedSeat;
       }
@@ -859,7 +876,7 @@ router.post(
       if (part.paymentMethod === 'cash' && part.cashReceived !== undefined && part.cashReceived !== null) {
         const parsedReceived = Number(part.cashReceived);
         if (!Number.isFinite(parsedReceived) || parsedReceived < 0) {
-          return res.status(400).json({ error: 'cashReceived არავალიდურია' });
+          return res.status(400).json({ error: 'cashReceived არავალიდურია', code: ErrorCodes.INVALID_REQUEST });
         }
         cashReceivedValue = Number(parsedReceived.toFixed(2));
       }
@@ -875,7 +892,7 @@ router.post(
     if (splitMode === 'byItem') {
       const seatNumbers = parsedParts.map((p) => p.seatNumber);
       if (new Set(seatNumbers).size !== seatNumbers.length) {
-        return res.status(400).json({ error: "'byItem' რეჟიმში ორი ნაწილი ერთსა და იმავე seatNumber-ს ვერ იზიარებს" });
+        return res.status(400).json({ error: "'byItem' რეჟიმში ორი ნაწილი ერთსა და იმავე seatNumber-ს ვერ იზიარებს", code: ErrorCodes.SPLIT_SEAT_DUPLICATE });
       }
     }
 
@@ -883,7 +900,7 @@ router.post(
     if (createdAt !== undefined && createdAt !== null && createdAt !== '') {
       const parsedCreatedAt = new Date(createdAt as string);
       if (isNaN(parsedCreatedAt.getTime())) {
-        return res.status(400).json({ error: 'createdAt არავალიდურია (მოსალოდნელია ISO 8601 თარიღი)' });
+        return res.status(400).json({ error: 'createdAt არავალიდურია (მოსალოდნელია ISO 8601 თარიღი)', code: ErrorCodes.INVALID_REQUEST });
       }
       createdAtToStore = formatDbTimestamp(parsedCreatedAt);
     } else {
@@ -897,10 +914,10 @@ router.post(
           [orderId, req.user?.organizationId]
         );
         if (orderResult.rows.length === 0) {
-          throw new HttpError(404, { error: 'შეკვეთა ვერ მოიძებნა' });
+          throw new HttpError(404, { error: 'შეკვეთა ვერ მოიძებნა', code: ErrorCodes.ORDER_NOT_FOUND });
         }
         if (orderResult.rows[0].status !== 'open') {
-          throw new HttpError(400, { error: 'შეკვეთა უკვე დახურულია ან გაუქმებულია' });
+          throw new HttpError(400, { error: 'შეკვეთა უკვე დახურულია ან გაუქმებულია', code: ErrorCodes.ORDER_CLOSED_OR_VOIDED });
         }
 
         const itemsResult = await client.query<SplitOrderItemRow>(
@@ -913,7 +930,7 @@ router.post(
         );
 
         if (itemsResult.rows.length === 0) {
-          throw new HttpError(400, { error: 'შეკვეთაში აქტიური item არ არის — გადასახდელი არაფერია' });
+          throw new HttpError(400, { error: 'შეკვეთაში აქტიური item არ არის — გადასახდელი არაფერია', code: ErrorCodes.ORDER_NO_ACTIVE_ITEMS });
         }
 
         const allItems = itemsResult.rows;
@@ -947,6 +964,7 @@ router.post(
           ) {
             throw new HttpError(400, {
               error: 'გადმოცემული ნაწილების (parts) ადგილები არ ემთხვევა შეკვეთაში არსებულ ადგილებს',
+              code: ErrorCodes.SPLIT_SEATS_MISMATCH,
             });
           }
 
@@ -995,6 +1013,8 @@ router.post(
           if (part.paymentMethod === 'cash' && (part.cashReceived === null || part.cashReceived < part.amount)) {
             throw new HttpError(400, {
               error: `მიღებული ნაღდი ფული ნაკლებია გადასახდელ თანხაზე (${part.amount.toFixed(2)} ₾)`,
+              code: ErrorCodes.CASH_INSUFFICIENT_PART,
+              params: { amount: part.amount.toFixed(2) },
             });
           }
         }
@@ -1017,7 +1037,11 @@ router.post(
                 [needed, ri.ingredient_id]
               );
               if (updateIngredientResult.rowCount === 0) {
-                throw new HttpError(400, { error: `არ არის საკმარისი მარაგი ინგრედიენტზე: ${ri.name}` });
+                throw new HttpError(400, {
+                  error: `არ არის საკმარისი მარაგი ინგრედიენტზე: ${ri.name}`,
+                  code: ErrorCodes.INSUFFICIENT_STOCK_INGREDIENT,
+                  params: { name: ri.name },
+                });
               }
             }
           } else {
@@ -1026,7 +1050,11 @@ router.post(
               [item.quantity, item.product_id]
             );
             if (updateStockResult.rowCount === 0) {
-              throw new HttpError(400, { error: `არ არის საკმარისი მარაგი პროდუქტზე: ${item.product_name}` });
+              throw new HttpError(400, {
+                error: `არ არის საკმარისი მარაგი პროდუქტზე: ${item.product_name}`,
+                code: ErrorCodes.INSUFFICIENT_STOCK_PRODUCT,
+                params: { name: item.product_name },
+              });
             }
           }
         }

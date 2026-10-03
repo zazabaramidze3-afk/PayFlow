@@ -13,6 +13,7 @@
 
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { resolveErrorMessage } from '../lib/errorMessages';
 import axios from 'axios';
 import styles from './SplitBillModal.module.scss';
 
@@ -192,17 +193,9 @@ export default function SplitBillModal({ open, orderId, activeItems, totalAmount
         parts: response.data.parts,
       };
     } catch (error: unknown) {
-      // 🩹 FIX (05.09.2026) — checkActiveShift/requireRegister-ის მსგავსი
-      // ლეგასი middleware-ები `{ message: "..." }` ფორმით აბრუნებენ
-      // შეცდომას (ჩვენი ახალი endpoint-ების `{ error: "..." }" კონვენციის
-      // ნაცვლად — იხ. OrderScreen.tsx-ის იგივე getErrorMessage-ის
-      // კომენტარი). აქამდე მხოლოდ `.error` იკითხებოდა, ამიტომ, მაგ.,
-      // "ცვლის გახსნა აუცილებელია" აქ საერთოდ არ ჩანდა — ზოგადი
-      // fallback ჩნდებოდა მის ნაცვლად.
-      const backendMessage = axios.isAxiosError<{ error?: string; message?: string }>(error)
-        ? error.response?.data?.error ?? error.response?.data?.message
-        : undefined;
-      setErrorMessage(backendMessage ?? t('orderScreen.splitModal.errors.splitFailed'));
+      // 🌍 Backend Error-Message i18n STEP 2 — `code`-based, თარგმნილი
+      // შეტყობინება (ადრე backend-ის raw `error ?? message` ტექსტი).
+      setErrorMessage(resolveErrorMessage(error, 'orderScreen.splitModal.errors.splitFailed'));
     } finally {
       setSubmitting(false);
     }

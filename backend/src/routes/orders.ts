@@ -7,6 +7,8 @@
 // არასავალდებულო `orderId`-ის გადაცემით (იხ. იქაური კომენტარი).
 
 import { Router, Response } from 'express';
+// 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — additive `code` ველი.
+import { ErrorCodes } from '../constants/errorCodes';
 import { authenticateToken, writeAuditLog } from './auth';
 import { checkActiveShift, CustomRequest } from './checkShift';
 import { requireRegister } from '../middleware/registerAuth';
@@ -59,7 +61,7 @@ router.post(
     let tableIdValue: string | null = null;
     if (tableId !== undefined && tableId !== null && tableId !== '') {
       if (typeof tableId !== 'string') {
-        return res.status(400).json({ error: 'tableId არავალიდურია' });
+        return res.status(400).json({ error: 'tableId არავალიდურია', code: ErrorCodes.INVALID_REQUEST });
       }
       tableIdValue = tableId;
     }
@@ -68,7 +70,7 @@ router.post(
     if (guestCount !== undefined && guestCount !== null && guestCount !== '') {
       const parsed = Number(guestCount);
       if (!Number.isFinite(parsed) || parsed <= 0) {
-        return res.status(400).json({ error: 'guestCount არავალიდურია' });
+        return res.status(400).json({ error: 'guestCount არავალიდურია', code: ErrorCodes.INVALID_REQUEST });
       }
       guestCountValue = Math.floor(parsed);
     }
@@ -118,7 +120,7 @@ router.post(
       res.status(201).json(order);
     } catch (err: unknown) {
       if (isUniqueViolation(err)) {
-        return res.status(409).json({ error: 'ამ მაგიდაზე უკვე არსებობს ღია შეკვეთა' });
+        return res.status(409).json({ error: 'ამ მაგიდაზე უკვე არსებობს ღია შეკვეთა', code: ErrorCodes.ORDER_TABLE_HAS_OPEN_ORDER });
       }
       res.status(400).json({ error: getErrorMessage(err) });
     }
@@ -143,7 +145,7 @@ router.get(
     const validStatuses: OrderStatus[] = ['open', 'closed', 'voided'];
 
     if (!validStatuses.includes(statusParam as OrderStatus)) {
-      return res.status(400).json({ error: `status უნდა იყოს ერთ-ერთი: ${validStatuses.join(', ')}` });
+      return res.status(400).json({ error: `status უნდა იყოს ერთ-ერთი: ${validStatuses.join(', ')}`, code: ErrorCodes.INVALID_REQUEST });
     }
 
     try {
@@ -223,7 +225,7 @@ router.get(
       res.json({ ...order, items });
     } catch (err: unknown) {
       if (err instanceof Error && err.message === 'NOT_FOUND') {
-        return res.status(404).json({ error: 'შეკვეთა ვერ მოიძებნა' });
+        return res.status(404).json({ error: 'შეკვეთა ვერ მოიძებნა', code: ErrorCodes.ORDER_NOT_FOUND });
       }
       res.status(500).json({ error: getErrorMessage(err) });
     }
@@ -249,19 +251,19 @@ router.post(
 
     const parsedProductId = Number(productId);
     if (!Number.isInteger(parsedProductId) || parsedProductId <= 0) {
-      return res.status(400).json({ error: 'productId არავალიდურია' });
+      return res.status(400).json({ error: 'productId არავალიდურია', code: ErrorCodes.INVALID_REQUEST });
     }
 
     const parsedQuantity = Number(quantity);
     if (!Number.isInteger(parsedQuantity) || parsedQuantity <= 0) {
-      return res.status(400).json({ error: 'quantity უნდა იყოს დადებითი მთელი რიცხვი' });
+      return res.status(400).json({ error: 'quantity უნდა იყოს დადებითი მთელი რიცხვი', code: ErrorCodes.INVALID_REQUEST });
     }
 
     let seatNumberValue: number | null = null;
     if (seatNumber !== undefined && seatNumber !== null && seatNumber !== '') {
       const parsedSeat = Number(seatNumber);
       if (!Number.isInteger(parsedSeat) || parsedSeat <= 0) {
-        return res.status(400).json({ error: 'seatNumber არავალიდურია' });
+        return res.status(400).json({ error: 'seatNumber არავალიდურია', code: ErrorCodes.INVALID_REQUEST });
       }
       seatNumberValue = parsedSeat;
     }
@@ -270,7 +272,7 @@ router.post(
     if (courseNumber !== undefined && courseNumber !== null && courseNumber !== '') {
       const parsedCourse = Number(courseNumber);
       if (!Number.isInteger(parsedCourse) || parsedCourse <= 0) {
-        return res.status(400).json({ error: 'courseNumber არავალიდურია' });
+        return res.status(400).json({ error: 'courseNumber არავალიდურია', code: ErrorCodes.INVALID_REQUEST });
       }
       courseNumberValue = parsedCourse;
     }
@@ -282,7 +284,7 @@ router.post(
     let modifierOptionIdsValue: string[] = [];
     if (modifierOptionIds !== undefined) {
       if (!Array.isArray(modifierOptionIds) || modifierOptionIds.some((id) => typeof id !== 'string')) {
-        return res.status(400).json({ error: 'modifierOptionIds უნდა იყოს string[]' });
+        return res.status(400).json({ error: 'modifierOptionIds უნდა იყოს string[]', code: ErrorCodes.INVALID_REQUEST });
       }
       modifierOptionIdsValue = modifierOptionIds as string[];
     }
@@ -460,26 +462,30 @@ router.post(
       res.status(201).json(item);
     } catch (err: unknown) {
       if (err instanceof Error && err.message === 'NOT_FOUND') {
-        return res.status(404).json({ error: 'შეკვეთა ვერ მოიძებნა' });
+        return res.status(404).json({ error: 'შეკვეთა ვერ მოიძებნა', code: ErrorCodes.ORDER_NOT_FOUND });
       }
       if (err instanceof Error && err.message === 'CLOSED') {
-        return res.status(400).json({ error: 'შეკვეთა უკვე დახურულია' });
+        return res.status(400).json({ error: 'შეკვეთა უკვე დახურულია', code: ErrorCodes.ORDER_ALREADY_CLOSED });
       }
       if (err instanceof Error && err.message === 'INVALID_MODIFIER_OPTION') {
-        return res.status(400).json({ error: 'არჩეული მოდიფაიერი არავალიდურია' });
+        return res.status(400).json({ error: 'არჩეული მოდიფაიერი არავალიდურია', code: ErrorCodes.MODIFIER_OPTION_INVALID });
       }
       if (err instanceof Error && err.message === 'MODIFIER_REQUIRED') {
-        return res.status(400).json({ error: 'სავალდებულო მოდიფაიერის ჯგუფიდან არჩევანი არ არის მითითებული' });
+        return res.status(400).json({ error: 'სავალდებულო მოდიფაიერის ჯგუფიდან არჩევანი არ არის მითითებული', code: ErrorCodes.MODIFIER_REQUIRED });
       }
       if (err instanceof Error && err.message === 'MODIFIER_SINGLE_VIOLATION') {
-        return res.status(400).json({ error: 'ამ ჯგუფიდან მხოლოდ ერთი ვარიანტის არჩევაა შესაძლებელი' });
+        return res.status(400).json({ error: 'ამ ჯგუფიდან მხოლოდ ერთი ვარიანტის არჩევაა შესაძლებელი', code: ErrorCodes.MODIFIER_SINGLE_VIOLATION });
       }
       if (err instanceof Error && err.message === 'PRODUCT_NOT_FOUND') {
-        return res.status(404).json({ error: 'პროდუქტი ვერ მოიძებნა' });
+        return res.status(404).json({ error: 'პროდუქტი ვერ მოიძებნა', code: ErrorCodes.PRODUCT_NOT_FOUND });
       }
       if (err instanceof Error && err.message.startsWith('INSUFFICIENT_STOCK:')) {
         const ingredientName = err.message.slice('INSUFFICIENT_STOCK:'.length);
-        return res.status(400).json({ error: `არ არის საკმარისი მარაგი ინგრედიენტზე: ${ingredientName}` });
+        return res.status(400).json({
+          error: `არ არის საკმარისი მარაგი ინგრედიენტზე: ${ingredientName}`,
+          code: ErrorCodes.INSUFFICIENT_STOCK_INGREDIENT,
+          params: { name: ingredientName },
+        });
       }
       res.status(500).json({ error: getErrorMessage(err) });
     }
@@ -658,23 +664,23 @@ router.patch(
       if (err instanceof Error) {
         switch (err.message) {
           case 'NOT_FOUND':
-            return res.status(404).json({ error: 'შეკვეთის სტრიქონი ვერ მოიძებნა' });
+            return res.status(404).json({ error: 'შეკვეთის სტრიქონი ვერ მოიძებნა', code: ErrorCodes.ORDER_ITEM_NOT_FOUND });
           case 'CLOSED':
-            return res.status(400).json({ error: 'შეკვეთა უკვე დახურულია' });
+            return res.status(400).json({ error: 'შეკვეთა უკვე დახურულია', code: ErrorCodes.ORDER_ALREADY_CLOSED });
           case 'NOT_EDITABLE':
-            return res.status(400).json({ error: 'ეს item უკვე გაგზავნილია/მომზადებულია — რედაქტირება შეუძლებელია' });
+            return res.status(400).json({ error: 'ეს item უკვე გაგზავნილია/მომზადებულია — რედაქტირება შეუძლებელია', code: ErrorCodes.ORDER_ITEM_NOT_EDITABLE });
           case 'MANAGER_OVERRIDE_REQUIRED':
             return res
               .status(403)
-              .json({ error: 'გაგზავნილი/მომზადებული პროდუქტის წაშლა მოითხოვს მენეჯერის PIN-ავტორიზაციას' });
+              .json({ error: 'გაგზავნილი/მომზადებული პროდუქტის წაშლა მოითხოვს მენეჯერის PIN-ავტორიზაციას', code: ErrorCodes.MANAGER_OVERRIDE_REQUIRED });
           case 'NO_FIELDS':
-            return res.status(400).json({ error: 'განსაახლებელი ველი არ არის მითითებული' });
+            return res.status(400).json({ error: 'განსაახლებელი ველი არ არის მითითებული', code: ErrorCodes.INVALID_REQUEST });
           case 'INVALID_QUANTITY':
-            return res.status(400).json({ error: 'quantity უნდა იყოს დადებითი მთელი რიცხვი' });
+            return res.status(400).json({ error: 'quantity უნდა იყოს დადებითი მთელი რიცხვი', code: ErrorCodes.INVALID_REQUEST });
           case 'INVALID_SEAT':
-            return res.status(400).json({ error: 'seatNumber არავალიდურია' });
+            return res.status(400).json({ error: 'seatNumber არავალიდურია', code: ErrorCodes.INVALID_REQUEST });
           case 'INVALID_COURSE':
-            return res.status(400).json({ error: 'courseNumber არავალიდურია' });
+            return res.status(400).json({ error: 'courseNumber არავალიდურია', code: ErrorCodes.INVALID_REQUEST });
         }
       }
       res.status(500).json({ error: getErrorMessage(err) });
@@ -727,7 +733,7 @@ router.post(
       res.json(order);
     } catch (err: unknown) {
       if (err instanceof Error && err.message === 'NOT_FOUND_OR_CLOSED') {
-        return res.status(404).json({ error: 'ღია შეკვეთა ვერ მოიძებნა' });
+        return res.status(404).json({ error: 'ღია შეკვეთა ვერ მოიძებნა', code: ErrorCodes.ORDER_NOT_FOUND });
       }
       res.status(500).json({ error: getErrorMessage(err) });
     }
