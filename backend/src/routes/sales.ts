@@ -632,8 +632,8 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
         // მიხედვით ingredients.stock-ია. Retail-ზე is_recipe_based
         // ყოველთვის false-ია (DEFAULT) — ნულოვანი გავლენა, ძველი
         // branch უცვლელად სრულდება.
-        const productRow = await client.query<{ is_recipe_based: boolean }>(
-          'SELECT is_recipe_based FROM products WHERE id = $1',
+        const productRow = await client.query<{ is_recipe_based: boolean; name: string }>(
+          'SELECT is_recipe_based, name FROM products WHERE id = $1',
           [pId]
         );
         const isRecipeBased = productRow.rows[0]?.is_recipe_based === true;
@@ -670,7 +670,8 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
             throw new HttpError(400, {
               error: `არ არის საკმარისი მარაგი პროდუქტზე ID: ${pId}`,
               code: ErrorCodes.INSUFFICIENT_STOCK_PRODUCT,
-              params: { name: String(pId) },
+              // STEP 2 — toast-ში ID-ის ნაცვლად პროდუქტის სახელი.
+              params: { name: productRow.rows[0]?.name ?? String(pId) },
             });
           }
         }
