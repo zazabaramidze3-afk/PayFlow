@@ -23,6 +23,8 @@ import './i18n';
 // 📴 Roadmap STEP 3 — Service Worker რეგისტრაცია (Workbox Precaching) +
 // Persistent Storage API. აპლიკაციის ჩატვირთვისთანავე ერთხელ ეშვება.
 import { initServiceWorker, requestPersistentStorage } from './pwa';
+// 📱 დაინსტალირებული PWA-ს ამოცნობა (landing-ის არჩევანისთვის, იხ. ქვემოთ)
+import { isStandalonePwa } from './lib/displayMode';
 
 initServiceWorker();
 // 🔕 განზრახ "და-გარეშედ" (fire-and-forget) — მომხმარებელს დამატებითი
@@ -61,10 +63,7 @@ function shouldShowLandingAtRoot(): boolean {
     // 🛟 localStorage მიუწვდომელია — არ ვარისკებთ, აპს ვტვირთავთ (Login მაინც იმუშავებს).
     return false;
   }
-  const isStandalonePwa =
-    window.matchMedia?.('(display-mode: standalone)').matches === true ||
-    (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
-  return !isStandalonePwa;
+  return !isStandalonePwa();
 }
 
 const isLandingRoute =
