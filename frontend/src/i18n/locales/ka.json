@@ -853,7 +853,8 @@
       "total": "ჯამი",
       "paid": "გადახდილია",
       "cake": "ტორტი",
-      "water": "წყალი"
+      "water": "წყალი",
+      "statusServed": "მიტანილია"
     },
     "features": {
       "title": "რა არის PayFlow?",

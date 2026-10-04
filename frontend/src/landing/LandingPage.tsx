@@ -140,7 +140,7 @@ export default function LandingPage() {
                     <span className={styles.chipLine} />
                   </div>
                   <div className={`${styles.chipRow} ${styles.r5}`}>
-                    <span className={`${styles.chip} ${styles.chipCook}`}>{t('landing.mock.statusCooking')}</span>
+                    <span className={`${styles.chip} ${styles.chipServed}`}>{t('landing.mock.statusServed')}</span>
                     <span className={styles.chipLine} />
                   </div>
                 </div>
