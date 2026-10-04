@@ -422,6 +422,20 @@ function App() {
     setCurrentUser(null);
   };
 
+  // 🏷️ ბრაუზერის ტაბის სათაური — გვერდის მიხედვით ("PayFlow" ყველგან ერთნაირი იყო).
+  // ენის შეცვლაზეც განახლდება (useTranslation-ის `t` re-render-ს იწვევს).
+  useEffect(() => {
+    const pageKeys: Record<string, string> = {
+      dashboard: 'nav.dashboard', products: 'nav.products', sales: 'nav.salesPos',
+      tables: 'nav.tables', kitchen: 'nav.kitchen', modifiers: 'nav.modifiers',
+      ingredients: 'nav.ingredients', settings: 'nav.settings', users_control: 'nav.usersControl',
+    };
+    const section = !currentUser
+      ? t(showRegister ? 'meta.register' : 'meta.login')
+      : pageKeys[currentPage] ? t(pageKeys[currentPage]) : '';
+    document.title = section ? `${section} · PayFlow` : 'PayFlow';
+  }, [currentUser, currentPage, showRegister, t]);
+
   if (!isLoggedIn) {
     if (showRegister) {
       return (

@@ -36,6 +36,11 @@
     "ka": "GE",
     "en": "EN"
   },
+  "meta": {
+    "login": "Sign in",
+    "register": "Register",
+    "landing": "Sales & stock management"
+  },
   "nav": {
     "dashboard": "Dashboard",
     "products": "Products",

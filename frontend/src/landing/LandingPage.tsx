@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 import styles from './LandingPage.module.scss';
@@ -52,6 +53,9 @@ function IconChart() {
 
 export default function LandingPage() {
   const { t } = useTranslation();
+  useEffect(() => {
+    document.title = `PayFlow · ${t('meta.landing')}`;
+  }, [t]);
 
   return (
     <div className={styles.page}>
