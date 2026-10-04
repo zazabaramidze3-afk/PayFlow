@@ -4,13 +4,13 @@
 // დამოუკიდებელი, ყოველთვის "მუქი hero + ღია ქვედა ნაწილი" პალიტრა
 // (აპის dark/light თემაზე არ არის დამოკიდებული). ანიმაციები წმინდა CSS-ია.
 
-$navy-900: #06142a;
-$navy-800: #0a1f3d;
-$navy-card: #0e2543;
-$navy-head: #163457;
-$line: rgba(130, 170, 230, 0.18);
+$navy-900: #030304;
+$navy-800: #0b0c12;
+$navy-card: #13151c;
+$navy-head: #1d2130;
+$line: rgba(255, 255, 255, 0.11);
 $text-light: #e8eefb;
-$text-dim: #9fb3d6;
+$text-dim: #a9b0c4;
 $page-light: #f4f7fb;
 $ink: #0c1b33;
 $indigo: #5b5fe0;
@@ -27,6 +27,7 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   min-height: 100vh;
   background: $page-light;
   color: $ink;
+  overflow-x: hidden;
 }
 
 // ---------------- HERO ----------------
@@ -34,8 +35,10 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   position: relative;
   background: linear-gradient(180deg, $navy-900 0%, $navy-800 100%);
   color: $text-light;
-  padding-bottom: 120px;
-  overflow: hidden;
+  padding-bottom: 60px;
+  // ბარათები თეთრ ნაწილზე ჩამოდის — ამიტომ ვერტიკალზე არ ვჭრით
+  overflow-x: clip;
+  z-index: 2;
 }
 
 .nav {
@@ -93,12 +96,14 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   margin: 0 auto;
   padding: 36px 24px 0;
   display: grid;
-  grid-template-columns: 1fr 1.15fr;
+  grid-template-columns: 0.95fr 1.25fr;
   gap: 40px;
-  align-items: center;
+  align-items: start;
 }
 
 .heroText {
+  align-self: center;
+  padding-bottom: 20px;
   animation: textIn 800ms $ease-out both;
 }
 
@@ -169,18 +174,20 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 
 // ---------------- MOCKUP STAGE ----------------
 .stage {
-  perspective: 1400px;
+  perspective: 1600px;
   perspective-origin: 30% 40%;
   display: flex;
   justify-content: center;
+  // მაკეტის ქვედა ნაწილი hero-ს გარეთ, ღია ფონზე ჩამოდის
+  margin-bottom: -210px;
 }
 
 .board {
   width: 100%;
-  max-width: 560px;
+  max-width: 720px;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 20px;
   transform: rotateY(-16deg) rotateX(9deg) rotateZ(0.8deg);
   transform-style: preserve-3d;
   animation: float 7s ease-in-out 2.2s infinite alternate;
@@ -190,8 +197,8 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   background: $navy-card;
   border: 1px solid $line;
   border-radius: 6px;
-  min-height: 150px;
-  box-shadow: 0 24px 40px rgba(0, 0, 0, 0.45);
+  min-height: 210px;
+  box-shadow: 0 30px 50px rgba(0, 0, 0, 0.45);
   overflow: hidden;
   // შემოსვლა: ბარათი სიღრმიდან/ქვემოდან დახრილი მდგომარეობით "დადგება"
   animation: cardIn 750ms $ease-out both;
@@ -209,19 +216,19 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   gap: 8px;
   min-width: 0;
   white-space: nowrap;
-  padding: 8px 12px;
+  padding: 11px 15px;
   background: $navy-head;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.04em;
 }
 
 .cardBody {
-  padding: 12px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 9px;
-  font-size: 12px;
+  gap: 13px;
+  font-size: 14px;
   color: $text-dim;
 }
 
@@ -243,9 +250,9 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 
 .bar {
   display: block;
-  height: 8px;
+  height: 10px;
   border-radius: 4px;
-  background: rgba(130, 170, 230, 0.2);
+  background: rgba(255, 255, 255, 0.12);
   transform-origin: left center;
   animation: barIn 600ms $ease-out both;
 }
@@ -253,9 +260,9 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 .b2 { width: 56%; animation-delay: 2200ms; }
 
 .chip {
-  padding: 3px 9px;
-  border-radius: 10px;
-  font-size: 11px;
+  padding: 4px 11px;
+  border-radius: 12px;
+  font-size: 12.5px;
   font-weight: 700;
   color: #fff;
   white-space: nowrap;
@@ -268,14 +275,14 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   flex: 1;
   height: 6px;
   border-radius: 3px;
-  background: rgba(130, 170, 230, 0.2);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .track {
   flex: 0 0 52%;
-  height: 8px;
+  height: 10px;
   border-radius: 4px;
-  background: rgba(130, 170, 230, 0.16);
+  background: rgba(255, 255, 255, 0.12);
   overflow: hidden;
 }
 
@@ -293,16 +300,16 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 // გადახდის ბარათი
 .payBtn {
   flex-shrink: 0;
-  padding: 2px 10px;
-  border-radius: 3px;
+  padding: 3px 12px;
+  border-radius: 4px;
   background: $green;
   color: #fff;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .payBody {
   position: relative;
-  min-height: 100px;
+  min-height: 130px;
 }
 
 .total {
@@ -313,14 +320,14 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   animation: rowIn 500ms $ease-out 1000ms both;
 
   strong {
-    font-size: 18px;
+    font-size: 24px;
     color: $text-light;
   }
 }
 
 .spinnerWrap {
   position: absolute;
-  inset: 34px 0 0;
+  inset: 46px 0 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -330,8 +337,8 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .spinner {
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: 3px solid rgba(255, 255, 255, 0.18);
   border-top-color: #fff;
@@ -340,11 +347,11 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 
 .paid {
   position: absolute;
-  inset: 34px 0 0;
+  inset: 46px 0 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 20px;
   font-weight: 700;
   color: #4ade80;
   opacity: 0;
@@ -355,7 +362,7 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 .features {
   max-width: 1080px;
   margin: 0 auto;
-  padding: 90px 24px 40px;
+  padding: 210px 24px 40px;
   text-align: center;
 }
 
@@ -504,7 +511,15 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 
   .hero {
-    padding-bottom: 80px;
+    padding-bottom: 20px;
+  }
+
+  .stage {
+    margin-bottom: -110px;
+  }
+
+  .features {
+    padding-top: 170px;
   }
 }
 
