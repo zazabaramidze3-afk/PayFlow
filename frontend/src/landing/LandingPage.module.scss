@@ -23,6 +23,14 @@ $plum: #8a4a6e;
 
 $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 
+// 🎞 ანიმირებადი --angle (Login.module.scss-ის იგივე ტექნიკა): @property-ის გარეშე
+// conic-gradient-ის კუთხე "ხტუნვით" შეიცვლებოდა და არა გლუვად.
+@property --angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
 .page {
   min-height: 100vh;
   background: $page-light;
@@ -432,12 +440,54 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .feature {
+  position: relative;
   padding: 28px 20px;
   border-radius: 12px;
   background: #fff;
   border: 1px solid #e3eaf5;
   box-shadow: 0 6px 20px rgba(12, 27, 51, 0.05);
   color: $navy-800;
+  transition: box-shadow 0.28s ease, transform 0.28s ease;
+
+  // ჰოვერი: რბილი, დიდი ჩრდილი და მცირე აწევა (რეფერენსის ბარათების მსგავსად)
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 22px 46px rgba(12, 27, 51, 0.18);
+  }
+
+  // ✨ მოძრავი ("კომეტისებრი") ხაზი ბარათის ირგვლივ, ჰოვერზე — Login ბარათის იგივე
+  // ეფექტი (conic-gradient + mask 2px ბეჭედი + @keyframes --angle).
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    padding: 2px;
+    border-radius: inherit;
+    box-sizing: border-box;
+    pointer-events: none;
+    background: conic-gradient(
+      from var(--angle),
+      transparent 0deg,
+      transparent 270deg,
+      $indigo 330deg,
+      #a5b4fc 355deg,
+      transparent 360deg
+    );
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 0.28s ease;
+    animation: featureSweep 3.2s linear infinite;
+    animation-play-state: paused;
+  }
+
+  &:hover::before {
+    opacity: 1;
+    animation-play-state: running;
+  }
 
   h3 {
     margin: 18px 0 8px;
@@ -471,6 +521,10 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 // ---------------- KEYFRAMES ----------------
+@keyframes featureSweep {
+  to { --angle: 360deg; }
+}
+
 @keyframes textIn {
   from { opacity: 0; transform: translateY(18px); }
   to { opacity: 1; transform: translateY(0); }
@@ -599,6 +653,16 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 // მომხმარებლებისთვის, ვისაც ანიმაცია არ უნდა — ბოლო მდგომარეობა
 // დაუყოვნებლივ ჩანს (spinner-ის ნაცვლად პირდაპირ "Paid ✓").
 @media (prefers-reduced-motion: reduce) {
+  .feature,
+  .feature::before {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .feature:hover {
+    transform: none;
+  }
+
   .heroText,
   .board,
   .card,
