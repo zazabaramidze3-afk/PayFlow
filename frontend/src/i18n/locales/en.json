@@ -946,6 +946,7 @@
     "INTERNAL_ERROR": "Server error — please try again",
     "TABLE_NOT_FREE_OCCUPIED": "The table is occupied — set its status to \"Free\" before opening a new order",
     "TABLE_NOT_FREE_RESERVED": "The table is reserved — set its status to \"Free\" before opening a new order",
-    "TABLE_NOT_FREE_DIRTY": "The table needs cleaning — set its status to \"Free\" before opening a new order"
+    "TABLE_NOT_FREE_DIRTY": "The table needs cleaning — set its status to \"Free\" before opening a new order",
+    "REGISTER_DELETED": "This register no longer exists!"
   }
 }

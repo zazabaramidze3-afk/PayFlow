@@ -149,9 +149,14 @@ axios.interceptors.response.use(
       'დეაქტივირებულია',
       'აღარ არსებობს ბაზაში',
     ];
+    // 🌍 Backend Error-Message i18n STEP 2 — პირველ რიგში სტაბილური error code (ტექსტის
+    // შეცვლა/თარგმნა ამოცნობას აღარ აფუჭებს); ძველი ქართული ტექსტი რჩება fallback-ად
+    // (ძველი backend-ის პასუხებისთვის, deploy-ის ფანჯარაში).
+    const REGISTER_PAIRING_INVALID_CODES = ['REGISTER_TOKEN_INVALID', 'REGISTER_WRONG_ORG', 'REGISTER_DEACTIVATED', 'REGISTER_DELETED'];
     const isRegisterPairingInvalid =
       (status === 403 || status === 404) &&
-      REGISTER_PAIRING_INVALID_MESSAGES.some((needle) => message.includes(needle));
+      ((code !== undefined && REGISTER_PAIRING_INVALID_CODES.includes(code)) ||
+        REGISTER_PAIRING_INVALID_MESSAGES.some((needle) => message.includes(needle)));
 
     if (isRegisterPairingInvalid) {
       localStorage.removeItem('payflow_register_id');
@@ -163,7 +168,7 @@ axios.interceptors.response.use(
       // ვადაგასვლა არ არის — logout აქ არ უნდა მოხდეს, შეცდომას PIN-მოდალი
       // თავად აჩვენებს.
       (status === 401 && code !== 'PIN_INCORRECT') ||
-      (status === 403 && message.includes('ტოკენი'))
+      (status === 403 && (code === 'TOKEN_INVALID' || message.includes('ტოკენი')))
     ) {
       localStorage.removeItem('token');
       window.dispatchEvent(new Event('auth:session-expired'));

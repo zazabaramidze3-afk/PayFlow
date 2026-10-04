@@ -144,6 +144,8 @@ export const ErrorCodes = {
   TABLE_NOT_FREE_OCCUPIED: 'TABLE_NOT_FREE_OCCUPIED',
   TABLE_NOT_FREE_RESERVED: 'TABLE_NOT_FREE_RESERVED',
   TABLE_NOT_FREE_DIRTY: 'TABLE_NOT_FREE_DIRTY',
+  // STEP 2 — registerAuth middleware: ამ მოწყობილობის სალარო წაშლილია (App.tsx interceptor-ისთვის ცალკე კოდი)
+  REGISTER_DELETED: 'REGISTER_DELETED',
 } as const;
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];

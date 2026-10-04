@@ -114,7 +114,7 @@ export async function requireRegister(req: RegisterAwareRequest & CustomRequest,
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'ეს სალარო აღარ არსებობს ბაზაში!', code: ErrorCodes.REGISTER_NOT_FOUND });
+      return res.status(404).json({ error: 'ეს სალარო აღარ არსებობს ბაზაში!', code: ErrorCodes.REGISTER_DELETED });
     }
 
     if (result.rows[0].is_active !== true) {
