@@ -643,7 +643,7 @@
       "title": "📥 Import შედეგი",
       "importedLabel": "✅ დაემატა:",
       "skippedLabel": "⚠️ გამოტოვებულია:",
-      "rowLabel": "Row {{number}}"
+      "rowLabel": "სტრიქონი {{number}}"
     },
     "toasts": {
       "restockQuantityInvalid": "დასამატებელი რაოდენობა უნდა იყოს 0-ზე მეტი!",
