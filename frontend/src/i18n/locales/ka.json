@@ -922,6 +922,15 @@
     "PRODUCT_IMPORT_FILE_REQUIRED": ".xlsx ფაილი სავალდებულოა",
     "PRODUCT_IMPORT_INVALID_FILE": "ფაილის დამუშავება ვერ მოხერხდა — გამოიყენეთ ნიმუშის ფაილი",
     "PRODUCT_IMPORT_EMPTY": "ფაილი ცარიელია — პროდუქტები ვერ მოიძებნა",
-    "PRODUCT_IMPORT_TOO_MANY_ROWS": "ერთ ფაილში მაქსიმუმ {{max}} პროდუქტის ატვირთვაა დაშვებული (ეს ფაილი შეიცავს {{count}}-ს)"
+    "PRODUCT_IMPORT_TOO_MANY_ROWS": "ერთ ფაილში მაქსიმუმ {{max}} პროდუქტის ატვირთვაა დაშვებული (ეს ფაილი შეიცავს {{count}}-ს)",
+    "INGREDIENT_FIELDS_REQUIRED": "სახელი, ერთეული და არაუარყოფითი მარაგი სავალდებულოა",
+    "INGREDIENT_NOT_FOUND": "ინგრედიენტი ვერ მოიძებნა",
+    "QUANTITY_MUST_BE_POSITIVE": "რაოდენობა უნდა იყოს დადებითი რიცხვი",
+    "RECIPE_INGREDIENT_INVALID": "ერთ-ერთი ინგრედიენტი არავალიდურია",
+    "PRODUCT_BARCODE_NOT_FOUND": "პროდუქტი ამ ბარკოდით ვერ მოიძებნა",
+    "PRODUCT_NAME_PRICE_REQUIRED": "სახელი და ვალიდური ფასი სავალდებულოა",
+    "PRODUCT_STOCK_NEGATIVE": "მარაგი უარყოფითი ვერ იქნება",
+    "PRODUCT_STATION_INVALID": "station უნდა იყოს 'kitchen', 'bar' ან ცარიელი",
+    "PRODUCT_DELETE_ADMIN_ONLY": "მხოლოდ ადმინისტრატორს შეუძლია პროდუქტის წაშლა"
   }
 }

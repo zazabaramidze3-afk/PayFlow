@@ -90,7 +90,7 @@ router.post(
   async (req: CustomRequest, res: Response) => {
     const parsed = parseIngredientInput(req.body as IngredientInput);
     if (!parsed) {
-      return res.status(400).json({ error: 'name, unit და non-negative stock სავალდებულოა' });
+      return res.status(400).json({ error: 'name, unit და non-negative stock სავალდებულოა', code: ErrorCodes.INGREDIENT_FIELDS_REQUIRED });
     }
 
     try {
@@ -122,7 +122,7 @@ router.put(
   async (req: CustomRequest, res: Response) => {
     const parsed = parseIngredientInput(req.body as IngredientInput);
     if (!parsed) {
-      return res.status(400).json({ error: 'name, unit და non-negative stock სავალდებულოა' });
+      return res.status(400).json({ error: 'name, unit და non-negative stock სავალდებულოა', code: ErrorCodes.INGREDIENT_FIELDS_REQUIRED });
     }
 
     try {
@@ -134,7 +134,7 @@ router.put(
         )
       );
       if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'ინგრედიენტი ვერ მოიძებნა' });
+        return res.status(404).json({ error: 'ინგრედიენტი ვერ მოიძებნა', code: ErrorCodes.INGREDIENT_NOT_FOUND });
       }
       res.json(result.rows[0]);
     } catch (err: unknown) {
@@ -158,7 +158,7 @@ router.patch(
   async (req: CustomRequest, res: Response) => {
     const quantityToAdd = Number((req.body as { quantityToAdd?: unknown }).quantityToAdd);
     if (!Number.isFinite(quantityToAdd) || quantityToAdd <= 0) {
-      return res.status(400).json({ error: 'რაოდენობა უნდა იყოს დადებითი რიცხვი' });
+      return res.status(400).json({ error: 'რაოდენობა უნდა იყოს დადებითი რიცხვი', code: ErrorCodes.QUANTITY_MUST_BE_POSITIVE });
     }
 
     try {
@@ -169,7 +169,7 @@ router.patch(
         )
       );
       if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'ინგრედიენტი ვერ მოიძებნა' });
+        return res.status(404).json({ error: 'ინგრედიენტი ვერ მოიძებნა', code: ErrorCodes.INGREDIENT_NOT_FOUND });
       }
       res.json({ success: true, ingredient: result.rows[0] });
     } catch (err: unknown) {
@@ -195,7 +195,7 @@ router.delete(
         ])
       );
       if (result.rowCount === 0) {
-        return res.status(404).json({ error: 'ინგრედიენტი ვერ მოიძებნა' });
+        return res.status(404).json({ error: 'ინგრედიენტი ვერ მოიძებნა', code: ErrorCodes.INGREDIENT_NOT_FOUND });
       }
       res.status(204).send();
     } catch (err: unknown) {
@@ -218,7 +218,7 @@ router.get(
   async (req: CustomRequest, res: Response) => {
     const productId = Number(req.params.productId);
     if (!Number.isInteger(productId) || productId <= 0) {
-      return res.status(400).json({ error: 'productId არავალიდურია' });
+      return res.status(400).json({ error: 'productId არავალიდურია', code: ErrorCodes.PRODUCT_INVALID_ID });
     }
 
     try {
@@ -246,7 +246,7 @@ router.get(
       res.json(result);
     } catch (err: unknown) {
       if (err instanceof Error && err.message === 'PRODUCT_NOT_FOUND') {
-        return res.status(404).json({ error: 'პროდუქტი ვერ მოიძებნა' });
+        return res.status(404).json({ error: 'პროდუქტი ვერ მოიძებნა', code: ErrorCodes.PRODUCT_NOT_FOUND });
       }
       res.status(500).json({ error: getErrorMessage(err) });
     }
@@ -267,15 +267,15 @@ router.put(
   async (req: CustomRequest, res: Response) => {
     const productId = Number(req.params.productId);
     if (!Number.isInteger(productId) || productId <= 0) {
-      return res.status(400).json({ error: 'productId არავალიდურია' });
+      return res.status(400).json({ error: 'productId არავალიდურია', code: ErrorCodes.PRODUCT_INVALID_ID });
     }
 
     const { isRecipeBased, items } = req.body as { isRecipeBased?: unknown; items?: unknown };
     if (typeof isRecipeBased !== 'boolean') {
-      return res.status(400).json({ error: 'isRecipeBased სავალდებულოა (boolean)' });
+      return res.status(400).json({ error: 'isRecipeBased სავალდებულოა (boolean)', code: ErrorCodes.INVALID_REQUEST });
     }
     if (!Array.isArray(items)) {
-      return res.status(400).json({ error: 'items უნდა იყოს მასივი (შეიძლება ცარიელი)' });
+      return res.status(400).json({ error: 'items უნდა იყოს მასივი (შეიძლება ცარიელი)', code: ErrorCodes.INVALID_REQUEST });
     }
 
     interface ParsedItem { ingredientId: string; quantityRequired: number; }
@@ -285,7 +285,7 @@ router.put(
       const ingredientId = typeof item.ingredientId === 'string' ? item.ingredientId : '';
       const quantityRequired = Number(item.quantityRequired);
       if (!ingredientId || !Number.isFinite(quantityRequired) || quantityRequired <= 0) {
-        return res.status(400).json({ error: 'ყოველ item-ს სჭირდება ingredientId და დადებითი quantityRequired' });
+        return res.status(400).json({ error: 'ყოველ item-ს სჭირდება ingredientId და დადებითი quantityRequired', code: ErrorCodes.INVALID_REQUEST });
       }
       parsedItems.push({ ingredientId, quantityRequired });
     }
@@ -330,10 +330,10 @@ router.put(
       res.json({ success: true });
     } catch (err: unknown) {
       if (err instanceof Error && err.message === 'PRODUCT_NOT_FOUND') {
-        return res.status(404).json({ error: 'პროდუქტი ვერ მოიძებნა' });
+        return res.status(404).json({ error: 'პროდუქტი ვერ მოიძებნა', code: ErrorCodes.PRODUCT_NOT_FOUND });
       }
       if (err instanceof Error && err.message === 'INVALID_INGREDIENT') {
-        return res.status(400).json({ error: 'ერთ-ერთი ინგრედიენტი არავალიდურია' });
+        return res.status(400).json({ error: 'ერთ-ერთი ინგრედიენტი არავალიდურია', code: ErrorCodes.RECIPE_INGREDIENT_INVALID });
       }
       res.status(500).json({ error: getErrorMessage(err) });
     }

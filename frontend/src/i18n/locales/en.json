@@ -922,6 +922,15 @@
     "PRODUCT_IMPORT_FILE_REQUIRED": "An .xlsx file is required",
     "PRODUCT_IMPORT_INVALID_FILE": "Could not process the file – please use the template",
     "PRODUCT_IMPORT_EMPTY": "The file is empty – no products found",
-    "PRODUCT_IMPORT_TOO_MANY_ROWS": "A file can contain at most {{max}} products (this file has {{count}})"
+    "PRODUCT_IMPORT_TOO_MANY_ROWS": "A file can contain at most {{max}} products (this file has {{count}})",
+    "INGREDIENT_FIELDS_REQUIRED": "Name, unit and a non-negative stock are required",
+    "INGREDIENT_NOT_FOUND": "Ingredient not found",
+    "QUANTITY_MUST_BE_POSITIVE": "Quantity must be a positive number",
+    "RECIPE_INGREDIENT_INVALID": "One of the ingredients is invalid",
+    "PRODUCT_BARCODE_NOT_FOUND": "No product found with this barcode",
+    "PRODUCT_NAME_PRICE_REQUIRED": "Name and a valid price are required",
+    "PRODUCT_STOCK_NEGATIVE": "Stock cannot be negative",
+    "PRODUCT_STATION_INVALID": "Station must be 'kitchen', 'bar' or empty",
+    "PRODUCT_DELETE_ADMIN_ONLY": "Only an administrator can delete products"
   }
 }
