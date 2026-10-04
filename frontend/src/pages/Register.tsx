@@ -3,6 +3,8 @@ import axios from 'axios';
 import gsap from 'gsap';
 import styles from './Register.module.scss';
 import { useTranslation } from 'react-i18next';
+// 🟣 ლოგო პულსირებადი "active" წერტილით
+import BrandLogo from '../components/BrandLogo';
 // 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — backend-ის
 // raw ქართული `error`-ის ნაცვლად code-based, თარგმნილი შეტყობინება.
 import { resolveErrorMessage } from '../lib/errorMessages';
@@ -162,7 +164,7 @@ export default function Register({ onRegisterSuccess, onNavigateToLogin }: Regis
   return (
     <div className={styles.wrapper}>
       <div className={styles.card} ref={cardRef}>
-        <h2 className={styles.title} data-gsap-field>PayFlow</h2>
+        <h2 className={styles.title} data-gsap-field><BrandLogo>PayFlow</BrandLogo></h2>
         <p className={styles.subtitle} data-gsap-field>{t('register.subtitle')}</p>
 
         <form onSubmit={handleSubmit} className={styles.form}>

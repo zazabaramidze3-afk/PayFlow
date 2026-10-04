@@ -7,6 +7,8 @@ import { useTranslation } from 'react-i18next';
 import { resolveErrorMessage } from '../lib/errorMessages';
 import styles from './Login.module.scss';
 import LanguageSwitcher from '../components/LanguageSwitcher';
+// 🟣 ლოგო პულსირებადი "active" წერტილით (slug-ის ეტაპის სათაურში)
+import BrandLogo from '../components/BrandLogo';
 
 interface LoginResult {
   error?: string;
@@ -252,7 +254,7 @@ export default function Login({ onLoginAttempt, onPasswordResetComplete, onNavig
           </>
         ) : step === 'slug' ? (
           <>
-            <h2 className={styles.title} data-gsap-field>{t('login.brandTitle')}</h2>
+            <h2 className={styles.title} data-gsap-field><BrandLogo>{t('login.brandTitle')}</BrandLogo></h2>
             <p className={styles.subtitle} data-gsap-field>{t('login.slugPrompt')}</p>
 
             <form onSubmit={handleSlugSubmit} className={styles.form}>
