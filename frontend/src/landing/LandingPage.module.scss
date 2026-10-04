@@ -350,6 +350,7 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 .chipCook { background: $amber; color: #1b1500; }
 .chipReady { background: $green; }
 .chipServed { background: $teal; color: #04201d; }
+.chipCancelled { background: #e5484d; }
 
 .chipLine {
   flex: 1;

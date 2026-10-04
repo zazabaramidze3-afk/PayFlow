@@ -854,7 +854,8 @@
       "paid": "Paid",
       "cake": "Cake",
       "water": "Water",
-      "statusServed": "Served"
+      "statusServed": "Served",
+      "statusCancelled": "Cancelled"
     },
     "features": {
       "title": "What is PayFlow?",

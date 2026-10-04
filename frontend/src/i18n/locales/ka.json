@@ -854,7 +854,8 @@
       "paid": "გადახდილია",
       "cake": "ტორტი",
       "water": "წყალი",
-      "statusServed": "მიტანილია"
+      "statusServed": "მიტანილია",
+      "statusCancelled": "გაუქმდა"
     },
     "features": {
       "title": "რა არის PayFlow?",
