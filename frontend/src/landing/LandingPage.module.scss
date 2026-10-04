@@ -267,7 +267,7 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   display: block;
   height: 10px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.9);
   transform-origin: left center;
   animation: barIn 600ms $ease-out both;
 }
@@ -292,7 +292,7 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   flex: 1;
   height: 6px;
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .track {
