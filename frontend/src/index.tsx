@@ -42,8 +42,13 @@ void requestPersistentStorage();
 // მხოლოდ ის module, რომელიც მიმდინარე pathname-ს რეალურად სჭირდება.
 const isPlatformAdminRoute = window.location.pathname.startsWith('/admin');
 
+// 🌐 /landing — საჯარო landing გვერდი; App.tsx აქაც არ იტვირთება (იგივე მიზეზით, რაც /admin-ზე).
+const isLandingRoute = window.location.pathname === '/landing' || window.location.pathname.startsWith('/landing/');
+
 const RootApp = isPlatformAdminRoute
   ? React.lazy(() => import('./admin/PlatformAdminApp'))
+  : isLandingRoute
+  ? React.lazy(() => import('./landing/LandingPage'))
   : React.lazy(() => import('./App'));
 
 const container = document.getElementById('root');

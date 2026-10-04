@@ -1,0 +1,539 @@
+// ==========================================================
+// 🌐 PayFlow landing — სტილები
+// ==========================================================
+// დამოუკიდებელი, ყოველთვის "მუქი hero + ღია ქვედა ნაწილი" პალიტრა
+// (აპის dark/light თემაზე არ არის დამოკიდებული). ანიმაციები წმინდა CSS-ია.
+
+$navy-900: #06142a;
+$navy-800: #0a1f3d;
+$navy-card: #0e2543;
+$navy-head: #163457;
+$line: rgba(130, 170, 230, 0.18);
+$text-light: #e8eefb;
+$text-dim: #9fb3d6;
+$page-light: #f4f7fb;
+$ink: #0c1b33;
+$indigo: #5b5fe0;
+$indigo-hover: #4a4ed0;
+$green: #16a34a;
+$teal: #4aa59c;
+$amber: #d4a437;
+$leaf: #8fcf72;
+$plum: #8a4a6e;
+
+$ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+.page {
+  min-height: 100vh;
+  background: $page-light;
+  color: $ink;
+}
+
+// ---------------- HERO ----------------
+.hero {
+  position: relative;
+  background: linear-gradient(180deg, $navy-900 0%, $navy-800 100%);
+  color: $text-light;
+  padding-bottom: 120px;
+  overflow: hidden;
+}
+
+.nav {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 22px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: $text-light;
+  text-decoration: none;
+}
+
+.brandDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: $indigo;
+  box-shadow: 0 0 14px rgba(91, 95, 224, 0.9);
+}
+
+.navRight {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+.navLink {
+  color: $text-light;
+  text-decoration: none;
+  font-size: 14px;
+  opacity: 0.9;
+
+  &:hover {
+    opacity: 1;
+    text-decoration: underline;
+  }
+}
+
+.lang {
+  color: $text-light;
+}
+
+.heroInner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 36px 24px 0;
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  gap: 40px;
+  align-items: center;
+}
+
+.heroText {
+  animation: textIn 800ms $ease-out both;
+}
+
+.tagline {
+  margin: 0 0 18px;
+  font-size: 13px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: #8f94ff;
+}
+
+.title {
+  margin: 0 0 18px;
+  font-size: clamp(30px, 4.4vw, 52px);
+  line-height: 1.12;
+  font-weight: 600;
+}
+
+.subtitle {
+  margin: 0 0 30px;
+  max-width: 520px;
+  font-size: 18px;
+  line-height: 1.55;
+  color: $text-dim;
+}
+
+.ctaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.ctaPrimary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 26px;
+  border-radius: 8px;
+  background: $indigo;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s ease, transform 0.15s ease;
+
+  &:hover {
+    background: $indigo-hover;
+    transform: translateY(-1px);
+  }
+}
+
+.ctaSecondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 26px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: $text-light;
+  font-size: 16px;
+  text-decoration: none;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+}
+
+// ---------------- MOCKUP STAGE ----------------
+.stage {
+  perspective: 1400px;
+  perspective-origin: 30% 40%;
+  display: flex;
+  justify-content: center;
+}
+
+.board {
+  width: 100%;
+  max-width: 560px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  transform: rotateY(-16deg) rotateX(9deg) rotateZ(0.8deg);
+  transform-style: preserve-3d;
+  animation: float 7s ease-in-out 2.2s infinite alternate;
+}
+
+.card {
+  background: $navy-card;
+  border: 1px solid $line;
+  border-radius: 6px;
+  min-height: 150px;
+  box-shadow: 0 24px 40px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  // შემოსვლა: ბარათი სიღრმიდან/ქვემოდან დახრილი მდგომარეობით "დადგება"
+  animation: cardIn 750ms $ease-out both;
+}
+
+.c1 { animation-delay: 150ms; }
+.c2 { animation-delay: 300ms; }
+.c3 { animation-delay: 450ms; }
+.c4 { animation-delay: 600ms; }
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  white-space: nowrap;
+  padding: 8px 12px;
+  background: $navy-head;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.cardBody {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  font-size: 12px;
+  color: $text-dim;
+}
+
+// შიგთავსის ეტაპობრივი შევსება
+.row,
+.chipRow,
+.stockRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  opacity: 0;
+  animation: rowIn 500ms $ease-out both;
+}
+
+.r1 { animation-delay: 1000ms; }
+.r2 { animation-delay: 1350ms; }
+.r3 { animation-delay: 1700ms; }
+
+.bar {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(130, 170, 230, 0.2);
+  transform-origin: left center;
+  animation: barIn 600ms $ease-out both;
+}
+.b1 { width: 82%; animation-delay: 2000ms; }
+.b2 { width: 56%; animation-delay: 2200ms; }
+
+.chip {
+  padding: 3px 9px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+}
+.chipNew { background: $indigo; }
+.chipCook { background: $amber; color: #1b1500; }
+.chipReady { background: $green; }
+
+.chipLine {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(130, 170, 230, 0.2);
+}
+
+.track {
+  flex: 0 0 52%;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(130, 170, 230, 0.16);
+  overflow: hidden;
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  transform-origin: left center;
+  animation: barIn 900ms $ease-out both;
+}
+.f1 { width: 78%; background: $leaf; animation-delay: 1100ms; }
+.f2 { width: 46%; background: $amber; animation-delay: 1450ms; }
+.f3 { width: 22%; background: #e0605a; animation-delay: 1800ms; }
+
+// გადახდის ბარათი
+.payBtn {
+  flex-shrink: 0;
+  padding: 2px 10px;
+  border-radius: 3px;
+  background: $green;
+  color: #fff;
+  font-size: 12px;
+}
+
+.payBody {
+  position: relative;
+  min-height: 100px;
+}
+
+.total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  opacity: 0;
+  animation: rowIn 500ms $ease-out 1000ms both;
+
+  strong {
+    font-size: 18px;
+    color: $text-light;
+  }
+}
+
+.spinnerWrap {
+  position: absolute;
+  inset: 34px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  // spinner ჩანს ~1.6–3.4წმ, შემდეგ "Paid ✓"-ს უთმობს ადგილს
+  animation: spinnerLife 3.6s linear 0s both;
+}
+
+.spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.18);
+  border-top-color: #fff;
+  animation: spin 0.8s linear infinite;
+}
+
+.paid {
+  position: absolute;
+  inset: 34px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: #4ade80;
+  opacity: 0;
+  animation: paidIn 500ms $ease-out 3.6s both;
+}
+
+// ---------------- FEATURES ----------------
+.features {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 90px 24px 40px;
+  text-align: center;
+}
+
+.featuresTitle {
+  margin: 0 0 48px;
+  font-size: 34px;
+  font-weight: 500;
+}
+
+.featureGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+}
+
+.feature {
+  padding: 28px 20px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e3eaf5;
+  box-shadow: 0 6px 20px rgba(12, 27, 51, 0.05);
+  color: $navy-800;
+
+  h3 {
+    margin: 18px 0 8px;
+    font-size: 18px;
+  }
+
+  p {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.55;
+    color: #4a5b78;
+  }
+}
+
+.cta {
+  text-align: center;
+  padding: 50px 24px 80px;
+
+  h2 {
+    margin: 0 0 22px;
+    font-size: 28px;
+    font-weight: 500;
+  }
+}
+
+.footer {
+  text-align: center;
+  padding: 24px;
+  font-size: 13px;
+  color: #6b7b96;
+}
+
+// ---------------- KEYFRAMES ----------------
+@keyframes textIn {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 70px, -140px) rotateX(24deg);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotateX(0);
+  }
+}
+
+@keyframes rowIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes barIn {
+  from { transform: scaleX(0); opacity: 0.4; }
+  to { transform: scaleX(1); opacity: 1; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes spinnerLife {
+  0%, 44% { opacity: 0; }
+  50%, 90% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes paidIn {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes float {
+  from { transform: rotateY(-16deg) rotateX(9deg) rotateZ(0.8deg) translateY(0); }
+  to { transform: rotateY(-14deg) rotateX(8deg) rotateZ(0.4deg) translateY(-8px); }
+}
+
+// ---------------- RESPONSIVE ----------------
+@media (max-width: 640px) {
+  .navFeatures {
+    display: none;
+  }
+
+  .brand {
+    font-size: 22px;
+  }
+
+  .navRight {
+    gap: 14px;
+  }
+
+  .cardHead {
+    font-size: 11px;
+    padding: 7px 9px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .payBtn {
+    font-size: 11px;
+    padding: 2px 7px;
+  }
+}
+
+@media (max-width: 900px) {
+  .heroInner {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+
+  .board {
+    transform: rotateY(-8deg) rotateX(6deg);
+  }
+
+  @keyframes float {
+    from { transform: rotateY(-8deg) rotateX(6deg) translateY(0); }
+    to { transform: rotateY(-7deg) rotateX(5deg) translateY(-6px); }
+  }
+
+  .featureGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero {
+    padding-bottom: 80px;
+  }
+}
+
+// მომხმარებლებისთვის, ვისაც ანიმაცია არ უნდა — ბოლო მდგომარეობა
+// დაუყოვნებლივ ჩანს (spinner-ის ნაცვლად პირდაპირ "Paid ✓").
+@media (prefers-reduced-motion: reduce) {
+  .heroText,
+  .board,
+  .card,
+  .row,
+  .chipRow,
+  .stockRow,
+  .bar,
+  .fill,
+  .total,
+  .paid,
+  .spinner {
+    animation: none !important;
+  }
+
+  .row,
+  .chipRow,
+  .stockRow,
+  .total,
+  .paid {
+    opacity: 1;
+  }
+
+  .spinnerWrap {
+    display: none;
+  }
+}

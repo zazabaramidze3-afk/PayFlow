@@ -250,7 +250,8 @@ function App() {
   const isLoggedIn = !!currentUser;
   // 🏢 Multi-Tenant SaaS STEP 3 — router არ გვაქვს, ამიტომ Login ⇄ Register
   // გადართვა უბრალო state-ტოგლითაა (მხოლოდ isLoggedIn === false-ისას აქტუალური).
-  const [showRegister, setShowRegister] = useState(false);
+  // 🌐 landing-ის "Register" ღილაკი `/?register=1`-ზე მოდის — რეგისტრაციის ფორმა პირდაპირ იხსნება.
+  const [showRegister, setShowRegister] = useState(() => new URLSearchParams(window.location.search).get('register') === '1');
   // 📱 მობილურზე Sidebar ნაგულისხმევად დამალულია — ჰამბურგერ ღილაკით იხსნება.
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   // 🍽️ HoReCa Module STEP 1 (Roadmap "03.09.2026") — მიმდინარე

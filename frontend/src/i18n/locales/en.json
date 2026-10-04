@@ -823,6 +823,49 @@
       "generateFailed": "Could not generate a code — check your internet connection and try again"
     }
   },
+  "landing": {
+    "tagline": "Sales · Stock · Reports",
+    "nav": {
+      "features": "Features",
+      "signIn": "Sign in"
+    },
+    "hero": {
+      "title": "Sales and stock management in one place",
+      "subtitle": "A point-of-sale system for shops and restaurants. It keeps working even without internet.",
+      "ctaPrimary": "Register your company",
+      "ctaSecondary": "Sign in"
+    },
+    "mock": {
+      "order": "Order · Table 4",
+      "burger": "Burger",
+      "cola": "Cola",
+      "coffee": "Coffee",
+      "kitchen": "Kitchen",
+      "statusNew": "New",
+      "statusCooking": "Cooking",
+      "statusReady": "Ready",
+      "stock": "Stock",
+      "flour": "Flour",
+      "meat": "Meat",
+      "milk": "Milk",
+      "payment": "Payment",
+      "pay": "Pay",
+      "total": "Total",
+      "paid": "Paid"
+    },
+    "features": {
+      "title": "What is PayFlow?",
+      "offlineTitle": "Works offline too",
+      "offlineText": "Sales are saved even without internet and sync automatically when the connection returns.",
+      "restaurantTitle": "Restaurant mode",
+      "restaurantText": "Tables, orders, a kitchen display, modifiers and split bills.",
+      "reportsTitle": "Stock and reports",
+      "reportsText": "Stock control, shift closing (Z-report) and sales analytics."
+    },
+    "cta": {
+      "title": "Get started today"
+    }
+  },
   "errors": {
     "PRODUCT_DUPLICATE_NAME": "A product with this name already exists!",
     "PRODUCT_DUPLICATE_BARCODE": "This name or barcode is already taken!",
