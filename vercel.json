@@ -17,6 +17,14 @@
       "destination": "backend/src/index.ts"
     },
     {
+      "source": "/landing",
+      "destination": "frontend/index.html"
+    },
+    {
+      "source": "/landing/(.*)",
+      "destination": "frontend/index.html"
+    },
+    {
       "source": "/admin",
       "destination": "frontend/index.html"
     },
