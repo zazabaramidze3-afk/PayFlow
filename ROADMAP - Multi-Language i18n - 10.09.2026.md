@@ -162,6 +162,16 @@
 - **`App.tsx`-ის response interceptor:** ტოკენის/სალაროს ვადაგასვლას ახლა ჯერ error code ამოიცნობს (`TOKEN_INVALID`, `REGISTER_TOKEN_INVALID`, `REGISTER_WRONG_ORG`, `REGISTER_DEACTIVATED`, `REGISTER_DELETED`), ძველი ქართული ტექსტი რჩება fallback-ად. ყველა ადრე დამუშავებული შემთხვევა უცვლელია. `registerAuth`-ის "სალარო აღარ არსებობს" 404-ს ცალკე კოდი `REGISTER_DELETED` ჰქონდა საჭირო — `REGISTER_NOT_FOUND` ადმინის დაწყვილების route-შიც გამოიყენება და ადმინის საკუთარი სალაროს გასუფთავება არ უნდა გამოიწვიოს. გატესტილია: გაფუჭებული `token` → Login; გაფუჭებული `payflow_register_token` → "Register pairing required" logout-ის გარეშე.
 - **Products import-ის გამოტოვებული სტრიქონები:** backend ყოველ სტრიქონს `reasonCode` (+ `reasonParams`) აძლევს ქართული `reason`-ის გვერდით (8 ახალი `IMPORT_ROW_*` კოდი, ka/en თარგმანებით); `Products.tsx` კოდს ათარგმნის, უცნობი კოდისას/ძველ backend-თან ძველ ტექსტს აჩვენებს (`resolveReasonMessage`). ბაზის დონის ჩავარდნისას raw შეცდომა (`rowErr.message`) კლიენტამდე აღარ მიდის (ლოგში ინახება, `IMPORT_ROW_INSERT_FAILED`). გვერდით: ქართულ რეჟიმში "Row N" ლეიბლი თარგმნილი არ იყო → "სტრიქონი N". გატესტილია ka + en (ნიმუშის ფაილით და სატესტო .xlsx-ით).
 
+### 16. საჯარო landing გვერდი + ტაბის სათაური (04.10.2026)
+**Commit-ები:** landing-ის სერია (`feat(landing)` / `feat(auth-ui)`), `39a10cf` (Vercel `/landing` მარშრუტი), `5a646a3` ("გაუქმდა" სტატუსი), `5ef67be` (ტაბის სათაური). ყველა ცალკე ლოკალურ ბრენჩზე გაკეთდა, ბრაუზერში დადასტურდა და `main`-ში შევიდა.
+
+- **Landing გვერდი** (`frontend/src/landing/LandingPage.tsx` + `.module.scss`): ანიმირებული საჯარო გვერდი (hero, 4 მაკეტ-ბარათი პერსპექტივაში — შეკვეთა, სამზარეულო, მარაგი, გადახდა, 3 ფუნქციის ბარათი ჰოვერ-ჩრდილითა და უსასრულო მოძრავი ზოლით, CTA, footer). ტექსტები ka/en-ზეა (`landing.*` namespace), მაკეტის ტექსტები (პროდუქტები, სტატუსები: ახალი/მზადდება/მზადაა/გაუქმდა/მიტანილია) და ჯამი (33.50 ₾) თანხვედრაშია.
+- **მთავარი გვერდი გამოუშვებელი მომხმარებლისთვის:** `index.tsx` — `/`-ზე landing ჩანს, თუ `localStorage`-ში `token` არ არის, `?login=1`/`?register=1` არ არის და აპი დაინსტალირებული PWA არ არის (`lib/displayMode.ts` → `isStandalonePwa()`). ამ პარამეტრებით landing-ის ღილაკები აპის Login/Register-ზე გადადის.
+- **ლოგო (`BrandLogo.tsx`):** პულსირებადი "active" წერტილი Login/Register/landing-ზე; Login/Register-ზე ლოგო დაჭერადია და `/landing`-ზე აბრუნებს (PWA-ში — უბრალო ტექსტი).
+- **Vercel:** `vercel.json`-ში `/landing` და `/landing/(.*)` მარშრუტები (ისევე, როგორც `/admin`) — სხვანაირად production-ზე `/landing` 404-ს აბრუნებდა.
+- **ბრაუზერის ტაბის სათაური:** ადრე ყველგან "PayFlow" იყო. ახლა გვერდის მიხედვით: `<გვერდი> · PayFlow` (Login/Register — `meta.login`/`meta.register`; აპის გვერდები — არსებული `nav.*` გასაღებები; landing — `meta.landing`), ენის შეცვლაზეც ახლდება (`App.tsx`-ის `useEffect`, `LandingPage.tsx`).
+- **დარჩენილი / გადაწყვეტილი არ არის:** logout-ის შემდეგ landing-ზე გადამისამართება (ახლა Login ჩანს; რეკომენდაცია — დარჩეს ასე); landing-ის ტექსტების სავარაუდო შეცვლა.
+
 ---
 
 ## ✅ გვერდების rollout დასრულებულია
