@@ -508,6 +508,26 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 }
 
+// 📱 ვიწრო ეკრანი (ტელეფონი) — მაკეტის ბარათები ერთ სვეტად, მცირე დახრით.
+// განზრახ 900px-იანი media-ს შემდეგაა, რომ იგივე სპეციფიკურობით მასზე გადაიწეროს.
+@media (max-width: 640px) {
+  .board {
+    grid-template-columns: 1fr;
+    max-width: 420px;
+    margin: 0 auto;
+    transform: rotateY(-5deg) rotateX(3deg);
+  }
+
+  .card {
+    min-height: 0;
+  }
+
+  @keyframes float {
+    from { transform: rotateY(-5deg) rotateX(3deg) translateY(0); }
+    to { transform: rotateY(-4deg) rotateX(2deg) translateY(-6px); }
+  }
+}
+
 // მომხმარებლებისთვის, ვისაც ანიმაცია არ უნდა — ბოლო მდგომარეობა
 // დაუყოვნებლივ ჩანს (spinner-ის ნაცვლად პირდაპირ "Paid ✓").
 @media (prefers-reduced-motion: reduce) {
