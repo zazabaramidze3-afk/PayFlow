@@ -1,4 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
+// 🌍 Backend Error-Message i18n — 500-ები: დეტალი ლოგში, კლიენტს `INTERNAL_ERROR` კოდი.
+import { sendInternalError } from '../utils/sendInternalError';
 // 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — additive `code` ველი.
 import { ErrorCodes } from '../constants/errorCodes';
 import pool from '../db';
@@ -44,6 +46,6 @@ export async function checkActiveShift(req: CustomRequest, res: Response, next: 
         req.activeShiftId = result.rows[0].id;
         next();
     } catch (err: any) {
-        return res.status(500).json({ error: err.message });
+        return sendInternalError(res, err, 'checkShift.ts');
     }
 }

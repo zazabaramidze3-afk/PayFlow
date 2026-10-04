@@ -1,4 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
+// 🌍 Backend Error-Message i18n — 500-ები: დეტალი ლოგში, კლიენტს `INTERNAL_ERROR` კოდი.
+import { sendInternalError } from '../utils/sendInternalError';
 // 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — additive `code` ველი.
 import { ErrorCodes } from '../constants/errorCodes';
 import bcrypt from 'bcrypt';
@@ -144,7 +146,7 @@ router.post('/login', async (req: Request, res: Response) => {
     });
 
   } catch (err: any) {
-    res.status(500).json({ error: 'სერვერის შეცდომა: ' + err.message });
+    sendInternalError(res, err, 'POST /login');
   }
 });
 
@@ -209,7 +211,7 @@ router.post('/auth/reset-password-initial', async (req: Request, res: Response) 
 
     res.json({ token, user });
   } catch (err: any) {
-    res.status(500).json({ error: 'სერვერის შეცდომა: ' + err.message });
+    sendInternalError(res, err, 'POST /auth/reset-password-initial');
   }
 });
 
@@ -234,7 +236,7 @@ router.get('/me', authenticateToken, async (req: CustomRequest, res: Response) =
     }
     res.json(result.rows[0]);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err, 'GET /me');
   }
 });
 
@@ -255,7 +257,7 @@ router.patch('/me/language', authenticateToken, async (req: CustomRequest, res: 
     await db.query('UPDATE users SET language = $1 WHERE id = $2', [language, req.user?.id]);
     res.json({ language });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err, 'PATCH /me/language');
   }
 });
 
@@ -361,7 +363,7 @@ router.post('/auth/verify-manager-pin', authenticateToken, async (req: CustomReq
       expiresInSeconds,
     });
   } catch (err: unknown) {
-    res.status(500).json({ error: 'სერვერის შეცდომა: ' + getErrorMessage(err) });
+    sendInternalError(res, err, 'POST /auth/verify-manager-pin');
   }
 });
 
@@ -453,7 +455,7 @@ router.post('/users', authenticateToken, async (req: CustomRequest, res) => {
     if (err.message && err.message.includes('unique')) {
       return res.status(400).json({ error: 'ეს მომხმარებლის სახელი უკვე დაკავებულია!', code: ErrorCodes.USERNAME_TAKEN });
     }
-    res.status(500).json({ error: 'ბაზის შეცდომა: ' + err.message });
+    sendInternalError(res, err, 'POST /users');
   }
 });
 
@@ -482,7 +484,7 @@ router.get('/users', authenticateToken, async (req: CustomRequest, res) => {
     );
     res.json(result.rows);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err, 'GET /users');
   }
 });
 
@@ -509,7 +511,7 @@ router.put('/users/:id', authenticateToken, async (req: CustomRequest, res) => {
     if (result.rows.length === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა', code: ErrorCodes.USER_NOT_FOUND });
     res.json({ success: true, user: result.rows[0] });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err, 'PUT /users/:id');
   }
 });
 
@@ -582,7 +584,7 @@ router.put('/users/:id/history-access', authenticateToken, async (req: CustomReq
 
     res.json({ success: true, user: result.rows[0] });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err, 'PUT /users/:id/history-access');
   }
 });
 
@@ -614,7 +616,7 @@ router.put('/users/:id/discount-access', authenticateToken, async (req: CustomRe
 
     res.json({ success: true, user: result.rows[0] });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err, 'PUT /users/:id/discount-access');
   }
 });
 
@@ -645,7 +647,7 @@ router.put('/users/:id/void-access', authenticateToken, async (req: CustomReques
 
     res.json({ success: true, user: result.rows[0] });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err, 'PUT /users/:id/void-access');
   }
 });
 
@@ -676,7 +678,7 @@ router.put('/users/:id/clear-cart-access', authenticateToken, async (req: Custom
 
     res.json({ success: true, user: result.rows[0] });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err, 'PUT /users/:id/clear-cart-access');
   }
 });
 
@@ -728,7 +730,7 @@ router.get('/audit-logs', authenticateToken, async (req: CustomRequest, res: Res
     }));
     res.json(rows);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err, 'GET /audit-logs');
   }
 });
 
@@ -750,7 +752,7 @@ router.delete('/audit-logs', authenticateToken, async (req: CustomRequest, res: 
     await db.query('DELETE FROM audit_logs WHERE organization_id = $1', [req.user?.organizationId]);
     res.json({ success: true, message: 'აუდიტის ისტორია სრულად გასუფთავდა!' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err, 'DELETE /audit-logs');
   }
 });
 
@@ -777,7 +779,7 @@ router.put('/users/:id/password', authenticateToken, async (req: CustomRequest, 
     if (result.rowCount === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა', code: ErrorCodes.USER_NOT_FOUND });
     res.json({ success: true, message: 'პაროლი შეიცვალა!' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err, 'PUT /users/:id/password');
   }
 });
 
@@ -835,7 +837,7 @@ router.put('/users/:id/pin', authenticateToken, async (req: CustomRequest, res: 
       user: result.rows[0],
     });
   } catch (err: unknown) {
-    res.status(500).json({ error: 'ბაზის შეცდომა: ' + getErrorMessage(err) });
+    sendInternalError(res, err, 'PUT /users/:id/pin');
   }
 });
 
@@ -861,7 +863,7 @@ router.delete('/users/:id', authenticateToken, async (req: CustomRequest, res) =
     if (result.rowCount === 0) return res.status(404).json({ error: 'მომხმარებელი ვერ მოიძებნა', code: ErrorCodes.USER_NOT_FOUND });
     res.json({ success: true, message: 'მომხმარებელი გახდა პასიური!' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err, 'DELETE /users/:id');
   }
 });
 

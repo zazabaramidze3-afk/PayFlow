@@ -10,6 +10,8 @@
 // ნაწილი).
 
 import { Router, Response } from 'express';
+// 🌍 Backend Error-Message i18n — 500-ები: დეტალი ლოგში, კლიენტს `INTERNAL_ERROR` კოდი.
+import { sendInternalError } from '../utils/sendInternalError';
 import { authenticateToken } from './auth';
 import { CustomRequest } from './checkShift';
 import { requireAnyRole } from '../middleware/requireRole';
@@ -92,7 +94,7 @@ router.get(
 
       res.json(groups);
     } catch (err: unknown) {
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'GET /modifiers/groups');
     }
   }
 );
@@ -121,7 +123,7 @@ router.post(
       );
       res.status(201).json(result.rows[0]);
     } catch (err: unknown) {
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'POST /modifiers/groups');
     }
   }
 );
@@ -153,7 +155,7 @@ router.put(
       }
       res.json(result.rows[0]);
     } catch (err: unknown) {
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'PUT /modifiers/groups/:id');
     }
   }
 );
@@ -182,7 +184,7 @@ router.delete(
       if (isForeignKeyViolation(err)) {
         return res.status(409).json({ error: 'ეს ჯგუფი უკვე გამოყენებულია არსებულ შეკვეთებში — წაშლა შეუძლებელია', code: ErrorCodes.MODIFIER_GROUP_IN_USE });
       }
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'DELETE /modifiers/groups/:id');
     }
   }
 );
@@ -238,7 +240,7 @@ router.post(
       if (err instanceof Error && err.message === 'GROUP_NOT_FOUND') {
         return res.status(404).json({ error: 'ჯგუფი ვერ მოიძებნა', code: ErrorCodes.MODIFIER_GROUP_NOT_FOUND });
       }
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'POST /modifiers/groups/:groupId/options');
     }
   }
 );
@@ -278,7 +280,7 @@ router.put(
       }
       res.json(result.rows[0]);
     } catch (err: unknown) {
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'PUT /modifiers/options/:id');
     }
   }
 );
@@ -310,7 +312,7 @@ router.delete(
       if (isForeignKeyViolation(err)) {
         return res.status(409).json({ error: 'ეს ოფცია უკვე გამოყენებულია არსებულ შეკვეთებში — წაშლა შეუძლებელია', code: ErrorCodes.MODIFIER_OPTION_IN_USE });
       }
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'DELETE /modifiers/options/:id');
     }
   }
 );
@@ -374,7 +376,7 @@ router.get(
       if (err instanceof Error && err.message === 'PRODUCT_NOT_FOUND') {
         return res.status(404).json({ error: 'პროდუქტი ვერ მოიძებნა', code: ErrorCodes.PRODUCT_NOT_FOUND });
       }
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'GET /modifiers/products/:productId');
     }
   }
 );
@@ -441,7 +443,7 @@ router.put(
       if (err instanceof Error && err.message === 'INVALID_GROUP') {
         return res.status(400).json({ error: 'ერთ-ერთი ჯგუფი არავალიდურია', code: ErrorCodes.MODIFIER_GROUP_IDS_INVALID });
       }
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'PUT /modifiers/products/:productId');
     }
   }
 );

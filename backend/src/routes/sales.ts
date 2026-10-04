@@ -1,4 +1,6 @@
 import { Router, Response } from 'express';
+// 🌍 Backend Error-Message i18n — 500-ები: დეტალი ლოგში, კლიენტს `INTERNAL_ERROR` კოდი.
+import { sendInternalError } from '../utils/sendInternalError';
 // 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — additive `code` ველი.
 import { ErrorCodes } from '../constants/errorCodes';
 // 🏢 Multi-Tenant SaaS STEP 2, ტიერი 5 (Roadmap "23.08.2026") — `JwtPayload`
@@ -119,7 +121,7 @@ router.get('/shifts/status', authenticateToken, async (req: CustomRequest, res: 
 
     res.json({ hasActiveShift: true, shift: result.rows[0] });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err, 'GET /shifts/status');
   }
 });
 
@@ -196,7 +198,7 @@ router.post('/shifts/open', authenticateToken, requireRegister, async (req: Cust
     res.status(201).json({ message: "ცვლა გაიხსნა", shiftId });
   } catch (err: any) {
     if (err instanceof HttpError) return res.status(err.statusCode).json(err.body);
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err, 'POST /shifts/open');
   }
 });
 
@@ -330,7 +332,7 @@ router.put('/shifts/close', authenticateToken, async (req: CustomRequest, res: R
     res.json(responseData);
   } catch (err: any) {
     if (err instanceof HttpError) return res.status(err.statusCode).json(err.body);
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err, 'PUT /shifts/close');
   }
 });
 
@@ -364,7 +366,7 @@ router.get('/shifts/history', authenticateToken, async (req: CustomRequest, res:
     );
     res.json(result.rows);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err, 'GET /shifts/history');
   }
 });
 
@@ -516,7 +518,7 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
         return res.status(403).json({ error: 'თქვენ არ გაქვთ ფასდაკლების გამოყენების უფლება', code: ErrorCodes.DISCOUNT_NOT_ALLOWED });
       }
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      return sendInternalError(res, err, 'POST /payments');
     }
   }
 
@@ -756,7 +758,7 @@ router.post('/payments', authenticateToken, requireRegister, checkActiveShift, a
   } catch (err: any) {
     // STEP 2 — HttpError-ს თავისი `code`/`params` მიაქვს (მარაგი/შეკვეთა).
     if (err instanceof HttpError) return res.status(err.statusCode).json(err.body);
-    res.status(400).json({ error: err.message });
+    sendInternalError(res, err, 'POST /payments');
   }
 });
 
@@ -1147,9 +1149,8 @@ router.post(
       // catch-ის fallback), backend terminal-ში კი ვერაფერი ჩანდა (აქ
       // console.error აქამდე საერთოდ არ იყო) — ამიტომ ნამდვილი მიზეზის
       // დანახვა შეუძლებელი იყო. ახლა სრული stack ყოველთვის იბეჭდება.
-      console.error('❌ POST /payments/split ჩავარდა:', err);
-      const message = err instanceof Error ? err.message : 'უცნობი შეცდომა';
-      res.status(500).json({ error: message });
+      // (სრული stack-ის ლოგირება ახლა sendInternalError-შია)
+      sendInternalError(res, err, 'POST /payments/split');
     }
   }
 );
@@ -1304,7 +1305,7 @@ router.post('/payments/:id/void', authenticateToken, async (req: CustomRequest, 
     });
   } catch (err: any) {
     if (err instanceof HttpError) return res.status(err.statusCode).json(err.body);
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err, 'POST /payments/:id/void');
   }
 });
 
@@ -1704,7 +1705,7 @@ router.post(
 
       res.json({ results });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      sendInternalError(res, err, 'POST /payments/sync-offline');
     }
   }
 );
@@ -1948,7 +1949,7 @@ router.get('/payments', authenticateToken, async (req: CustomRequest, res: any) 
 
     res.json(paymentsWithItems);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err, 'GET /payments');
   }
 });
 
@@ -2059,7 +2060,7 @@ router.get(
       res.json(responseData);
     } catch (err: any) {
       if (err instanceof HttpError) return res.status(err.statusCode).json(err.body);
-      res.status(500).json({ error: err.message });
+      sendInternalError(res, err, 'GET /payments/my-history');
     }
   }
 );
@@ -2145,8 +2146,10 @@ router.get('/payments/export/excel', async (req: any, res: any) => {
     res.end();
 
   } catch (err: any) {
-    const status = err.message === 'ტოკენი არავალიდურია!' ? 403 : 500;
-    res.status(status).json({ error: err.message });
+    if (err.message === 'ტოკენი არავალიდურია!') {
+      return res.status(403).json({ error: err.message, code: ErrorCodes.TOKEN_INVALID });
+    }
+    sendInternalError(res, err, 'GET /payments/export/excel');
   }
 });
 
@@ -2284,10 +2287,11 @@ router.get('/payments/export/pdf', async (req: any, res: any) => {
     doc.end();
 
   } catch (err: any) {
-    const status = err.message === 'ტოკენი არავალიდურია!' ? 403 : 500;
-    if (!res.headersSent) {
-      res.status(status).json({ error: err.message });
+    if (err.message === 'ტოკენი არავალიდურია!') {
+      if (!res.headersSent) res.status(403).json({ error: err.message, code: ErrorCodes.TOKEN_INVALID });
+      return;
     }
+    sendInternalError(res, err, 'GET /payments/export/pdf');
   }
 });
 

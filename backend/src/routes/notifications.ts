@@ -1,4 +1,6 @@
 import { Router, Response } from 'express';
+// 🌍 Backend Error-Message i18n — 500-ები: დეტალი ლოგში, კლიენტს `INTERNAL_ERROR` კოდი.
+import { sendInternalError } from '../utils/sendInternalError';
 // 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — additive `code` ველი.
 import { ErrorCodes } from '../constants/errorCodes';
 // შემოგვაქვს მზა PostgreSQL პული ძირითადი ფაილიდან
@@ -59,7 +61,7 @@ router.get(
       );
       res.json(result.rows);
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      sendInternalError(res, err, 'GET /notifications/stock-deficits');
     }
   }
 );
@@ -96,7 +98,7 @@ router.put(
 
       res.json({ success: true });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      sendInternalError(res, err, 'PUT /notifications/stock-deficits/:id/resolve');
     }
   }
 );
@@ -140,7 +142,7 @@ router.get(
       );
       res.json(result.rows);
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      sendInternalError(res, err, 'GET /notifications/shift-amendments');
     }
   }
 );
@@ -176,7 +178,7 @@ router.put(
 
       res.json({ success: true });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      sendInternalError(res, err, 'PUT /notifications/shift-amendments/:id/resolve');
     }
   }
 );

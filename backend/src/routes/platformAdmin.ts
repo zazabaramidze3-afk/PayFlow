@@ -11,6 +11,8 @@
 // გაგრძელება და ყველა ამ action-ის audit log.
 
 import { Router, Response } from 'express';
+// 🌍 Backend Error-Message i18n — 500-ები: დეტალი ლოგში, კლიენტს `INTERNAL_ERROR` კოდი.
+import { sendInternalError } from '../utils/sendInternalError';
 import bcrypt from 'bcrypt';
 import { db } from '../index';
 import { OrganizationStatus } from '../types';
@@ -114,7 +116,7 @@ router.post('/platform-admin/login', async (req, res: Response) => {
 
     res.json({ token, admin: { id: admin.id, name: admin.name, email: admin.email } });
   } catch (err: unknown) {
-    res.status(500).json({ error: 'სერვერის შეცდომა: ' + getErrorMessage(err) });
+    sendInternalError(res, err, 'POST /platform-admin/login');
   }
 });
 
@@ -156,7 +158,7 @@ router.get('/platform-admin/organizations', authenticatePlatformAdmin, async (_r
       }))
     );
   } catch (err: unknown) {
-    res.status(500).json({ error: 'სერვერის შეცდომა: ' + getErrorMessage(err) });
+    sendInternalError(res, err, 'GET /platform-admin/organizations');
   }
 });
 
@@ -214,7 +216,7 @@ router.get('/platform-admin/organizations/:id', authenticatePlatformAdmin, async
       },
     });
   } catch (err: unknown) {
-    res.status(500).json({ error: 'სერვერის შეცდომა: ' + getErrorMessage(err) });
+    sendInternalError(res, err, 'GET /platform-admin/organizations/:id');
   }
 });
 
@@ -252,7 +254,7 @@ router.patch('/platform-admin/organizations/:id/status', authenticatePlatformAdm
 
     res.json({ id: updated.id, name: updated.name, status: updated.status });
   } catch (err: unknown) {
-    res.status(500).json({ error: 'სერვერის შეცდომა: ' + getErrorMessage(err) });
+    sendInternalError(res, err, 'PATCH /platform-admin/organizations/:id/status');
   }
 });
 
@@ -300,7 +302,7 @@ router.patch('/platform-admin/organizations/:id/trial', authenticatePlatformAdmi
 
     res.json({ id: updated.id, name: updated.name, trialEndsAt: updated.trial_ends_at });
   } catch (err: unknown) {
-    res.status(500).json({ error: 'სერვერის შეცდომა: ' + getErrorMessage(err) });
+    sendInternalError(res, err, 'PATCH /platform-admin/organizations/:id/trial');
   }
 });
 
@@ -342,7 +344,7 @@ router.get('/platform-admin/audit-logs', authenticatePlatformAdmin, async (req: 
       }))
     );
   } catch (err: unknown) {
-    res.status(500).json({ error: 'სერვერის შეცდომა: ' + getErrorMessage(err) });
+    sendInternalError(res, err, 'GET /platform-admin/audit-logs');
   }
 });
 

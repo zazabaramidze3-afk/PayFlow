@@ -1,4 +1,6 @@
 import { Router, Request, Response } from 'express';
+// 🌍 Backend Error-Message i18n — 500-ები: დეტალი ლოგში, კლიენტს `INTERNAL_ERROR` კოდი.
+import { sendInternalError } from '../utils/sendInternalError';
 // 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — additive `code` ველი.
 import { ErrorCodes } from '../constants/errorCodes';
 import crypto from 'crypto';
@@ -87,7 +89,7 @@ router.post('/registers/generate-code', async (_req: Request, res: Response) => 
       expiresInSeconds: CODE_TTL_MINUTES * 60,
     });
   } catch (err: unknown) {
-    res.status(500).json({ error: 'სერვერის შეცდომა: ' + getErrorMessage(err) });
+    sendInternalError(res, err, 'POST /registers/generate-code');
   }
 });
 
@@ -136,7 +138,7 @@ router.get('/registers/pairing-status/:code', async (req: Request, res: Response
 
     return res.json({ status: row.status });
   } catch (err: unknown) {
-    res.status(500).json({ error: 'სერვერის შეცდომა: ' + getErrorMessage(err) });
+    sendInternalError(res, err, 'GET /registers/pairing-status/:code');
   }
 });
 
@@ -247,7 +249,7 @@ router.post(
 
       res.json({ success: true, registerId: finalRegisterId, registerToken });
     } catch (err: unknown) {
-      res.status(500).json({ error: 'სერვერის შეცდომა: ' + getErrorMessage(err) });
+      sendInternalError(res, err, 'POST /registers/pair');
     }
   }
 );
@@ -275,7 +277,7 @@ router.get('/registers', authenticateToken, requireAnyRole('admin', 'manager'), 
     );
     res.json(result.rows);
   } catch (err: unknown) {
-    res.status(500).json({ error: 'სერვერის შეცდომა: ' + getErrorMessage(err) });
+    sendInternalError(res, err, 'GET /registers');
   }
 });
 

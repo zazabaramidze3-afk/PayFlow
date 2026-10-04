@@ -1,4 +1,6 @@
 import { Router, Response, NextFunction } from 'express';
+// 🌍 Backend Error-Message i18n — 500-ები: დეტალი ლოგში, კლიენტს `INTERNAL_ERROR` კოდი.
+import { sendInternalError } from '../utils/sendInternalError';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import path from 'path';
@@ -66,7 +68,7 @@ router.get('/products', authenticateToken, async (req: CustomRequest, res: Respo
     const result = await withOrgContext(req.user?.organizationId, (client) => client.query(query, params));
     res.json(result.rows);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err, 'GET /products');
   }
 });
 
@@ -96,7 +98,7 @@ router.get('/products/barcode/:barcode', authenticateToken, async (req: CustomRe
 
     res.json({ exists: true, product: result.rows[0] });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err, 'GET /products/barcode/:barcode');
   }
 });
 
@@ -156,7 +158,7 @@ router.post('/products', authenticateToken, async (req: CustomRequest, res: Resp
     if (err.code === '23505') {
       return res.status(409).json({ error: 'ეს სახელი ან ბარკოდი უკვე დაკავებულია!', code: ErrorCodes.PRODUCT_DUPLICATE_BARCODE });
     }
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err, 'POST /products');
   }
 });
 
@@ -254,7 +256,7 @@ router.put('/products/:id', authenticateToken, async (req: CustomRequest, res: R
     if (err.code === '23505') {
       return res.status(409).json({ error: 'ეს სახელი ან ბარკოდი უკვე დაკავებულია!', code: ErrorCodes.PRODUCT_DUPLICATE_BARCODE });
     }
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err, 'PUT /products/:id');
   }
 });
 
@@ -289,7 +291,7 @@ router.patch('/products/:id/restock', authenticateToken, async (req: CustomReque
 
     res.json({ success: true, product: result.rows[0] });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err, 'PATCH /products/:id/restock');
   }
 });
 
@@ -316,7 +318,7 @@ router.delete('/products/:id', authenticateToken, async (req: CustomRequest, res
 
     res.json({ success: true, message: 'პროდუქტი წაშლილია' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err, 'DELETE /products/:id');
   }
 });
 
@@ -450,8 +452,7 @@ router.post(
         }
       });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'უცნობი სერვერის შეცდომა';
-      return res.status(500).json({ error: message });
+      return sendInternalError(res, err, 'POST /products/import');
     }
 
     skipped.sort((a, b) => a.rowNumber - b.rowNumber);
@@ -508,7 +509,7 @@ router.get('/products/export/excel', authenticateToken, async (req: CustomReques
     await workbook.xlsx.write(res);
     res.end();
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err, 'GET /products/export/excel');
   }
 });
 
@@ -593,7 +594,7 @@ router.get('/products/export/pdf', authenticateToken, async (req: CustomRequest,
     doc.end();
   } catch (err: any) {
     if (!res.headersSent) {
-      res.status(500).json({ error: err.message });
+      sendInternalError(res, err, 'GET /products/export/pdf');
     }
   }
 });

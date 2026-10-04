@@ -6,6 +6,8 @@
 // (და, migration 019-ის default-ის გამო, არც row-ები).
 
 import { Router, Response } from 'express';
+// 🌍 Backend Error-Message i18n — 500-ები: დეტალი ლოგში, კლიენტს `INTERNAL_ERROR` კოდი.
+import { sendInternalError } from '../utils/sendInternalError';
 // 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — additive `code` ველი.
 import { ErrorCodes } from '../constants/errorCodes';
 import { authenticateToken, CustomRequest } from './auth';
@@ -47,7 +49,7 @@ router.get(
       );
       res.json(result.rows);
     } catch (err: unknown) {
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'GET /tables');
     }
   }
 );
@@ -89,7 +91,7 @@ router.post(
       );
       res.status(201).json(result.rows[0]);
     } catch (err: unknown) {
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'POST /tables');
     }
   }
 );
@@ -136,7 +138,7 @@ router.put(
 
       res.json(result.rows[0]);
     } catch (err: unknown) {
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'PUT /tables/:id');
     }
   }
 );
@@ -173,7 +175,7 @@ router.patch(
 
       res.json(result.rows[0]);
     } catch (err: unknown) {
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'PATCH /tables/:id/status');
     }
   }
 );
@@ -209,7 +211,7 @@ router.delete(
       if (message.includes('foreign key') || message.includes('violates')) {
         return res.status(409).json({ error: 'ამ მაგიდას აქვს დაკავშირებული შეკვეთების ისტორია — წაშლა შეუძლებელია', code: ErrorCodes.TABLE_HAS_ORDER_HISTORY });
       }
-      res.status(500).json({ error: message });
+      sendInternalError(res, err, 'DELETE /tables/:id');
     }
   }
 );

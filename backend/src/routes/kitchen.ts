@@ -14,6 +14,8 @@
 // შეკვეთის item-ების kitchen_status-ს.
 
 import { Router, Response } from 'express';
+// 🌍 Backend Error-Message i18n — 500-ები: დეტალი ლოგში, კლიენტს `INTERNAL_ERROR` კოდი.
+import { sendInternalError } from '../utils/sendInternalError';
 // 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — additive `code` ველი.
 import { ErrorCodes } from '../constants/errorCodes';
 import { authenticateToken } from './auth';
@@ -108,7 +110,7 @@ router.get(
 
       res.json(tickets);
     } catch (err: unknown) {
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'GET /kitchen/tickets');
     }
   }
 );
@@ -175,7 +177,7 @@ router.patch(
             return res.status(400).json({ error: 'ამ სტატუსზე გადასვლა ამ მომენტში დაუშვებელია', code: ErrorCodes.KITCHEN_STATUS_TRANSITION_INVALID });
         }
       }
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'PATCH /kitchen/tickets/:orderItemId/status');
     }
   }
 );

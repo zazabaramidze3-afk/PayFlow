@@ -931,6 +931,10 @@
     "PRODUCT_NAME_PRICE_REQUIRED": "Name and a valid price are required",
     "PRODUCT_STOCK_NEGATIVE": "Stock cannot be negative",
     "PRODUCT_STATION_INVALID": "Station must be 'kitchen', 'bar' or empty",
-    "PRODUCT_DELETE_ADMIN_ONLY": "Only an administrator can delete products"
+    "PRODUCT_DELETE_ADMIN_ONLY": "Only an administrator can delete products",
+    "INTERNAL_ERROR": "Server error — please try again",
+    "TABLE_NOT_FREE_OCCUPIED": "The table is occupied — set its status to \"Free\" before opening a new order",
+    "TABLE_NOT_FREE_RESERVED": "The table is reserved — set its status to \"Free\" before opening a new order",
+    "TABLE_NOT_FREE_DIRTY": "The table needs cleaning — set its status to \"Free\" before opening a new order"
   }
 }

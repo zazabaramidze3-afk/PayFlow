@@ -1,4 +1,6 @@
 import { Router, Response } from 'express';
+// 🌍 Backend Error-Message i18n — 500-ები: დეტალი ლოგში, კლიენტს `INTERNAL_ERROR` კოდი.
+import { sendInternalError } from '../utils/sendInternalError';
 // 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — additive `code` ველი.
 import { ErrorCodes } from '../constants/errorCodes';
 // შემოგვაქვს მზა PostgreSQL პული ძირითადი ფაილიდან
@@ -116,7 +118,7 @@ router.get('/audit-logs/export', authenticateToken, async (req: CustomRequest, r
     res.setHeader('Content-Disposition', 'attachment; filename=audit-logs-export.csv');
     res.send(csvContent);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    sendInternalError(res, err, 'GET /audit-logs/export');
   }
 });
 

@@ -1,4 +1,5 @@
 import { Response, NextFunction } from 'express';
+import { sendInternalError } from '../utils/sendInternalError';
 // 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — additive `code` ველი.
 import { ErrorCodes } from '../constants/errorCodes';
 import { CustomRequest } from '../routes/auth';
@@ -41,8 +42,7 @@ export function requireBusinessType(...allowed: BusinessType[]) {
 
       next();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'უცნობი შეცდომა';
-      res.status(500).json({ error: message });
+      sendInternalError(res, err, 'requireBusinessType middleware');
     }
   };
 }

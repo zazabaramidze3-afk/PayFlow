@@ -11,6 +11,8 @@
 // მხოლოდ management/CRUD-ია, არა checkout-ის ლოგიკა.
 
 import { Router, Response } from 'express';
+// 🌍 Backend Error-Message i18n — 500-ები: დეტალი ლოგში, კლიენტს `INTERNAL_ERROR` კოდი.
+import { sendInternalError } from '../utils/sendInternalError';
 import { authenticateToken } from './auth';
 import { CustomRequest } from './checkShift';
 import { requireAnyRole } from '../middleware/requireRole';
@@ -74,7 +76,7 @@ router.get(
       );
       res.json(result.rows);
     } catch (err: unknown) {
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'GET /ingredients');
     }
   }
 );
@@ -106,7 +108,7 @@ router.post(
       if (isUniqueViolation(err)) {
         return res.status(409).json({ error: 'ამ სახელით ინგრედიენტი უკვე არსებობს', code: ErrorCodes.INGREDIENT_DUPLICATE_NAME });
       }
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'POST /ingredients');
     }
   }
 );
@@ -141,7 +143,7 @@ router.put(
       if (isUniqueViolation(err)) {
         return res.status(409).json({ error: 'ამ სახელით ინგრედიენტი უკვე არსებობს', code: ErrorCodes.INGREDIENT_DUPLICATE_NAME });
       }
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'PUT /ingredients/:id');
     }
   }
 );
@@ -173,7 +175,7 @@ router.patch(
       }
       res.json({ success: true, ingredient: result.rows[0] });
     } catch (err: unknown) {
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'PATCH /ingredients/:id/restock');
     }
   }
 );
@@ -202,7 +204,7 @@ router.delete(
       if (isForeignKeyViolation(err)) {
         return res.status(409).json({ error: 'ეს ინგრედიენტი უკვე გამოყენებულია რომელიმე რეცეპტში — წაშლა შეუძლებელია', code: ErrorCodes.INGREDIENT_IN_USE });
       }
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'DELETE /ingredients/:id');
     }
   }
 );
@@ -248,7 +250,7 @@ router.get(
       if (err instanceof Error && err.message === 'PRODUCT_NOT_FOUND') {
         return res.status(404).json({ error: 'პროდუქტი ვერ მოიძებნა', code: ErrorCodes.PRODUCT_NOT_FOUND });
       }
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'GET /products/:productId/recipe');
     }
   }
 );
@@ -335,7 +337,7 @@ router.put(
       if (err instanceof Error && err.message === 'INVALID_INGREDIENT') {
         return res.status(400).json({ error: 'ერთ-ერთი ინგრედიენტი არავალიდურია', code: ErrorCodes.RECIPE_INGREDIENT_INVALID });
       }
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'PUT /products/:productId/recipe');
     }
   }
 );

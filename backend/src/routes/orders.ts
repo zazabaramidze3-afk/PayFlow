@@ -7,6 +7,8 @@
 // არასავალდებულო `orderId`-ის გადაცემით (იხ. იქაური კომენტარი).
 
 import { Router, Response } from 'express';
+// 🌍 Backend Error-Message i18n — 500-ები: დეტალი ლოგში, კლიენტს `INTERNAL_ERROR` კოდი.
+import { sendInternalError } from '../utils/sendInternalError';
 // 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — additive `code` ველი.
 import { ErrorCodes } from '../constants/errorCodes';
 import { authenticateToken, writeAuditLog } from './auth';
@@ -83,7 +85,7 @@ router.post(
             [tableIdValue, req.user?.organizationId]
           );
           if (tableCheck.rows.length === 0) {
-            throw new Error('მაგიდა ვერ მოიძებნა');
+            throw new Error('TABLE_NOT_FOUND');
           }
           // 🩹 FIX (04.09.2026) — აქამდე მაგიდის სტატუსი საერთოდ არ
           // მოწმდებოდა: "occupied" ბუნებრივად იბლოკებოდა მხოლოდ
@@ -93,13 +95,8 @@ router.post(
           // დასალაგებელი მაგიდა ჯერ ხელით უნდა მოინიშნოს "თავისუფლად"
           // (დალაგების შემდეგ), დაჯავშნილიც კი მოსვლისას.
           if (tableCheck.rows[0].status !== 'free') {
-            const statusLabels: Record<string, string> = {
-              occupied: 'დაკავებული',
-              reserved: 'დაჯავშნილი',
-              dirty: 'დასალაგებელი',
-            };
-            const label = statusLabels[tableCheck.rows[0].status] ?? tableCheck.rows[0].status;
-            throw new Error(`მაგიდა "${label}"-ია — ახალი შეკვეთის გახსნამდე დააყენეთ სტატუსი "თავისუფალი"`);
+            // STEP 2 — ტექსტი/ლეიბლი ახლა catch-ში აიგება (კოდითა და ქართული `error`-ით).
+            throw new Error(`TABLE_NOT_FREE:${tableCheck.rows[0].status}`);
           }
         }
 
@@ -122,7 +119,25 @@ router.post(
       if (isUniqueViolation(err)) {
         return res.status(409).json({ error: 'ამ მაგიდაზე უკვე არსებობს ღია შეკვეთა', code: ErrorCodes.ORDER_TABLE_HAS_OPEN_ORDER });
       }
-      res.status(400).json({ error: getErrorMessage(err) });
+      // 🌍 STEP 2 — მაგიდის ვალიდაციის ორი განზრახული შეტყობინება (იგივე ქართული ტექსტი + კოდი).
+      if (err instanceof Error && err.message === 'TABLE_NOT_FOUND') {
+        return res.status(400).json({ error: 'მაგიდა ვერ მოიძებნა', code: ErrorCodes.TABLE_NOT_FOUND });
+      }
+      if (err instanceof Error && err.message.startsWith('TABLE_NOT_FREE:')) {
+        const tableStatus = err.message.slice('TABLE_NOT_FREE:'.length);
+        const statusLabels: Record<string, string> = { occupied: 'დაკავებული', reserved: 'დაჯავშნილი', dirty: 'დასალაგებელი' };
+        const codesByStatus: Record<string, string> = {
+          occupied: ErrorCodes.TABLE_NOT_FREE_OCCUPIED,
+          reserved: ErrorCodes.TABLE_NOT_FREE_RESERVED,
+          dirty: ErrorCodes.TABLE_NOT_FREE_DIRTY,
+        };
+        const label = statusLabels[tableStatus] ?? tableStatus;
+        return res.status(400).json({
+          error: `მაგიდა "${label}"-ია — ახალი შეკვეთის გახსნამდე დააყენეთ სტატუსი "თავისუფალი"`,
+          code: codesByStatus[tableStatus] ?? ErrorCodes.INVALID_REQUEST,
+        });
+      }
+      sendInternalError(res, err, 'POST /orders');
     }
   }
 );
@@ -161,7 +176,7 @@ router.get(
       );
       res.json(result.rows);
     } catch (err: unknown) {
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'GET /orders');
     }
   }
 );
@@ -227,7 +242,7 @@ router.get(
       if (err instanceof Error && err.message === 'NOT_FOUND') {
         return res.status(404).json({ error: 'შეკვეთა ვერ მოიძებნა', code: ErrorCodes.ORDER_NOT_FOUND });
       }
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'GET /orders/:id');
     }
   }
 );
@@ -487,7 +502,7 @@ router.post(
           params: { name: ingredientName },
         });
       }
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'POST /orders/:id/items');
     }
   }
 );
@@ -683,7 +698,7 @@ router.patch(
             return res.status(400).json({ error: 'courseNumber არავალიდურია', code: ErrorCodes.INVALID_REQUEST });
         }
       }
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'PATCH /orders/items/:id');
     }
   }
 );
@@ -735,7 +750,7 @@ router.post(
       if (err instanceof Error && err.message === 'NOT_FOUND_OR_CLOSED') {
         return res.status(404).json({ error: 'ღია შეკვეთა ვერ მოიძებნა', code: ErrorCodes.ORDER_NOT_FOUND });
       }
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'POST /orders/:id/void');
     }
   }
 );

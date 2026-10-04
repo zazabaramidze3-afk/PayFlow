@@ -10,6 +10,8 @@
 // და მის პირველ (admin როლის) user-საც ერთად.
 
 import { Router, Request, Response } from 'express';
+// 🌍 Backend Error-Message i18n — 500-ები: დეტალი ლოგში, კლიენტს `INTERNAL_ERROR` კოდი.
+import { sendInternalError } from '../utils/sendInternalError';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { db } from '../index';
@@ -206,7 +208,7 @@ router.post('/organizations/register', async (req: Request, res: Response) => {
       return res.status(409).json({ error: 'ეს მონაცემი უკვე დაკავებულია!', code: ErrorCodes.ORG_DATA_TAKEN });
     }
 
-    res.status(500).json({ error: 'სერვერის შეცდომა: ' + getErrorMessage(err) });
+    sendInternalError(res, err, 'POST /organizations/register');
   } finally {
     client.release();
   }
@@ -250,7 +252,7 @@ router.get('/organizations/resolve/:slug', async (req: Request, res: Response) =
     }
     res.json(result.rows[0]);
   } catch (err: unknown) {
-    res.status(500).json({ error: 'სერვერის შეცდომა: ' + getErrorMessage(err) });
+    sendInternalError(res, err, 'GET /organizations/resolve/:slug');
   }
 });
 
@@ -287,7 +289,7 @@ router.get('/organizations/me', authenticateToken, async (req: CustomRequest, re
 
     res.json({ businessType: orgRow.business_type, tipDistributionMode: orgRow.tip_distribution_mode });
   } catch (err: unknown) {
-    res.status(500).json({ error: getErrorMessage(err) });
+    sendInternalError(res, err, 'GET /organizations/me');
   }
 });
 
@@ -341,7 +343,7 @@ router.patch(
 
       res.json({ success: true, tipDistributionMode: updated.tip_distribution_mode });
     } catch (err: unknown) {
-      res.status(500).json({ error: getErrorMessage(err) });
+      sendInternalError(res, err, 'PATCH /organizations/me');
     }
   }
 );

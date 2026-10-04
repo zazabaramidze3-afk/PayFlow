@@ -1,4 +1,5 @@
 import { Response, NextFunction, Request } from 'express';
+import { sendInternalError } from '../utils/sendInternalError';
 // 🌍 Backend Error-Message i18n STEP 2 (Roadmap "10.09.2026") — additive `code` ველი.
 import { ErrorCodes } from '../constants/errorCodes';
 import jwt, { JwtPayload } from 'jsonwebtoken';
@@ -127,6 +128,6 @@ export async function requireRegister(req: RegisterAwareRequest & CustomRequest,
     req.registerId = registerId;
     next();
   } catch (err: any) {
-    return res.status(500).json({ error: err.message });
+    return sendInternalError(res, err, 'requireRegister middleware');
   }
 }

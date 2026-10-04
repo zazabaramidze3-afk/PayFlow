@@ -1,4 +1,6 @@
 import { Router, Response } from 'express';
+// 🌍 Backend Error-Message i18n — 500-ები: დეტალი ლოგში, კლიენტს `INTERNAL_ERROR` კოდი.
+import { sendInternalError } from '../utils/sendInternalError';
 // შემოგვაქვს მზა PostgreSQL პული ძირითადი ფაილიდან
 import { db } from '../index';
 // 🔒 Roadmap STEP 2.2 (RLS Full Rollout, "28.08.2026") — dashboard.ts, ბლოკი 3.
@@ -250,7 +252,7 @@ router.get(
         })),
       });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      sendInternalError(res, err, 'GET /dashboard/stats');
     }
   }
 );
