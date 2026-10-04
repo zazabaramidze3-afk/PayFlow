@@ -16,7 +16,8 @@ import styles from './LandingPage.module.scss';
 // ყველა ანიმაცია წმინდა CSS-ია და `prefers-reduced-motion`-ს პატივს სცემს.
 
 const REGISTER_URL = '/?register=1';
-const SIGN_IN_URL = '/';
+// `?login=1` — index.tsx-ს ეუბნება, რომ landing აღარ აჩვენოს და აპი (Login) ჩატვირთოს.
+const SIGN_IN_URL = '/?login=1';
 
 // ხატულები — პატარა inline SVG-ები (დამატებითი დამოკიდებულების გარეშე).
 function IconOffline() {
@@ -56,7 +57,7 @@ export default function LandingPage() {
     <div className={styles.page}>
       <header className={styles.hero}>
         <nav className={styles.nav}>
-          <a href="/landing" className={styles.brand}>
+          <a href="/" className={styles.brand}>
             <span className={styles.brandDot} />
             PayFlow
           </a>

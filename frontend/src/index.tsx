@@ -42,8 +42,35 @@ void requestPersistentStorage();
 // მხოლოდ ის module, რომელიც მიმდინარე pathname-ს რეალურად სჭირდება.
 const isPlatformAdminRoute = window.location.pathname.startsWith('/admin');
 
-// 🌐 /landing — საჯარო landing გვერდი; App.tsx აქაც არ იტვირთება (იგივე მიზეზით, რაც /admin-ზე).
-const isLandingRoute = window.location.pathname === '/landing' || window.location.pathname.startsWith('/landing/');
+// 🌐 საჯარო landing გვერდი; App.tsx აქაც არ იტვირთება (იგივე მიზეზით, რაც /admin-ზე).
+// გამოჩნდება:
+//  1) პირდაპირ /landing-ზე;
+//  2) მთავარ მისამართზე (/) — მხოლოდ მაშინ, როცა მომხმარებელი ჯერ არ არის
+//     ავტორიზებული (localStorage-ში 'token' არ არის) და ჯერ არ აურჩევია შესვლა/
+//     რეგისტრაცია (?login=1 / ?register=1 — landing-ის ღილაკები სწორედ ამ
+//     პარამეტრებით აგზავნის აპში).
+// არ გამოჩნდება: დაინსტალირებულ PWA-ში (standalone) — ფიზიკურ POS-ტერმინალებზე
+// მოლარეს ლოგინამდე ზედმეტი ეკრანი არ უნდა დახვდეს.
+function shouldShowLandingAtRoot(): boolean {
+  if (window.location.pathname !== '/') return false;
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('login') || params.has('register')) return false;
+  try {
+    if (localStorage.getItem('token')) return false;
+  } catch {
+    // 🛟 localStorage მიუწვდომელია — არ ვარისკებთ, აპს ვტვირთავთ (Login მაინც იმუშავებს).
+    return false;
+  }
+  const isStandalonePwa =
+    window.matchMedia?.('(display-mode: standalone)').matches === true ||
+    (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+  return !isStandalonePwa;
+}
+
+const isLandingRoute =
+  window.location.pathname === '/landing' ||
+  window.location.pathname.startsWith('/landing/') ||
+  shouldShowLandingAtRoot();
 
 const RootApp = isPlatformAdminRoute
   ? React.lazy(() => import('./admin/PlatformAdminApp'))
