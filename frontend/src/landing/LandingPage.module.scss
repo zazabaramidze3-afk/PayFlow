@@ -455,7 +455,7 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
     box-shadow: 0 22px 46px rgba(12, 27, 51, 0.18);
   }
 
-  // ✨ მოძრავი ("კომეტისებრი") ხაზი ბარათის ირგვლივ, ჰოვერზე — Login ბარათის იგივე
+  // ✨ მოძრავი ("კომეტისებრი") ხაზი ბარათის ირგვლივ, ყოველთვის (infinite) — Login ბარათის იგივე
   // ეფექტი (conic-gradient + mask 2px ბეჭედი + @keyframes --angle).
   &::before {
     content: '';
@@ -478,15 +478,7 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
       linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
-    opacity: 0;
-    transition: opacity 0.28s ease;
     animation: featureSweep 3.2s linear infinite;
-    animation-play-state: paused;
-  }
-
-  &:hover::before {
-    opacity: 1;
-    animation-play-state: running;
   }
 
   h3 {
@@ -653,9 +645,11 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 // მომხმარებლებისთვის, ვისაც ანიმაცია არ უნდა — ბოლო მდგომარეობა
 // დაუყოვნებლივ ჩანს (spinner-ის ნაცვლად პირდაპირ "Paid ✓").
 @media (prefers-reduced-motion: reduce) {
-  .feature,
   .feature::before {
-    animation: none !important;
+    display: none;
+  }
+
+  .feature {
     transition: none !important;
   }
 
