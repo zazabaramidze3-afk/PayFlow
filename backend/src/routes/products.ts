@@ -79,7 +79,7 @@ router.get('/products', authenticateToken, async (req: CustomRequest, res: Respo
 // org A-ს მოლარეს org B-ს იმავე ბარკოდიანი პროდუქტიც შეეძლო აღმოეჩინა.
 router.get('/products/barcode/:barcode', authenticateToken, async (req: CustomRequest, res: Response) => {
   if (req.user?.role === 'cashier') {
-    return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
+    return res.status(403).json({ error: 'წვდომა შეზღუდულია!', code: ErrorCodes.ACCESS_RESTRICTED });
   }
 
   try {
@@ -91,7 +91,7 @@ router.get('/products/barcode/:barcode', authenticateToken, async (req: CustomRe
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ exists: false, error: 'პროდუქტი ამ ბარკოდით ვერ მოიძებნა' });
+      return res.status(404).json({ exists: false, error: 'პროდუქტი ამ ბარკოდით ვერ მოიძებნა', code: ErrorCodes.PRODUCT_BARCODE_NOT_FOUND });
     }
 
     res.json({ exists: true, product: result.rows[0] });
@@ -103,13 +103,13 @@ router.get('/products/barcode/:barcode', authenticateToken, async (req: CustomRe
 // ➕ ახალი პროდუქტის დამატება
 router.post('/products', authenticateToken, async (req: CustomRequest, res: Response) => {
   if (req.user?.role === 'cashier') {
-    return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
+    return res.status(403).json({ error: 'წვდომა შეზღუდულია!', code: ErrorCodes.ACCESS_RESTRICTED });
   }
 
   const { name, price, stock, barcode, station } = req.body;
 
   if (!name || price === undefined || price < 0) {
-    return res.status(400).json({ error: 'სახელი და ვალიდური ფასი სავალდებულოა' });
+    return res.status(400).json({ error: 'სახელი და ვალიდური ფასი სავალდებულოა', code: ErrorCodes.PRODUCT_NAME_PRICE_REQUIRED });
   }
 
   // 📴 Roadmap STEP 5 (migration 011) — chk_stock_positive DB-constraint
@@ -118,12 +118,12 @@ router.post('/products', authenticateToken, async (req: CustomRequest, res: Resp
   // oversell-ის რეალური ასახვისთვის). ხელით პროდუქტის დამატებას კი ეს
   // "დაცვის ხვრელი" არ უნდა ეხებოდეს — აქ ცალსახად ვამოწმებთ.
   if (stock !== undefined && stock !== null && Number(stock) < 0) {
-    return res.status(400).json({ error: 'მარაგი უარყოფითი ვერ იქნება' });
+    return res.status(400).json({ error: 'მარაგი უარყოფითი ვერ იქნება', code: ErrorCodes.PRODUCT_STOCK_NEGATIVE });
   }
 
   const stationValue: StationValue = station || null;
   if (stationValue !== null && !VALID_STATIONS.includes(stationValue)) {
-    return res.status(400).json({ error: "station უნდა იყოს 'kitchen', 'bar' ან ცარიელი" });
+    return res.status(400).json({ error: "station უნდა იყოს 'kitchen', 'bar' ან ცარიელი", code: ErrorCodes.PRODUCT_STATION_INVALID });
   }
 
   try {
@@ -163,7 +163,7 @@ router.post('/products', authenticateToken, async (req: CustomRequest, res: Resp
 // ✏️ პროდუქტის რედაქტირება
 router.put('/products/:id', authenticateToken, async (req: CustomRequest, res: Response) => {
   if (req.user?.role === 'cashier') {
-    return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
+    return res.status(403).json({ error: 'წვდომა შეზღუდულია!', code: ErrorCodes.ACCESS_RESTRICTED });
   }
 
   const { name, price, stock, barcode, station } = req.body;
@@ -173,7 +173,7 @@ router.put('/products/:id', authenticateToken, async (req: CustomRequest, res: R
   // მნიშვნელობაზე ჩასმა კვლავ არ უნდა შეეძლოს, მხოლოდ Background
   // Sync-ის ავტომატურ oversell-სცენარს.
   if (stock !== undefined && stock !== null && Number(stock) < 0) {
-    return res.status(400).json({ error: 'მარაგი უარყოფითი ვერ იქნება' });
+    return res.status(400).json({ error: 'მარაგი უარყოფითი ვერ იქნება', code: ErrorCodes.PRODUCT_STOCK_NEGATIVE });
   }
 
   // 🍳 KDS routing (STEP 2) — station ცალკე ეპყრობა name/price/stock/
@@ -191,7 +191,7 @@ router.put('/products/:id', authenticateToken, async (req: CustomRequest, res: R
   if (station !== undefined) {
     stationValue = station || null;
     if (stationValue !== null && stationValue !== undefined && !VALID_STATIONS.includes(stationValue)) {
-      return res.status(400).json({ error: "station უნდა იყოს 'kitchen', 'bar' ან ცარიელი" });
+      return res.status(400).json({ error: "station უნდა იყოს 'kitchen', 'bar' ან ცარიელი", code: ErrorCodes.PRODUCT_STATION_INVALID });
     }
   }
 
@@ -246,7 +246,7 @@ router.put('/products/:id', authenticateToken, async (req: CustomRequest, res: R
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'პროდუქტი ვერ მოიძებნა' });
+      return res.status(404).json({ error: 'პროდუქტი ვერ მოიძებნა', code: ErrorCodes.PRODUCT_NOT_FOUND });
     }
 
     res.json(result.rows[0]);
@@ -262,14 +262,14 @@ router.put('/products/:id', authenticateToken, async (req: CustomRequest, res: R
 // ⚠️ FIX: Products.tsx აგზავნის { quantityToAdd }, არა { quantity }.
 router.patch('/products/:id/restock', authenticateToken, async (req: CustomRequest, res: Response) => {
   if (req.user?.role === 'cashier') {
-    return res.status(403).json({ error: 'წვდომა შეზღუდულია!' });
+    return res.status(403).json({ error: 'წვდომა შეზღუდულია!', code: ErrorCodes.ACCESS_RESTRICTED });
   }
 
   const { quantityToAdd } = req.body;
   const qty = Number(quantityToAdd);
 
   if (!qty || qty <= 0) {
-    return res.status(400).json({ error: 'რაოდენობა უნდა იყოს დადებითი რიცხვი' });
+    return res.status(400).json({ error: 'რაოდენობა უნდა იყოს დადებითი რიცხვი', code: ErrorCodes.QUANTITY_MUST_BE_POSITIVE });
   }
 
   try {
@@ -284,7 +284,7 @@ router.patch('/products/:id/restock', authenticateToken, async (req: CustomReque
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'პროდუქტი ვერ მოიძებნა' });
+      return res.status(404).json({ error: 'პროდუქტი ვერ მოიძებნა', code: ErrorCodes.PRODUCT_NOT_FOUND });
     }
 
     res.json({ success: true, product: result.rows[0] });
@@ -296,7 +296,7 @@ router.patch('/products/:id/restock', authenticateToken, async (req: CustomReque
 // 🗑️ პროდუქტის წაშლა
 router.delete('/products/:id', authenticateToken, async (req: CustomRequest, res: Response) => {
   if (req.user?.role !== 'admin') {
-    return res.status(403).json({ error: 'მხოლოდ ადმინისტრატორს შეუძლია პროდუქტის წაშლა!' });
+    return res.status(403).json({ error: 'მხოლოდ ადმინისტრატორს შეუძლია პროდუქტის წაშლა!', code: ErrorCodes.PRODUCT_DELETE_ADMIN_ONLY });
   }
 
   try {
@@ -311,7 +311,7 @@ router.delete('/products/:id', authenticateToken, async (req: CustomRequest, res
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'პროდუქტი ვერ მოიძებნა' });
+      return res.status(404).json({ error: 'პროდუქტი ვერ მოიძებნა', code: ErrorCodes.PRODUCT_NOT_FOUND });
     }
 
     res.json({ success: true, message: 'პროდუქტი წაშლილია' });
