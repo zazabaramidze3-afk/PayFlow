@@ -812,6 +812,17 @@
       "saved": "Setting saved"
     }
   },
+  "registerGuard": {
+    "title": "Register pairing required",
+    "subtitle": "This device is not connected to any register yet. Give the code below to a manager or administrator — they must confirm it from the Users Control panel.",
+    "generating": "Generating code...",
+    "retry": "Try again",
+    "codeAria": "Activation code",
+    "waiting": "Waiting for confirmation...",
+    "errors": {
+      "generateFailed": "Could not generate a code — check your internet connection and try again"
+    }
+  },
   "errors": {
     "PRODUCT_DUPLICATE_NAME": "A product with this name already exists!",
     "PRODUCT_DUPLICATE_BARCODE": "This name or barcode is already taken!",

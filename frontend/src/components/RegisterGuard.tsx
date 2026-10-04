@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback, ReactNode } from 'react';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 import styles from './RegisterGuard.module.scss';
+// 🌍 i18n — backend-ის error code (PAIRING_CODE_GENERATION_FAILED და ა.შ.) → თარგმნილი ტექსტი.
+import { resolveErrorMessage } from '../lib/errorMessages';
 
 // ==========================================
 // 🖥️ RegisterGuard — Roadmap STEP 2.3 (Frontend Register Guard)
@@ -78,6 +81,7 @@ interface RegisterGuardProps {
 }
 
 export default function RegisterGuard({ children }: RegisterGuardProps) {
+  const { t } = useTranslation();
   const [isPaired, setIsPaired] = useState<boolean>(() => hasStoredPairing());
   const [code, setCode] = useState<string | null>(null);
   const [loadingCode, setLoadingCode] = useState(false);
@@ -131,12 +135,10 @@ export default function RegisterGuard({ children }: RegisterGuardProps) {
           // ვცვლით, უბრალოდ შემდეგ ინტერვალზე ისევ ვცდით.
         }
       }, POLL_INTERVAL_MS);
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (!isMountedRef.current) return;
       setLoadingCode(false);
-      setErrorMsg(
-        err.response?.data?.error || 'კოდის გენერირება ვერ მოხერხდა — შეამოწმეთ ინტერნეტ კავშირი და სცადეთ ხელახლა'
-      );
+      setErrorMsg(resolveErrorMessage(err, 'registerGuard.errors.generateFailed'));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stopPolling]);
@@ -183,32 +185,28 @@ export default function RegisterGuard({ children }: RegisterGuardProps) {
           <span className={styles.brandTitle}>PayFlow</span>
         </div>
 
-        <h1 className={styles.title}>სალაროს დაწყვილება საჭიროა</h1>
-        <p className={styles.subtitle}>
-          ეს მოწყობილობა ჯერ არ არის დაკავშირებული არცერთ სალაროსთან. გადასცით ქვემოთ
-          მოცემული კოდი მენეჯერს ან ადმინისტრატორს — მან უნდა დაადასტუროს ის Users
-          Control პანელიდან.
-        </p>
+        <h1 className={styles.title}>{t('registerGuard.title')}</h1>
+        <p className={styles.subtitle}>{t('registerGuard.subtitle')}</p>
 
-        {loadingCode && <div className={styles.loadingText}>კოდის გენერირება...</div>}
+        {loadingCode && <div className={styles.loadingText}>{t('registerGuard.generating')}</div>}
 
         {errorMsg && (
           <div className={styles.errorBox}>
             <span>{errorMsg}</span>
             <button type="button" className={styles.retryBtn} onClick={generateCode}>
-              ხელახლა სცადეთ
+              {t('registerGuard.retry')}
             </button>
           </div>
         )}
 
         {code && !loadingCode && !errorMsg && (
           <>
-            <div className={styles.code} aria-label="აქტივაციის კოდი">
+            <div className={styles.code} aria-label={t('registerGuard.codeAria')}>
               {code}
             </div>
             <div className={styles.waitingRow}>
               <span className={styles.spinner} />
-              ველოდებით დადასტურებას...
+              {t('registerGuard.waiting')}
             </div>
           </>
         )}
