@@ -1,6 +1,6 @@
 # Multi-Language (i18n) — Roadmap
 
-**სტატუსი:** 🟢 გვერდების page-by-page rollout დასრულებულია (11 გვერდი) და Backend error-message i18n (error-codes არქიტექტურა) გავრცელებულია ძირითად route-ებზე/გვერდებზე (STEP 1 pilot + STEP 2 — იხ. სექციები 13-14). დარჩენილი მცირე ღია საკითხები — იხ. "⏳ ცალკე ფენა".
+**სტატუსი:** 🟢 **i18n დასრულებულია.** გვერდების rollout (11 გვერდი) + Backend error-message i18n (error-codes არქიტექტურა: STEP 1 pilot, STEP 2, გენერიკული 500-ები) + RegisterGuard + Products import-ის მიზეზები + `App.tsx` interceptor კოდებზე — ყველაფერი production-ზეა (იხ. სექციები 13-15). განზრახ დარჩენილი: Platform Admin (იხ. "⏳ ცალკე ფენა").
 **თარიღი:** 04.10.2026 (განახლდა)
 **წყარო:** react-i18next-ზე გადასვლის ეტაპობრივი (page-by-page) rollout, დაწყებული Cowork session-ში.
 
@@ -155,6 +155,15 @@
 
 ---
 
+### 15. i18n-ის ბოლო ნაწილები (04.10.2026)
+**Commit-ები:** `31ed4f0` (RegisterGuard), `f8d77dd` (interceptor), `6bdc471` + `382bde7` (import-ის მიზეზები). ყველა ცალკე ლოკალურ ბრენჩზე გაკეთდა, ბრაუზერში დადასტურდა და `main`-ში შევიდა.
+
+- **RegisterGuard.tsx** (სალაროს დაწყვილების ეკრანი): ახალი `registerGuard.*` namespace (ka/en) — სათაური, ახსნა, "კოდის გენერირება…", "ხელახლა სცადეთ", aria-label, "ველოდებით დადასტურებას…" და შეცდომის fallback; generate-code-ის შეცდომა გადის გაზიარებულ `resolveErrorMessage`-ზე (`PAIRING_CODE_GENERATION_FAILED`). გატესტილია ინგლისურად (localStorage-ის გასაღებების წაშლით).
+- **`App.tsx`-ის response interceptor:** ტოკენის/სალაროს ვადაგასვლას ახლა ჯერ error code ამოიცნობს (`TOKEN_INVALID`, `REGISTER_TOKEN_INVALID`, `REGISTER_WRONG_ORG`, `REGISTER_DEACTIVATED`, `REGISTER_DELETED`), ძველი ქართული ტექსტი რჩება fallback-ად. ყველა ადრე დამუშავებული შემთხვევა უცვლელია. `registerAuth`-ის "სალარო აღარ არსებობს" 404-ს ცალკე კოდი `REGISTER_DELETED` ჰქონდა საჭირო — `REGISTER_NOT_FOUND` ადმინის დაწყვილების route-შიც გამოიყენება და ადმინის საკუთარი სალაროს გასუფთავება არ უნდა გამოიწვიოს. გატესტილია: გაფუჭებული `token` → Login; გაფუჭებული `payflow_register_token` → "Register pairing required" logout-ის გარეშე.
+- **Products import-ის გამოტოვებული სტრიქონები:** backend ყოველ სტრიქონს `reasonCode` (+ `reasonParams`) აძლევს ქართული `reason`-ის გვერდით (8 ახალი `IMPORT_ROW_*` კოდი, ka/en თარგმანებით); `Products.tsx` კოდს ათარგმნის, უცნობი კოდისას/ძველ backend-თან ძველ ტექსტს აჩვენებს (`resolveReasonMessage`). ბაზის დონის ჩავარდნისას raw შეცდომა (`rowErr.message`) კლიენტამდე აღარ მიდის (ლოგში ინახება, `IMPORT_ROW_INSERT_FAILED`). გვერდით: ქართულ რეჟიმში "Row N" ლეიბლი თარგმნილი არ იყო → "სტრიქონი N". გატესტილია ka + en (ნიმუშის ფაილით და სატესტო .xlsx-ით).
+
+---
+
 ## ✅ გვერდების rollout დასრულებულია
 
 ყველა `frontend/src/pages/`-ში არსებული UI-გვერდი გადათარგმნილია (იხ. სექციები 1–12 ზემოთ). დარჩენილი გვერდები აღარ არის.
@@ -163,9 +172,9 @@
 
 ## ⏳ ცალკე ფენა (out of scope ჯერჯერობით)
 
-- **Backend error-message-ების i18n** — 🟢 **STEP 1 + STEP 2 დასრულებულია** (სექციები 13-14). დარჩენილი, განზრახ ამ scope-ს გარეთ: (1) Products import-ის შედეგის მოდალში გამოტოვებული სტრიქონების მიზეზები (`productImportService.ts`-ის `reason`) ისევ ქართულად მოდის — ეს error-პასუხი კი არა, შედეგის მონაცემია, ცალკე მიდგომა სჭირდება; (2) `RegisterGuard.tsx` (სალაროს დაწყვილების ეკრანი) და Platform Admin გვერდები საერთოდ არ არის i18n-ზე გადაყვანილი; (3) `code`-ის გარეშე დარჩა: `platformAdmin.ts` + `platformAdminAuth.ts`-ის 4xx შეცდომები (მათი 500-ები უკვე `INTERNAL_ERROR`-ზეა), login-ის რამდენიმე წარმატების `message`, და ორი ადგილი, სადაც ერთეულის შეცდომის ტექსტი შედეგის მასივში ბრუნდება (`/payments/sync-offline`-ის `itemErr.message` და Products import-ის `rowErr.message`) — ეს error-პასუხები არ არის, ცალკე გადასაწყვეტია; (4) `App.tsx`-ის interceptor-ი ტოკენის/სალაროს ვადაგასვლას ჯერ ქართული ტექსტის substring-ით ამოიცნობს (`message.includes('ტოკენი')`) — უმჯობესია `TOKEN_INVALID`/`REGISTER_*` კოდებზე გადაყვანა.
+- **Backend error-message-ების i18n** — 🟢 **დასრულებულია** (სექციები 13-15). განზრახ დარჩენილი: (1) **Platform Admin** (`frontend/src/admin/*` გვერდები და `platformAdmin.ts`/`platformAdminAuth.ts`-ის 4xx შეცდომები) — **გადაწყვეტილება 04.10.2026: ვტოვებთ როგორც არის**; ეს პანელი მხოლოდ პლატფორმის მფლობელისთვისაა და ენის გადამრთველი არ აქვს, ამიტომ თარგმანი სარგებელს არ მოიტანდა (მისი 500-ები უკვე `INTERNAL_ERROR`-ზეა); (2) `/payments/sync-offline`-ის `itemErr.message` — ერთეულის შეცდომის ტექსტი შედეგის მასივში ბრუნდება (error-პასუხი არ არის) და ცალკე გადაწყვეტას საჭიროებს; (3) login-ის რამდენიმე წარმატების `message` ტექსტი.
 - Dev-only `console.error()` ზარები და კოდის კომენტარები **განზრახ რჩება** ნათარგმნი — out of scope (დადგენილია პროექტის დასაწყისშივე).
-- OrderScreen.tsx-ში ერთი backend-error substring-check (`message?.includes('ღია შეკვეთა')`) განზრახ დარჩა ჰარდკოდილი ქართულად — ეს backend-ის საპასუხო ტექსტს პარსავს (race-condition detection), არა UI-ს, ამიტომ frontend-ის ენას არ უნდა მისდევდეს backend i18n-ის დანერგვამდე.
+- OrderScreen.tsx-ის "მაგიდაზე უკვე არსებობს ღია შეკვეთა" race-condition შემოწმება (`message?.includes('ღია შეკვეთა')`) — 🟢 **მოძველებული ჩანაწერი, მოგვარებულია** STEP 2-ში: ახლა backend-ის კოდით (`ORDER_TABLE_HAS_OPEN_ORDER`) მუშაობს და ენას აღარ ეყრდნობა.
 - **⚠️ Live-ტესტირებით დადასტურებული დაკვირვება (11.09.2026, Products.tsx)** — გვერდებს შორის **ორი განსხვავებული, შეუთანხმებელი catch-error პატერნი** არსებობდა. **20.09.2026 განახლება: Products.tsx-ზე და Ingredients.tsx-ზე მოგვარებულია** (იხ. სექცია 13, STEP 1 pilot); დანარჩენ გვერდებზე ჯერ კვლავ ღიაა STEP 2-მდე:
   - **Products.tsx** — 🟢 **მოგვარებულია.** `handleSaveProduct`/`handleCreateScannedProduct` აღარ ეყრდნობა მხოლოდ generic-ს — `resolveErrorMessage`-ით backend-ის `code`-ს (როცა route მიგრირებულია) თარგმნილ, კონკრეტულ ტექსტად აჩვენებს. (მანამდე: `error.response.data.error`-ს საერთოდ არ კითხულობდა — duplicate barcode-ზეც კი მხოლოდ generic "Error saving data!" ჩანდა.)
   - **Ingredients.tsx** — 🟢 **მოგვარებულია.** ლოკალური `getErrorMessage` (raw, დაუთარგმნელი ტექსტი) ჩანაცვლდა `resolveErrorMessage`-ით.
