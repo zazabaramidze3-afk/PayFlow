@@ -65,3 +65,23 @@ export function resolveErrorMessage(error: unknown, fallbackKey: string): string
   }
   return i18n.t(fallbackKey);
 }
+
+/**
+ * Products import-ის row-level "გამოტოვების მიზეზი" (backend: `reasonCode` +
+ * `reasonParams`). თუ კოდი ცნობილია და თარგმანი არსებობს — თარგმნილ ტექსტს
+ * აბრუნებს; თუ არა (ძველი backend ან უცნობი კოდი) — backend-ის `reason`
+ * ტექსტს, რომ ინფორმაცია არ დაიკარგოს.
+ */
+export function resolveReasonMessage(
+  reasonCode: string | undefined,
+  reasonParams: Record<string, string | number> | undefined,
+  fallbackText: string
+): string {
+  if (reasonCode) {
+    const translationKey = `errors.${reasonCode}`;
+    if (i18n.exists(translationKey)) {
+      return i18n.t(translationKey, reasonParams);
+    }
+  }
+  return fallbackText;
+}

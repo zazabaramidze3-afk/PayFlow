@@ -440,13 +440,13 @@ router.post(
             await client.query(`RELEASE SAVEPOINT ${savepoint}`);
             const isDuplicate =
               typeof rowErr === 'object' && rowErr !== null && 'code' in rowErr && (rowErr as { code?: string }).code === '23505';
+            // 🌍 i18n + უსაფრთხოება — ბაზის raw ტექსტი (rowErr.message) აღარ მიდის კლიენტთან:
+            // სრული შეცდომა სერვერის ლოგშია, row-ს კი ზოგადი მიზეზი/კოდი ეძლევა.
+            if (!isDuplicate) console.error(`❌ POST /products/import — row ${candidate.rowNumber} ჩავარდა:`, rowErr);
             skipped.push({
               rowNumber: candidate.rowNumber,
-              reason: isDuplicate
-                ? 'ეს სახელი ან ბარკოდი უკვე დაკავებულია ბაზაში'
-                : rowErr instanceof Error
-                ? rowErr.message
-                : 'უცნობი შეცდომა ჩასმის დროს',
+              reason: isDuplicate ? 'ეს სახელი ან ბარკოდი უკვე დაკავებულია ბაზაში' : 'უცნობი შეცდომა ჩასმის დროს',
+              reasonCode: isDuplicate ? ErrorCodes.IMPORT_ROW_ALREADY_EXISTS : ErrorCodes.IMPORT_ROW_INSERT_FAILED,
             });
           }
         }

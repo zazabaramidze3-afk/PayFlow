@@ -7,7 +7,7 @@ import { ModifierGroupWithOptions, Ingredient, ProductRecipe } from '../lib/hore
 // 🌍 Backend Error-Message i18n STEP 1 (Roadmap "10.09.2026", pilot) —
 // backend-ის `code`-ს თარგმნილ, კონკრეტულ ტექსტად გარდაქმნის (fallback-ით
 // ზოგად შეტყობინებაზე, თუ code არ მოსულა/უცნობია).
-import { resolveErrorMessage } from '../lib/errorMessages';
+import { resolveErrorMessage, resolveReasonMessage } from '../lib/errorMessages';
 import { EditIcon, TrashIcon, XIcon } from '../components/Icons';
 
 // 🍳 KDS routing (STEP 2, Roadmap "03.09.2026", migration 020) —
@@ -42,6 +42,8 @@ interface ProductsProps {
 interface ProductImportSkippedRow {
   rowNumber: number;
   reason: string;
+  reasonCode?: string;
+  reasonParams?: Record<string, string | number>;
 }
 
 interface ProductImportResult {
@@ -821,7 +823,7 @@ export default function Products({ businessType }: ProductsProps) {
                 {importResult.skipped.map((row) => (
                   <div key={row.rowNumber} className={styles.importSkippedRow}>
                     <span className={styles.importSkippedRowNumber}>{t('products.importModal.rowLabel', { number: row.rowNumber })}</span>
-                    <span>{row.reason}</span>
+                    <span>{resolveReasonMessage(row.reasonCode, row.reasonParams, row.reason)}</span>
                   </div>
                 ))}
               </div>

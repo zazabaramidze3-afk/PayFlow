@@ -947,6 +947,14 @@
     "TABLE_NOT_FREE_OCCUPIED": "მაგიდა დაკავებულია — ახალი შეკვეთის გახსნამდე დააყენეთ სტატუსი \"თავისუფალი\"",
     "TABLE_NOT_FREE_RESERVED": "მაგიდა დაჯავშნილია — ახალი შეკვეთის გახსნამდე დააყენეთ სტატუსი \"თავისუფალი\"",
     "TABLE_NOT_FREE_DIRTY": "მაგიდა დასალაგებელია — ახალი შეკვეთის გახსნამდე დააყენეთ სტატუსი \"თავისუფალი\"",
-    "REGISTER_DELETED": "ეს სალარო აღარ არსებობს ბაზაში!"
+    "REGISTER_DELETED": "ეს სალარო აღარ არსებობს ბაზაში!",
+    "IMPORT_ROW_NAME_MISSING": "დასახელება (name) არ არის მითითებული",
+    "IMPORT_ROW_PRICE_INVALID": "ფასი (price) არავალიდურია — უნდა იყოს დადებითი რიცხვი",
+    "IMPORT_ROW_STOCK_INVALID": "მარაგი (stock) არავალიდურია — უნდა იყოს არაუარყოფითი მთელი რიცხვი",
+    "IMPORT_ROW_BARCODE_HAS_HYPHEN": "ბარკოდი არ უნდა შეიცავდეს დეფისს (-)",
+    "IMPORT_ROW_DUPLICATE_NAME_IN_FILE": "დუბლირებული დასახელება ამავე ფაილში: \"{{name}}\"",
+    "IMPORT_ROW_DUPLICATE_BARCODE_IN_FILE": "დუბლირებული ბარკოდი ამავე ფაილში: {{barcode}}",
+    "IMPORT_ROW_ALREADY_EXISTS": "ეს სახელი ან ბარკოდი უკვე დაკავებულია ბაზაში",
+    "IMPORT_ROW_INSERT_FAILED": "უცნობი შეცდომა ჩასმის დროს"
   }
 }

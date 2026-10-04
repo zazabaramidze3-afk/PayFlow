@@ -1,4 +1,7 @@
 import ExcelJS from 'exceljs';
+// 🌍 i18n — row-level მიზეზებს ენისგან დამოუკიდებელი `reasonCode` (+ `reasonParams`) ემატება;
+// ქართული `reason` ტექსტი უცვლელია (backward compatibility).
+import { ErrorCodes, ErrorCode } from '../constants/errorCodes';
 
 // ==========================================
 // 📥 Product Excel Import — parsing & row-level ვალიდაცია
@@ -43,6 +46,8 @@ export interface ProductImportCandidate {
 export interface ProductImportSkippedRow {
   rowNumber: number;
   reason: string;
+  reasonCode?: ErrorCode;
+  reasonParams?: Record<string, string | number>;
 }
 
 export interface ParsedProductImport {
@@ -119,13 +124,13 @@ export async function parseProductImportWorkbook(buffer: Buffer): Promise<Parsed
     if (isRowEmpty) continue;
 
     if (!nameValue) {
-      skipped.push({ rowNumber, reason: 'დასახელება (name) არ არის მითითებული' });
+      skipped.push({ rowNumber, reason: 'დასახელება (name) არ არის მითითებული', reasonCode: ErrorCodes.IMPORT_ROW_NAME_MISSING });
       continue;
     }
 
     const price = cellToNumber(priceValue);
     if (price === null || price <= 0) {
-      skipped.push({ rowNumber, reason: 'ფასი (price) არავალიდურია — უნდა იყოს დადებითი რიცხვი' });
+      skipped.push({ rowNumber, reason: 'ფასი (price) არავალიდურია — უნდა იყოს დადებითი რიცხვი', reasonCode: ErrorCodes.IMPORT_ROW_PRICE_INVALID });
       continue;
     }
 
@@ -134,7 +139,11 @@ export async function parseProductImportWorkbook(buffer: Buffer): Promise<Parsed
     if (stockStr) {
       const parsedStock = cellToNumber(stockValue);
       if (parsedStock === null || !Number.isInteger(parsedStock) || parsedStock < 0) {
-        skipped.push({ rowNumber, reason: 'მარაგი (stock) არავალიდურია — უნდა იყოს არაუარყოფითი მთელი რიცხვი' });
+        skipped.push({
+          rowNumber,
+          reason: 'მარაგი (stock) არავალიდურია — უნდა იყოს არაუარყოფითი მთელი რიცხვი',
+          reasonCode: ErrorCodes.IMPORT_ROW_STOCK_INVALID,
+        });
         continue;
       }
       stock = parsedStock;
@@ -148,7 +157,7 @@ export async function parseProductImportWorkbook(buffer: Buffer): Promise<Parsed
       // row-level report-ში, DB-constraint-ის ხაფანგში ჩავარდნის
       // ნაცვლად.
       if (barcodeStr.includes('-')) {
-        skipped.push({ rowNumber, reason: 'ბარკოდი არ უნდა შეიცავდეს დეფისს (-)' });
+        skipped.push({ rowNumber, reason: 'ბარკოდი არ უნდა შეიცავდეს დეფისს (-)', reasonCode: ErrorCodes.IMPORT_ROW_BARCODE_HAS_HYPHEN });
         continue;
       }
       barcode = barcodeStr;
@@ -156,11 +165,21 @@ export async function parseProductImportWorkbook(buffer: Buffer): Promise<Parsed
 
     const nameKey = nameValue.toLowerCase();
     if (seenNames.has(nameKey)) {
-      skipped.push({ rowNumber, reason: `დუბლირებული დასახელება ამავე ფაილში: "${nameValue}"` });
+      skipped.push({
+        rowNumber,
+        reason: `დუბლირებული დასახელება ამავე ფაილში: "${nameValue}"`,
+        reasonCode: ErrorCodes.IMPORT_ROW_DUPLICATE_NAME_IN_FILE,
+        reasonParams: { name: nameValue },
+      });
       continue;
     }
     if (barcode && seenBarcodes.has(barcode)) {
-      skipped.push({ rowNumber, reason: `დუბლირებული ბარკოდი ამავე ფაილში: ${barcode}` });
+      skipped.push({
+        rowNumber,
+        reason: `დუბლირებული ბარკოდი ამავე ფაილში: ${barcode}`,
+        reasonCode: ErrorCodes.IMPORT_ROW_DUPLICATE_BARCODE_IN_FILE,
+        reasonParams: { barcode },
+      });
       continue;
     }
 

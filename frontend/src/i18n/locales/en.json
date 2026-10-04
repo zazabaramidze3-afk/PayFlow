@@ -947,6 +947,14 @@
     "TABLE_NOT_FREE_OCCUPIED": "The table is occupied — set its status to \"Free\" before opening a new order",
     "TABLE_NOT_FREE_RESERVED": "The table is reserved — set its status to \"Free\" before opening a new order",
     "TABLE_NOT_FREE_DIRTY": "The table needs cleaning — set its status to \"Free\" before opening a new order",
-    "REGISTER_DELETED": "This register no longer exists!"
+    "REGISTER_DELETED": "This register no longer exists!",
+    "IMPORT_ROW_NAME_MISSING": "The name is missing",
+    "IMPORT_ROW_PRICE_INVALID": "Invalid price — it must be a positive number",
+    "IMPORT_ROW_STOCK_INVALID": "Invalid stock — it must be a non-negative whole number",
+    "IMPORT_ROW_BARCODE_HAS_HYPHEN": "The barcode must not contain a hyphen (-)",
+    "IMPORT_ROW_DUPLICATE_NAME_IN_FILE": "Duplicate name in this file: \"{{name}}\"",
+    "IMPORT_ROW_DUPLICATE_BARCODE_IN_FILE": "Duplicate barcode in this file: {{barcode}}",
+    "IMPORT_ROW_ALREADY_EXISTS": "This name or barcode is already taken",
+    "IMPORT_ROW_INSERT_FAILED": "Unknown error while saving this row"
   }
 }
