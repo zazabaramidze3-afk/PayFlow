@@ -104,8 +104,18 @@ export default function LandingPage() {
                     <span>{t('landing.mock.coffee')}</span>
                     <span>1 × 5.50</span>
                   </div>
+                  <div className={`${styles.row} ${styles.r4}`}>
+                    <span>{t('landing.mock.cake')}</span>
+                    <span>1 × 6.00</span>
+                  </div>
+                  <div className={`${styles.row} ${styles.r5}`}>
+                    <span>{t('landing.mock.water')}</span>
+                    <span>2 × 1.50</span>
+                  </div>
                   <span className={`${styles.bar} ${styles.b1}`} />
                   <span className={`${styles.bar} ${styles.b2}`} />
+                  <span className={`${styles.bar} ${styles.b3}`} />
+                  <span className={`${styles.bar} ${styles.b4}`} />
                 </div>
               </section>
 
@@ -123,6 +133,14 @@ export default function LandingPage() {
                   </div>
                   <div className={`${styles.chipRow} ${styles.r3}`}>
                     <span className={`${styles.chip} ${styles.chipReady}`}>{t('landing.mock.statusReady')}</span>
+                    <span className={styles.chipLine} />
+                  </div>
+                  <div className={`${styles.chipRow} ${styles.r4}`}>
+                    <span className={`${styles.chip} ${styles.chipNew}`}>{t('landing.mock.statusNew')}</span>
+                    <span className={styles.chipLine} />
+                  </div>
+                  <div className={`${styles.chipRow} ${styles.r5}`}>
+                    <span className={`${styles.chip} ${styles.chipCook}`}>{t('landing.mock.statusCooking')}</span>
                     <span className={styles.chipLine} />
                   </div>
                 </div>

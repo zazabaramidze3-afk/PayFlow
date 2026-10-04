@@ -851,7 +851,9 @@
       "payment": "Payment",
       "pay": "Pay",
       "total": "Total",
-      "paid": "Paid"
+      "paid": "Paid",
+      "cake": "Cake",
+      "water": "Water"
     },
     "features": {
       "title": "What is PayFlow?",

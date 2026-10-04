@@ -179,7 +179,7 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   display: flex;
   justify-content: center;
   // მაკეტის ქვედა ნაწილი hero-ს გარეთ, ღია ფონზე ჩამოდის
-  margin-bottom: -210px;
+  margin-bottom: -180px;
 }
 
 .board {
@@ -187,7 +187,7 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   max-width: 720px;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  gap: 10px;
   transform: rotateY(-16deg) rotateX(9deg) rotateZ(0.8deg);
   transform-style: preserve-3d;
   animation: float 7s ease-in-out 2.2s infinite alternate;
@@ -208,6 +208,19 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 .c2 { animation-delay: 300ms; }
 .c3 { animation-delay: 450ms; }
 .c4 { animation-delay: 600ms; }
+
+// ზედა რიგი უფრო მაღალია (როგორც რეფერენსში), ქვედა რიგი — დაბალი,
+// ხოლო ქვედა ბარათებს დიდი, რბილი ჩრდილი აქვს, რომელიც ღია ფონზე ეცემა.
+.c1,
+.c2 {
+  min-height: 300px;
+}
+
+.c3,
+.c4 {
+  min-height: 210px;
+  box-shadow: 0 54px 90px rgba(0, 0, 0, 0.38);
+}
 
 .cardHead {
   display: flex;
@@ -247,6 +260,8 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 .r1 { animation-delay: 1000ms; }
 .r2 { animation-delay: 1350ms; }
 .r3 { animation-delay: 1700ms; }
+.r4 { animation-delay: 2050ms; }
+.r5 { animation-delay: 2400ms; }
 
 .bar {
   display: block;
@@ -258,6 +273,8 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .b1 { width: 82%; animation-delay: 2000ms; }
 .b2 { width: 56%; animation-delay: 2200ms; }
+.b3 { width: 70%; animation-delay: 2600ms; }
+.b4 { width: 38%; animation-delay: 2800ms; }
 
 .chip {
   padding: 4px 11px;
