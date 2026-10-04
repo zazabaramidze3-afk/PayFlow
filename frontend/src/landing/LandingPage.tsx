@@ -174,7 +174,7 @@ export default function LandingPage() {
                 <div className={`${styles.cardBody} ${styles.payBody}`}>
                   <div className={styles.total}>
                     <span>{t('landing.mock.total')}</span>
-                    <strong>24.50 ₾</strong>
+                    <strong>33.50 ₾</strong>
                   </div>
                   <div className={styles.spinnerWrap}>
                     <span className={styles.spinner} />
