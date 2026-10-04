@@ -69,12 +69,31 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   text-decoration: none;
 }
 
+// 🟣 ლოგოს წერტილი — "active status"-ის მსგავსი ნათება: თავად წერტილი ბრდღვიალებს,
+// მის გარშემო კი ორი რგოლი მონაცვლეობით ფართოვდება და ქრება (pulse).
 .brandDot {
+  position: relative;
   width: 12px;
   height: 12px;
   border-radius: 50%;
   background: $indigo;
-  box-shadow: 0 0 14px rgba(91, 95, 224, 0.9);
+  box-shadow: 0 0 10px rgba(91, 95, 224, 0.9);
+  animation: dotGlow 2s ease-in-out infinite;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid rgba(143, 148, 255, 0.85);
+    opacity: 0;
+    animation: dotPulse 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+
+  &::after {
+    animation-delay: 1s;
+  }
 }
 
 .navRight {
@@ -513,6 +532,16 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 // ---------------- KEYFRAMES ----------------
+@keyframes dotPulse {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(3.4); opacity: 0; }
+}
+
+@keyframes dotGlow {
+  0%, 100% { box-shadow: 0 0 8px rgba(91, 95, 224, 0.75); }
+  50% { box-shadow: 0 0 14px rgba(120, 125, 255, 1), 0 0 28px rgba(91, 95, 224, 0.5); }
+}
+
 @keyframes featureSweep {
   to { --angle: 360deg; }
 }
@@ -645,6 +674,17 @@ $ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 // მომხმარებლებისთვის, ვისაც ანიმაცია არ უნდა — ბოლო მდგომარეობა
 // დაუყოვნებლივ ჩანს (spinner-ის ნაცვლად პირდაპირ "Paid ✓").
 @media (prefers-reduced-motion: reduce) {
+  .brandDot,
+  .brandDot::before,
+  .brandDot::after {
+    animation: none;
+  }
+
+  .brandDot::before,
+  .brandDot::after {
+    display: none;
+  }
+
   .feature::before {
     display: none;
   }
